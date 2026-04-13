@@ -212,7 +212,6 @@ export default function CheckoutScreen() {
   }
 
   const isLoading = orderLoading || payLoading || processing
-  const phoneDigits = phone.replace(/\D/g, '')
 
   return (
     <View style={styles.container}>
@@ -399,7 +398,7 @@ function CheckoutOtpSection({
         </Text>
       </TouchableOpacity>
       <Text style={styles.otpExplain}>
-        We'll send a verification code to confirm your number
+        {"We'll send a verification code to confirm your number"}
       </Text>
     </View>
   )

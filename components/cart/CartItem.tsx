@@ -11,7 +11,6 @@ interface Props {
 
 export function CartItemRow({ item }: Props) {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
-  const removeItem = useCartStore((s) => s.removeItem)
 
   return (
     <View style={styles.row}>

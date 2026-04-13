@@ -9,7 +9,7 @@ import {
 import { BRAND } from '@/lib/constants'
 
 interface Props {
-  categories: Array<{ id: string; name: string }>
+  categories: { id: string; name: string }[]
   selectedId: string | null
   onSelect: (id: string) => void
 }
