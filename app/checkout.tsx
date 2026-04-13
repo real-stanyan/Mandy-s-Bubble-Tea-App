@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
   StyleSheet,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -21,6 +22,14 @@ import { OtpInput } from '@/components/checkout/OtpInput'
 import { BRAND } from '@/lib/constants'
 import { apiFetch } from '@/lib/api'
 import { Ionicons } from '@expo/vector-icons'
+import {
+  initSquarePayments,
+  canUseApplePay,
+  canUseGooglePay,
+  startCardPayment,
+  startApplePayPayment,
+  startGooglePayPayment,
+} from '@/lib/square-payment'
 
 const DEVICE_TOKEN_KEY = 'mbt:account:deviceToken'
 const PHONE_KEY = 'mbt:account:phone'
@@ -39,6 +48,12 @@ export default function CheckoutScreen() {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showFieldErrors, setShowFieldErrors] = useState(false)
+
+  // Payment method state
+  type PayMethod = 'card' | 'apple' | 'google'
+  const [payMethod, setPayMethod] = useState<PayMethod>('card')
+  const [applePayAvailable, setApplePayAvailable] = useState(false)
+  const [googlePayAvailable, setGooglePayAvailable] = useState(false)
 
   // OTP state
   const [phoneVerified, setPhoneVerified] = useState(false)
@@ -65,6 +80,17 @@ export default function CheckoutScreen() {
       } catch { /* noop */ }
     }
     checkToken()
+
+    // Initialize Square SDK and check wallet availability
+    initSquarePayments()
+    canUseApplePay().then((ok) => {
+      setApplePayAvailable(ok)
+      if (ok) setPayMethod('apple')
+    })
+    canUseGooglePay().then((ok) => {
+      setGooglePayAvailable(ok)
+      if (ok) setPayMethod('google')
+    })
   }, [])
 
   // Resend timer countdown
@@ -179,8 +205,31 @@ export default function CheckoutScreen() {
     try {
       const order = await createOrder(items)
 
-      // TODO Task 11: Replace with Square In-App Payments SDK call
-      const nonce = 'PLACEHOLDER_NONCE'
+      // Get payment nonce from Square SDK based on selected method
+      const priceDollars = (total / 100).toFixed(2)
+      let nonce: string
+      try {
+        switch (payMethod) {
+          case 'apple':
+            nonce = await startApplePayPayment(priceDollars)
+            break
+          case 'google':
+            nonce = await startGooglePayPayment(priceDollars)
+            break
+          case 'card':
+          default:
+            nonce = await startCardPayment()
+            break
+        }
+      } catch (sdkErr) {
+        // User cancelled or SDK error — don't show as payment failure
+        const msg = sdkErr instanceof Error ? sdkErr.message : String(sdkErr)
+        if (msg.includes('cancelled') || msg.includes('canceled')) {
+          setProcessing(false)
+          return
+        }
+        throw sdkErr
+      }
 
       const formattedPhone = formatAUPhone(phone.trim())
       await AsyncStorage.setItem(PHONE_KEY, formattedPhone)
@@ -284,6 +333,80 @@ export default function CheckoutScreen() {
           onResend={() => sendOtp()}
         />
 
+        {/* Payment Method Selector */}
+        <View style={styles.fieldSection}>
+          <Text style={styles.fieldLabel}>Payment Method</Text>
+          <View style={styles.payMethodRow}>
+            {applePayAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.payMethodTab,
+                  payMethod === 'apple' && styles.payMethodTabActive,
+                ]}
+                onPress={() => setPayMethod('apple')}
+              >
+                <Ionicons
+                  name="logo-apple"
+                  size={18}
+                  color={payMethod === 'apple' ? '#fff' : '#333'}
+                />
+                <Text
+                  style={[
+                    styles.payMethodText,
+                    payMethod === 'apple' && styles.payMethodTextActive,
+                  ]}
+                >
+                  Apple Pay
+                </Text>
+              </TouchableOpacity>
+            )}
+            {googlePayAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.payMethodTab,
+                  payMethod === 'google' && styles.payMethodTabActive,
+                ]}
+                onPress={() => setPayMethod('google')}
+              >
+                <Ionicons
+                  name="logo-google"
+                  size={18}
+                  color={payMethod === 'google' ? '#fff' : '#333'}
+                />
+                <Text
+                  style={[
+                    styles.payMethodText,
+                    payMethod === 'google' && styles.payMethodTextActive,
+                  ]}
+                >
+                  Google Pay
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.payMethodTab,
+                payMethod === 'card' && styles.payMethodTabActive,
+              ]}
+              onPress={() => setPayMethod('card')}
+            >
+              <Ionicons
+                name="card-outline"
+                size={18}
+                color={payMethod === 'card' ? '#fff' : '#333'}
+              />
+              <Text
+                style={[
+                  styles.payMethodText,
+                  payMethod === 'card' && styles.payMethodTextActive,
+                ]}
+              >
+                Card
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {(error || orderError || payError) && (
           <Text style={styles.errorText}>{error || orderError || payError}</Text>
         )}
@@ -291,7 +414,12 @@ export default function CheckoutScreen() {
 
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={[styles.payButton, isLoading && styles.payButtonDisabled]}
+          style={[
+            styles.payButton,
+            isLoading && styles.payButtonDisabled,
+            payMethod === 'apple' && styles.applePayButton,
+            payMethod === 'google' && styles.googlePayButton,
+          ]}
           onPress={handlePay}
           disabled={isLoading}
           activeOpacity={0.8}
@@ -299,7 +427,24 @@ export default function CheckoutScreen() {
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.payButtonText}>Pay Now</Text>
+            <View style={styles.payButtonContent}>
+              {payMethod === 'apple' && (
+                <Ionicons name="logo-apple" size={20} color="#fff" style={{ marginRight: 6 }} />
+              )}
+              {payMethod === 'google' && (
+                <Ionicons name="logo-google" size={18} color="#fff" style={{ marginRight: 6 }} />
+              )}
+              {payMethod === 'card' && (
+                <Ionicons name="card-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+              )}
+              <Text style={styles.payButtonText}>
+                {payMethod === 'apple'
+                  ? 'Pay with Apple Pay'
+                  : payMethod === 'google'
+                    ? 'Pay with Google Pay'
+                    : 'Pay with Card'}
+              </Text>
+            </View>
           )}
         </TouchableOpacity>
       </View>
@@ -459,6 +604,36 @@ const styles = StyleSheet.create({
   sendOtpBtnDisabled: { opacity: 0.5 },
   sendOtpBtnText: { color: BRAND.color, fontSize: 15, fontWeight: '600' },
   otpExplain: { fontSize: 12, color: '#888', textAlign: 'center' },
+  // Payment method selector
+  payMethodRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  payMethodTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+  },
+  payMethodTabActive: {
+    backgroundColor: '#333',
+    borderColor: '#333',
+  },
+  payMethodText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  payMethodTextActive: {
+    color: '#fff',
+  },
   // Error & bottom bar
   errorText: {
     color: '#ef4444',
@@ -479,5 +654,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   payButtonDisabled: { opacity: 0.6 },
+  applePayButton: { backgroundColor: '#000' },
+  googlePayButton: { backgroundColor: '#333' },
+  payButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   payButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
 })
