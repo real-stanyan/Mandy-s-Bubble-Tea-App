@@ -1,0 +1,88 @@
+<h2>Mandy's Bubble Tea App — 架构总览</h2>
+<p class="subtitle">基于讨论确定的设计方案</p>
+
+<div class="section">
+  <h3>导航结构 — 3 Tab</h3>
+  <div class="mockup">
+    <div class="mockup-header">Tab Bar</div>
+    <div class="mockup-body" style="display:flex; justify-content:space-around; padding:16px; background:#1a1a1a; border-radius:8px;">
+      <div style="text-align:center; color:#C43A10; font-weight:bold;">
+        <div style="font-size:24px;">☕</div>
+        <div style="font-size:12px;">Menu</div>
+      </div>
+      <div style="text-align:center; color:#888;">
+        <div style="font-size:24px;">🛒</div>
+        <div style="font-size:12px;">Cart</div>
+      </div>
+      <div style="text-align:center; color:#888;">
+        <div style="font-size:24px;">⭐</div>
+        <div style="font-size:12px;">Account</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>页面流</h3>
+  <div class="mockup">
+    <div class="mockup-header">Screen Flow</div>
+    <div class="mockup-body" style="padding:20px; font-family:monospace; font-size:13px; line-height:2;">
+      <div><strong style="color:#C43A10;">Tab: Menu（首屏）</strong></div>
+      <div style="padding-left:20px;">顶部分类标签（横向滑动）</div>
+      <div style="padding-left:20px;">↓ 分类下商品纵向列表</div>
+      <div style="padding-left:20px;">↓ 点击商品 → <strong>商品详情页</strong>（push）</div>
+      <div style="padding-left:40px;">图片 + 名称 + 描述 + 规格选择 + 加购按钮</div>
+      <br/>
+      <div><strong style="color:#C43A10;">Tab: Cart</strong></div>
+      <div style="padding-left:20px;">商品列表（数量 +-）+ 总价</div>
+      <div style="padding-left:20px;">↓ Checkout 按钮 → <strong>Checkout 页</strong>（push）</div>
+      <div style="padding-left:40px;">订单摘要 + 手机号（可选）+ 支付</div>
+      <div style="padding-left:40px;">↓ 支付成功 → <strong>Order Confirmation</strong></div>
+      <br/>
+      <div><strong style="color:#C43A10;">Tab: Account</strong></div>
+      <div style="padding-left:20px;">手机号输入（首次）或 Loyalty Card</div>
+      <div style="padding-left:20px;">星星进度 + 活动历史</div>
+      <div style="padding-left:20px;">店铺信息</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>技术架构</h3>
+  <div class="mockup">
+    <div class="mockup-header">Data Flow</div>
+    <div class="mockup-body" style="padding:20px; font-family:monospace; font-size:13px; line-height:2;">
+      <div style="text-align:center;">
+        <div style="display:inline-block; padding:8px 16px; background:#C43A10; color:white; border-radius:6px;">Expo App (RN)</div>
+        <div style="margin:8px 0;">↕ fetch</div>
+        <div style="display:inline-block; padding:8px 16px; background:#333; color:white; border-radius:6px;">Next.js Backend (mandybubbletea.com/api/*)</div>
+        <div style="margin:8px 0;">↕ Square SDK</div>
+        <div style="display:inline-block; padding:8px 16px; background:#006AFF; color:white; border-radius:6px;">Square API</div>
+      </div>
+      <br/>
+      <div><strong>本地状态：</strong></div>
+      <div style="padding-left:20px;">• Zustand + AsyncStorage — 购物车持久化</div>
+      <div style="padding-left:20px;">• AsyncStorage — 手机号缓存</div>
+      <div style="padding-left:20px;">• Square In-App Payments SDK — 原生支付</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>风格</h3>
+  <div style="display:flex; gap:16px; flex-wrap:wrap;">
+    <div style="flex:1; min-width:200px; padding:16px; background:#C43A10; color:white; border-radius:8px; text-align:center;">
+      <div style="font-size:14px; opacity:0.8;">Primary</div>
+      <div style="font-size:18px; font-weight:bold;">#C43A10</div>
+    </div>
+    <div style="flex:1; min-width:200px; padding:16px; background:#F5E6C8; color:#333; border-radius:8px; text-align:center;">
+      <div style="font-size:14px; opacity:0.6;">Accent</div>
+      <div style="font-size:18px; font-weight:bold;">#F5E6C8</div>
+    </div>
+    <div style="flex:1; min-width:200px; padding:16px; background:#fff; color:#333; border-radius:8px; border:1px solid #ddd; text-align:center;">
+      <div style="font-size:14px; opacity:0.6;">Background</div>
+      <div style="font-size:18px; font-weight:bold;">System Default</div>
+    </div>
+  </div>
+  <p style="margin-top:12px; color:#888;">原生优先：iOS 大标题导航栏、系统字体、原生 Tab Bar 风格、平台动效</p>
+</div>

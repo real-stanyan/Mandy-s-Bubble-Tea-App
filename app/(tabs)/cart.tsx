@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function MenuScreen() {
+export default function CartScreen() {
   return (
     <View style={styles.container}>
-      <Text>Menu — coming soon</Text>
+      <Text>Cart — coming soon</Text>
     </View>
   );
 }

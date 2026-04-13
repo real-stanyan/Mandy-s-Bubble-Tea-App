@@ -1,33 +1,47 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useCartStore } from '@/store/cart';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const itemCount = useCartStore((s) => s.itemCount());
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        headerShown: true,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Menu',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cafe-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="cart"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Cart',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cart-outline" size={size} color={color} />
+          ),
+          tabBarBadge: itemCount > 0 ? itemCount : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: 'Account',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="star-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
