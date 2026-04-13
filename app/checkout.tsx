@@ -82,15 +82,19 @@ export default function CheckoutScreen() {
     checkToken()
 
     // Initialize Square SDK and check wallet availability
-    initSquarePayments()
-    canUseApplePay().then((ok) => {
-      setApplePayAvailable(ok)
-      if (ok) setPayMethod('apple')
-    })
-    canUseGooglePay().then((ok) => {
-      setGooglePayAvailable(ok)
-      if (ok) setPayMethod('google')
-    })
+    try {
+      initSquarePayments()
+      canUseApplePay().then((ok) => {
+        setApplePayAvailable(ok)
+        if (ok) setPayMethod('apple')
+      }).catch(() => {})
+      canUseGooglePay().then((ok) => {
+        setGooglePayAvailable(ok)
+        if (ok) setPayMethod('google')
+      }).catch(() => {})
+    } catch (e) {
+      console.warn('Square SDK init failed:', e)
+    }
   }, [])
 
   // Resend timer countdown

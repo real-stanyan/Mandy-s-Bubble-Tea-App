@@ -45,7 +45,8 @@
         }
       ],
       "expo-secure-store",
-      "react-native-square-in-app-payments"
+      "react-native-square-in-app-payments",
+      "./plugins/embed-square-frameworks"
     ],
     "experiments": {
       "typedRoutes": true,
