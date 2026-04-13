@@ -3,6 +3,22 @@ export interface CatalogCategory {
   name: string
 }
 
+export interface ModifierOption {
+  id: string
+  name: string
+  priceCents: number | null
+  ordinal: number
+  onByDefault: boolean
+}
+
+export interface ModifierList {
+  id: string
+  name: string
+  minSelected: number
+  maxSelected: number | null
+  modifiers: ModifierOption[]
+}
+
 export interface CatalogItemVariation {
   id: string
   itemVariationData?: {

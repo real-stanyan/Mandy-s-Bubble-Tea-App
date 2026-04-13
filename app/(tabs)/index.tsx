@@ -4,9 +4,11 @@ import {
   ScrollView,
   FlatList,
   Text,
+  TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useMenu } from '@/hooks/use-menu'
 import { ItemCard } from '@/components/menu/ItemCard'
 import { BRAND } from '@/lib/constants'
@@ -64,9 +66,19 @@ function CategorySection({
   category: CatalogCategory
   items: CatalogItem[]
 }) {
+  const router = useRouter()
+
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{category.name}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{category.name}</Text>
+        <TouchableOpacity
+          onPress={() => router.push(`/menu/category/${category.id}`)}
+          activeOpacity={0.6}
+        >
+          <Text style={styles.seeMore}>See More</Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         horizontal
         data={items}
@@ -100,11 +112,21 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 20,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    paddingHorizontal: 16,
-    marginBottom: 10,
+  },
+  seeMore: {
+    fontSize: 14,
+    color: BRAND.color,
+    fontWeight: '600',
   },
   strip: {
     paddingHorizontal: 16,

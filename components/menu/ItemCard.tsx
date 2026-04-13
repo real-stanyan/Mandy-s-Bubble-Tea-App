@@ -42,7 +42,7 @@ export function ItemCard({ item }: Props) {
           <Text style={styles.placeholderText}>🧋</Text>
         </View>
       )}
-      <Text style={styles.name} numberOfLines={2}>
+      <Text style={styles.name} numberOfLines={1}>
         {name}
       </Text>
       {price != null ? (
