@@ -1,29 +1,32 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   View,
+  ScrollView,
   FlatList,
   Text,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native'
 import { useMenu } from '@/hooks/use-menu'
-import { CategoryTabs } from '@/components/menu/CategoryTabs'
 import { ItemCard } from '@/components/menu/ItemCard'
 import { BRAND } from '@/lib/constants'
-import type { CatalogItem } from '@/types/square'
+import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 export default function MenuScreen() {
-  const { items, categories, loading, error, refresh } = useMenu()
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const { items, categories, loading, error } = useMenu()
 
-  const activeCategoryId = selectedCategoryId ?? (categories.length > 0 ? categories[0].id : null)
-
-  const filteredItems = useMemo(() => {
-    if (!activeCategoryId) return items
-    return items.filter((item) =>
-      item.itemData?.categories?.some((c) => c.id === activeCategoryId)
-    )
-  }, [items, activeCategoryId])
+  // Group items by category
+  const sections = useMemo(() => {
+    if (categories.length === 0 || items.length === 0) return []
+    return categories
+      .map((cat) => ({
+        category: cat,
+        items: items.filter((item) =>
+          item.itemData?.categories?.some((c) => c.id === cat.id),
+        ),
+      }))
+      .filter((s) => s.items.length > 0)
+  }, [items, categories])
 
   if (loading && items.length === 0) {
     return (
@@ -42,22 +45,35 @@ export default function MenuScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <CategoryTabs
-        categories={categories}
-        selectedId={activeCategoryId}
-        onSelect={setSelectedCategoryId}
-      />
-      <FlatList<CatalogItem>
-        data={filteredItems}
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {sections.map((section) => (
+        <CategorySection
+          key={section.category.id}
+          category={section.category}
+          items={section.items}
+        />
+      ))}
+    </ScrollView>
+  )
+}
+
+function CategorySection({
+  category,
+  items,
+}: {
+  category: CatalogCategory
+  items: CatalogItem[]
+}) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{category.name}</Text>
+      <FlatList
+        horizontal
+        data={items}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <ItemCard item={item} />}
-        onRefresh={refresh}
-        refreshing={loading}
-        contentContainerStyle={filteredItems.length === 0 ? styles.center : undefined}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No items in this category</Text>
-        }
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.strip}
       />
     </View>
   )
@@ -66,6 +82,9 @@ export default function MenuScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
+    paddingBottom: 24,
   },
   center: {
     flex: 1,
@@ -78,8 +97,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  emptyText: {
-    color: '#888',
-    fontSize: 16,
+  section: {
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  strip: {
+    paddingHorizontal: 16,
   },
 })
