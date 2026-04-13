@@ -16,7 +16,7 @@ export default function MenuScreen() {
   const { items, categories, loading, error, refresh } = useMenu()
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
-  const activeCategoryId = selectedCategoryId ?? categories[0]?.id ?? null
+  const activeCategoryId = selectedCategoryId ?? (categories.length > 0 ? categories[0].id : null)
 
   const filteredItems = useMemo(() => {
     if (!activeCategoryId) return items

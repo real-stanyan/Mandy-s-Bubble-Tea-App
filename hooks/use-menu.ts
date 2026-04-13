@@ -20,11 +20,28 @@ export function useMenu(): MenuData {
     setLoading(true)
     setError(null)
     try {
-      const data = await apiFetch<{ items: CatalogItem[]; categories: CatalogCategory[] }>(
+      const data = await apiFetch<{ items: CatalogItem[]; categories?: CatalogCategory[] }>(
         '/api/catalog'
       )
-      setItems(data.items)
-      setCategories(data.categories)
+      const fetchedItems = data.items ?? []
+      setItems(fetchedItems)
+
+      // API may return categories directly, or we extract them from items
+      if (data.categories?.length) {
+        setCategories(data.categories)
+      } else {
+        const catMap = new Map<string, string>()
+        for (const item of fetchedItems) {
+          for (const cat of item.itemData?.categories ?? []) {
+            if (cat.id && cat.name && !catMap.has(cat.id)) {
+              catMap.set(cat.id, cat.name)
+            }
+          }
+        }
+        setCategories(
+          Array.from(catMap, ([id, name]) => ({ id, name }))
+        )
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load menu')
     } finally {
