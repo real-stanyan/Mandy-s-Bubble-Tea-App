@@ -5,12 +5,13 @@ import {
   FlatList,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
+
   StyleSheet,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useMenu } from '@/hooks/use-menu'
 import { ItemCard } from '@/components/menu/ItemCard'
+import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { BRAND } from '@/lib/constants'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
@@ -32,9 +33,11 @@ export default function MenuScreen() {
 
   if (loading && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={BRAND.color} />
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {[0, 1, 2, 3].map((i) => (
+          <SkeletonSection key={i} />
+        ))}
+      </ScrollView>
     )
   }
 
