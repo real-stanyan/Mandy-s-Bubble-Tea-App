@@ -11,6 +11,12 @@ export const LOYALTY = {
   rewardName: 'Free Drink of Your Choice',
 } as const
 
+export const STORAGE_KEYS = {
+  phone: 'mbt:account:phone',
+  deviceToken: 'mbt:account:deviceToken',
+  name: 'mbt:account:name',
+} as const
+
 export const CATEGORY_SLUGS: Record<string, string> = {
   'MILKY': 'milky',
   'FRUITY': 'fruity',

@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "postinstall": "node scripts/patch-square-sdk.js",
     "eas-build-post-install": "node scripts/fix-square-build-phases.js"
   },
   "dependencies": {

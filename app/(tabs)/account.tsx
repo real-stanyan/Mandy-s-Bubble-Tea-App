@@ -10,17 +10,20 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLoyalty } from '@/hooks/use-loyalty'
 import { formatAUPhone } from '@/lib/utils'
-import { BRAND, LOYALTY } from '@/lib/constants'
+import { BRAND, LOYALTY, STORAGE_KEYS } from '@/lib/constants'
 import { PhoneInput } from '@/components/account/PhoneInput'
 import { LoyaltyCard } from '@/components/account/LoyaltyCard'
 import { ActivityHistory } from '@/components/account/ActivityHistory'
+import { OrderHistory } from '@/components/account/OrderHistory'
+import { useOrderHistory } from '@/hooks/use-order-history'
 
-const PHONE_KEY = 'mandy_phone'
+const PHONE_KEY = STORAGE_KEYS.phone
 
 export default function AccountScreen() {
   const [phone, setPhone] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(true)
   const { account, events, loading, error, refresh } = useLoyalty(phone)
+  const { orders, loading: ordersLoading } = useOrderHistory(phone)
 
   useEffect(() => {
     AsyncStorage.getItem(PHONE_KEY).then((saved) => {
@@ -101,6 +104,7 @@ export default function AccountScreen() {
         <Text style={styles.changeNumber}>Use a different number</Text>
       </TouchableOpacity>
       <HowItWorks />
+      <OrderHistory orders={orders} />
       <ActivityHistory events={events} />
       <StoreInfo />
       <View style={{ height: 40 }} />

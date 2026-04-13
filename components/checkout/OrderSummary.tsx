@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, Image, StyleSheet } from 'react-native'
 import { formatPrice } from '@/lib/utils'
 import type { CartItem } from '@/types/square'
 
@@ -13,18 +13,29 @@ export function OrderSummary({ items, total }: Props) {
       <Text style={styles.heading}>Order Summary</Text>
       {items.map((item) => (
         <View key={item.variationId} style={styles.row}>
-          <Text style={styles.qty}>{item.quantity}x</Text>
-          <Text style={styles.name} numberOfLines={1}>
-            {item.name}
-            {item.variationName ? ` (${item.variationName})` : ''}
-          </Text>
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={styles.image} />
+          ) : (
+            <View style={[styles.image, styles.imagePlaceholder]}>
+              <Text style={styles.placeholderText}>🧋</Text>
+            </View>
+          )}
+          <View style={styles.info}>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {item.variationName ? (
+              <Text style={styles.variation}>{item.variationName}</Text>
+            ) : null}
+            <Text style={styles.qty}>x{item.quantity}</Text>
+          </View>
           <Text style={styles.price}>
             {formatPrice(item.price * item.quantity)}
           </Text>
         </View>
       ))}
       <View style={styles.divider} />
-      <View style={styles.row}>
+      <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>Total</Text>
         <Text style={styles.totalValue}>{formatPrice(total)}</Text>
       </View>
@@ -33,21 +44,38 @@ export function OrderSummary({ items, total }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, gap: 8 },
+  container: { padding: 16, gap: 10 },
   heading: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
+    gap: 12,
+    paddingVertical: 6,
   },
-  qty: { fontSize: 14, color: '#888', width: 30 },
-  name: { flex: 1, fontSize: 15 },
-  price: { fontSize: 15, fontWeight: '500' },
+  image: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: { fontSize: 24 },
+  info: { flex: 1, gap: 2 },
+  name: { fontSize: 15, fontWeight: '500' },
+  variation: { fontSize: 13, color: '#888' },
+  qty: { fontSize: 13, color: '#888' },
+  price: { fontSize: 15, fontWeight: '600' },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: '#e0e0e0',
     marginVertical: 8,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   totalLabel: { flex: 1, fontSize: 18, fontWeight: '600' },
   totalValue: { fontSize: 20, fontWeight: '700' },

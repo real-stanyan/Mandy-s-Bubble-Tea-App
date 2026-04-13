@@ -19,7 +19,7 @@ import { usePayment } from '@/hooks/use-payment'
 import { formatAUPhone } from '@/lib/utils'
 import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { OtpInput } from '@/components/checkout/OtpInput'
-import { BRAND } from '@/lib/constants'
+import { BRAND, STORAGE_KEYS } from '@/lib/constants'
 import { apiFetch } from '@/lib/api'
 import { Ionicons } from '@expo/vector-icons'
 import {
@@ -31,8 +31,9 @@ import {
   startGooglePayPayment,
 } from '@/lib/square-payment'
 
-const DEVICE_TOKEN_KEY = 'mbt:account:deviceToken'
-const PHONE_KEY = 'mbt:account:phone'
+const DEVICE_TOKEN_KEY = STORAGE_KEYS.deviceToken
+const PHONE_KEY = STORAGE_KEYS.phone
+const NAME_KEY = STORAGE_KEYS.name
 
 export default function CheckoutScreen() {
   const router = useRouter()
@@ -66,18 +67,26 @@ export default function CheckoutScreen() {
   // Check device token on mount — if present, skip OTP
   useEffect(() => {
     async function checkToken() {
+      let hasToken = false
+      let hasPhone = false
       try {
         const token = await SecureStore.getItemAsync(DEVICE_TOKEN_KEY)
-        if (token) setPhoneVerified(true)
+        if (token) hasToken = true
       } catch { /* noop */ }
       try {
         const savedPhone = await AsyncStorage.getItem(PHONE_KEY)
         if (savedPhone) {
+          hasPhone = true
           setPhone(savedPhone)
-          // Auto-lookup customer for name pre-fill
           lookupCustomer(savedPhone)
         }
       } catch { /* noop */ }
+      try {
+        const savedName = await AsyncStorage.getItem(NAME_KEY)
+        if (savedName) setName(savedName)
+      } catch { /* noop */ }
+      // Trust phone if device token exists OR if user already logged in via Account page
+      if (hasToken || hasPhone) setPhoneVerified(true)
     }
     checkToken()
 
@@ -117,7 +126,10 @@ export default function CheckoutScreen() {
       })
       if (res.found) {
         const fullName = [res.givenName, res.familyName].filter(Boolean).join(' ')
-        if (fullName) setName((cur) => (cur.trim() === '' ? fullName : cur))
+        if (fullName) {
+          setName((cur) => (cur.trim() === '' ? fullName : cur))
+          await AsyncStorage.setItem(NAME_KEY, fullName)
+        }
       }
     } catch { /* noop */ }
   }
@@ -207,7 +219,12 @@ export default function CheckoutScreen() {
     setError(null)
 
     try {
-      const order = await createOrder(items)
+      const formattedPhone = formatAUPhone(phone.trim())
+      const { orderId, customerId } = await createOrder({
+        items,
+        name: name.trim(),
+        phone: formattedPhone,
+      })
 
       // Get payment nonce from Square SDK based on selected method
       const priceDollars = (total / 100).toFixed(2)
@@ -235,22 +252,25 @@ export default function CheckoutScreen() {
         throw sdkErr
       }
 
-      const formattedPhone = formatAUPhone(phone.trim())
       await AsyncStorage.setItem(PHONE_KEY, formattedPhone)
 
       const result = await pay({
-        token: nonce,
-        orderId: order.id,
-        total,
-        phoneNumber: formattedPhone,
+        sourceId: nonce,
+        orderId,
+        customerId,
+        phone: formattedPhone,
       })
+
+      // Save order items for confirmation page before clearing cart
+      await AsyncStorage.setItem('mbt:lastOrder:items', JSON.stringify(items))
 
       clearCart()
       router.replace({
         pathname: '/order-confirmation',
         params: {
-          orderId: order.id,
-          starsEarned: result.starsEarned?.toString() ?? '0',
+          orderId,
+          loyaltyAccrued: result.loyaltyAccrued ? '1' : '0',
+          total: total.toString(),
         },
       })
     } catch (e) {

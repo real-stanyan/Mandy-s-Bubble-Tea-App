@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
 
 interface PaymentParams {
-  token: string
+  sourceId: string
   orderId: string
-  total: number
-  phoneNumber?: string
+  customerId: string
+  phone: string
 }
 
 interface PaymentResult {
-  success: boolean
+  ok: boolean
+  paymentId?: string
+  loyaltyAccrued?: boolean
   payment?: unknown
-  starsEarned?: number
 }
 
 interface PaymentHook {
@@ -28,10 +29,9 @@ export function usePayment(): PaymentHook {
     setLoading(true)
     setError(null)
     try {
-      const idempotencyKey = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
       const result = await apiFetch<PaymentResult>('/api/payment', {
         method: 'POST',
-        body: JSON.stringify({ ...params, idempotencyKey }),
+        body: JSON.stringify(params),
       })
       return result
     } catch (e) {
