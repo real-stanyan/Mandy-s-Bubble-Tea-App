@@ -2,17 +2,19 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useCartStore } from '@/store/cart';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BRAND } from '@/lib/constants';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const itemCount = useCartStore((s) => s.itemCount());
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: BRAND.color,
+        tabBarInactiveTintColor: '#687076',
+        tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#e0e0e0' },
+        headerStyle: { backgroundColor: '#fff' },
+        headerTintColor: '#11181C',
         headerShown: true,
       }}
     >
