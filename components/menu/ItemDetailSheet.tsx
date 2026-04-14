@@ -50,6 +50,7 @@ export function ItemDetailSheet() {
     <BottomSheetModal
       ref={ref}
       snapPoints={snapPoints}
+      enableDynamicSizing={false}
       enablePanDownToClose
       onChange={onChange}
       backdropComponent={renderBackdrop}

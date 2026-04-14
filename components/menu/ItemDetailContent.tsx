@@ -1,4 +1,4 @@
-import { useEffect, useState, ComponentType } from 'react'
+import { useEffect, useRef, useState, ComponentType } from 'react'
 import {
   View,
   Text,
@@ -30,6 +30,9 @@ export function ItemDetailContent({
   onLoaded,
 }: Props) {
   const addItem = useCartStore((s) => s.addItem)
+  const onLoadedRef = useRef(onLoaded)
+  useEffect(() => { onLoadedRef.current = onLoaded })
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [item, setItem] = useState<CatalogItem | null>(null)
   const [modifierLists, setModifierLists] = useState<ModifierList[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,7 +70,7 @@ export function ItemDetailContent({
           if (defaults.length > 0) initial[ml.id] = new Set(defaults)
         }
         setSelectedByList(initial)
-        onLoaded?.(data.item)
+        onLoadedRef.current?.(data.item)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load item')
       } finally {
@@ -77,7 +80,7 @@ export function ItemDetailContent({
     return () => {
       cancelled = true
     }
-  }, [itemId, onLoaded])
+  }, [itemId])
 
   const getExclusivePartner = (list: ModifierList, modifierId: string): string | null => {
     const mod = list.modifiers.find((m) => m.id === modifierId)
@@ -141,8 +144,11 @@ export function ItemDetailContent({
     })
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     setAdded(true)
-    setTimeout(() => setAdded(false), 1500)
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
+    addedTimerRef.current = setTimeout(() => setAdded(false), 1500)
   }
+
+  useEffect(() => () => { if (addedTimerRef.current) clearTimeout(addedTimerRef.current) }, [])
 
   if (loading) {
     return (

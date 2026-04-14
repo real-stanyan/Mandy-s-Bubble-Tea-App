@@ -50,10 +50,7 @@ export function ItemCard({ item }: Props) {
       ) : null}
       <TouchableOpacity
         style={styles.addBtn}
-        onPress={(e) => {
-          e.stopPropagation?.()
-          handleAddToCart()
-        }}
+        onPress={handleAddToCart}
         activeOpacity={0.7}
       >
         <Text style={styles.addBtnText}>Add to Cart</Text>
