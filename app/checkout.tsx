@@ -68,7 +68,6 @@ export default function CheckoutScreen() {
   useEffect(() => {
     async function checkToken() {
       let hasToken = false
-      let hasPhone = false
       try {
         const token = await SecureStore.getItemAsync(DEVICE_TOKEN_KEY)
         if (token) hasToken = true
@@ -76,7 +75,6 @@ export default function CheckoutScreen() {
       try {
         const savedPhone = await AsyncStorage.getItem(PHONE_KEY)
         if (savedPhone) {
-          hasPhone = true
           setPhone(savedPhone)
           lookupCustomer(savedPhone)
         }
@@ -85,8 +83,9 @@ export default function CheckoutScreen() {
         const savedName = await AsyncStorage.getItem(NAME_KEY)
         if (savedName) setName(savedName)
       } catch { /* noop */ }
-      // Trust phone if device token exists OR if user already logged in via Account page
-      if (hasToken || hasPhone) setPhoneVerified(true)
+      // Only a device token proves OTP verification. A stored phone alone
+      // (e.g. from Account-tab loyalty lookup) is NOT proof of login.
+      if (hasToken) setPhoneVerified(true)
     }
     checkToken()
 
