@@ -1,9 +1,9 @@
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native'
 import { Image } from 'expo-image'
-import { useRouter } from 'expo-router'
 import { formatPrice } from '@/lib/utils'
 import { BRAND } from '@/lib/constants'
 import { useCartStore } from '@/store/cart'
+import { useItemSheetStore } from '@/store/itemSheet'
 import type { CatalogItem } from '@/types/square'
 
 interface Props {
@@ -11,7 +11,6 @@ interface Props {
 }
 
 export function ItemCard({ item }: Props) {
-  const router = useRouter()
   const addItem = useCartStore((s) => s.addItem)
   const name = item.itemData?.name ?? 'Unknown'
   const firstVariation = item.itemData?.variations?.[0]
@@ -26,13 +25,14 @@ export function ItemCard({ item }: Props) {
       price: Number(price ?? 0),
       imageUrl: item.imageUrl,
       variationName: firstVariation.itemVariationData?.name,
+      modifiers: [],
     })
   }
 
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/menu/${item.id}`)}
+      onPress={() => useItemSheetStore.getState().open(item.id)}
       activeOpacity={0.7}
     >
       {item.imageUrl ? (
