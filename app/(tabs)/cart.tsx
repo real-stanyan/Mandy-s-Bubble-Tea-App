@@ -20,7 +20,7 @@ export default function CartScreen() {
     <View style={styles.container}>
       <FlatList<CartItem>
         data={items}
-        keyExtractor={(item) => item.variationId}
+        keyExtractor={(item) => item.lineId}
         renderItem={({ item }) => <CartItemRow item={item} />}
       />
       <View style={styles.bottomBar}>

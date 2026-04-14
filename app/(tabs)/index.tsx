@@ -1,137 +1,145 @@
-import { useMemo } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
-  ScrollView,
-  FlatList,
   Text,
+  ScrollView,
   TouchableOpacity,
-
+  ActivityIndicator,
+  Image,
+  useWindowDimensions,
   StyleSheet,
 } from 'react-native'
-import { useRouter } from 'expo-router'
-import { useMenu } from '@/hooks/use-menu'
-import { ItemCard } from '@/components/menu/ItemCard'
-import { SkeletonSection } from '@/components/menu/SkeletonCard'
-import { BRAND } from '@/lib/constants'
-import type { CatalogItem, CatalogCategory } from '@/types/square'
+import { useFocusEffect, useRouter } from 'expo-router'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useLoyalty } from '@/hooks/use-loyalty'
+import { LoyaltyCard } from '@/components/account/LoyaltyCard'
+import { HeroCarousel } from '@/components/home/HeroCarousel'
+import { BRAND, STORAGE_KEYS } from '@/lib/constants'
 
-export default function MenuScreen() {
-  const { items, categories, loading, error } = useMenu()
+const PHONE_KEY = STORAGE_KEYS.phone
+const BANNER_ASPECT = 4608 / 3712
+const CARD_OVERLAP = 56
 
-  // Group items by category
-  const sections = useMemo(() => {
-    if (categories.length === 0 || items.length === 0) return []
-    return categories
-      .map((cat) => ({
-        category: cat,
-        items: items.filter((item) =>
-          item.itemData?.categories?.some((c) => c.id === cat.id),
-        ),
-      }))
-      .filter((s) => s.items.length > 0)
-  }, [items, categories])
+export default function HomeScreen() {
+  const router = useRouter()
+  const { width } = useWindowDimensions()
+  const bannerHeight = width / BANNER_ASPECT
+  const [phone, setPhone] = useState<string | null>(null)
+  const [initializing, setInitializing] = useState(true)
+  const { account, loading, refresh } = useLoyalty(phone)
 
-  if (loading && items.length === 0) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {[0, 1, 2, 3].map((i) => (
-          <SkeletonSection key={i} />
-        ))}
-      </ScrollView>
-    )
-  }
+  useEffect(() => {
+    AsyncStorage.getItem(PHONE_KEY).then((saved) => {
+      if (saved) setPhone(saved)
+      setInitializing(false)
+    })
+  }, [])
 
-  if (error && items.length === 0) {
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem(PHONE_KEY).then((saved) => {
+        setPhone(saved ?? null)
+      })
+      if (phone) refresh()
+    }, [phone, refresh]),
+  )
+
+  if (initializing) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
+        <ActivityIndicator size="large" color={BRAND.color} />
       </View>
     )
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {sections.map((section) => (
-        <CategorySection
-          key={section.category.id}
-          category={section.category}
-          items={section.items}
+    <ScrollView
+      style={{ backgroundColor: '#F2E8DF' }}
+      contentContainerStyle={styles.scrollContent}
+    >
+      <View style={{ width, height: bannerHeight }}>
+        <Image
+          source={require('@/assets/images/hero-banner.webp')}
+          style={[styles.banner, { width, height: bannerHeight }]}
+          resizeMode="cover"
         />
-      ))}
+        <View pointerEvents="none" style={styles.bannerFade}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <View
+              key={i}
+              style={{
+                flex: 1,
+                backgroundColor: `rgba(242,232,223,${((i + 1) / 12).toFixed(3)})`,
+              }}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={[styles.overlapWrap, { marginTop: -CARD_OVERLAP }]}>
+        {!phone ? (
+          <View style={styles.signInCard}>
+            <Text style={styles.welcome}>Welcome to {BRAND.name}</Text>
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={() => router.push('/account')}
+            >
+              <Text style={styles.loginText}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
+        ) : loading && !account ? (
+          <ActivityIndicator
+            size="large"
+            color={BRAND.color}
+            style={{ marginTop: 40 }}
+          />
+        ) : account ? (
+          <LoyaltyCard account={account} />
+        ) : (
+          <View style={styles.signInCard}>
+            <Text style={styles.muted}>
+              No loyalty account found for {phone}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <HeroCarousel height={width} />
     </ScrollView>
   )
 }
 
-function CategorySection({
-  category,
-  items,
-}: {
-  category: CatalogCategory
-  items: CatalogItem[]
-}) {
-  const router = useRouter()
-
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{category.name}</Text>
-        <TouchableOpacity
-          onPress={() => router.push(`/menu/category/${category.id}`)}
-          activeOpacity={0.6}
-        >
-          <Text style={styles.seeMore}>See More</Text>
-        </TouchableOpacity>
-      </View>
-      <FlatList
-        horizontal
-        data={items}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ItemCard item={item} />}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.strip}
-      />
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  scrollContent: { paddingBottom: 40, backgroundColor: '#F2E8DF' },
+  banner: { backgroundColor: '#F2E8DF' },
+  bannerFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 120,
   },
-  content: {
-    paddingBottom: 24,
-  },
-  center: {
-    flex: 1,
+  overlapWrap: { paddingHorizontal: 0, marginBottom: 24 },
+  welcome: { fontSize: 20, fontWeight: '600', marginBottom: 16, textAlign: 'center' },
+  signInCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    padding: 24,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  errorText: {
-    color: 'red',
-    fontSize: 16,
-    textAlign: 'center',
+  loginBtn: {
+    backgroundColor: BRAND.color,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
-  section: {
-    marginTop: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  seeMore: {
-    fontSize: 14,
-    color: BRAND.color,
-    fontWeight: '600',
-  },
-  strip: {
-    paddingHorizontal: 16,
-  },
+  loginText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  muted: { color: '#888', fontSize: 15, textAlign: 'center' },
 })

@@ -39,14 +39,23 @@ export interface CatalogItem {
   }
 }
 
+export interface CartModifier {
+  id: string
+  name: string
+  listName: string // e.g. "SUGAR", "ICE", "TOPPING"
+  priceCents: number
+}
+
 export interface CartItem {
+  lineId: string // unique per variation + modifier combination
   id: string
   variationId: string
   name: string
-  price: number // cents
+  price: number // cents, including modifier add-ons
   quantity: number
   imageUrl?: string
   variationName?: string
+  modifiers: CartModifier[]
 }
 
 export interface LoyaltyAccount {

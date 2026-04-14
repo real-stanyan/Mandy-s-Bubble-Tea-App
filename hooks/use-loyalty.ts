@@ -7,7 +7,7 @@ interface LoyaltyData {
   events: LoyaltyEvent[]
   loading: boolean
   error: string | null
-  refresh: () => void
+  refresh: () => Promise<void>
 }
 
 export function useLoyalty(phone: string | null): LoyaltyData {

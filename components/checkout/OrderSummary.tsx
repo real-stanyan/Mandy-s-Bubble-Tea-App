@@ -12,7 +12,7 @@ export function OrderSummary({ items, total }: Props) {
     <View style={styles.container}>
       <Text style={styles.heading}>Order Summary</Text>
       {items.map((item) => (
-        <View key={item.variationId} style={styles.row}>
+        <View key={item.lineId} style={styles.row}>
           {item.imageUrl ? (
             <Image source={{ uri: item.imageUrl }} style={styles.image} />
           ) : (
@@ -26,6 +26,11 @@ export function OrderSummary({ items, total }: Props) {
             </Text>
             {item.variationName ? (
               <Text style={styles.variation}>{item.variationName}</Text>
+            ) : null}
+            {(item.modifiers ?? []).length > 0 ? (
+              <Text style={styles.modifier} numberOfLines={2}>
+                {(item.modifiers ?? []).map((m) => m.name).join(', ')}
+              </Text>
             ) : null}
             <Text style={styles.qty}>x{item.quantity}</Text>
           </View>
@@ -66,6 +71,7 @@ const styles = StyleSheet.create({
   info: { flex: 1, gap: 2 },
   name: { fontSize: 15, fontWeight: '500' },
   variation: { fontSize: 13, color: '#888' },
+  modifier: { fontSize: 12, color: '#888' },
   qty: { fontSize: 13, color: '#888' },
   price: { fontSize: 15, fontWeight: '600' },
   divider: {

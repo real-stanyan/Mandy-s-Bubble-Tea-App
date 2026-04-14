@@ -13,6 +13,11 @@ export function LoyaltyCard({ account }: Props) {
 
   return (
     <View style={styles.card}>
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>
+          ⭐ {LOYALTY.starsForReward} STARS = 1 FREE DRINK
+        </Text>
+      </View>
       <Text style={styles.starsLabel}>Your Stars</Text>
       <Text style={styles.starsCount}>{account.balance}</Text>
       <StarsProgress current={currentStars} />
@@ -40,6 +45,22 @@ const styles = StyleSheet.create({
     padding: 24,
     marginHorizontal: 16,
     marginTop: 16,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   starsLabel: {
     color: 'rgba(255,255,255,0.8)',

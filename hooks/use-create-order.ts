@@ -42,7 +42,10 @@ export function useCreateOrder(): CreateOrderHook {
         itemName: item.name,
         variationId: item.variationId,
         variationName: item.variationName,
-        modifiers: [],
+        modifiers: (item.modifiers ?? []).map((m) => ({
+          id: m.id,
+          name: m.name,
+        })),
         quantity: item.quantity,
       }))
 

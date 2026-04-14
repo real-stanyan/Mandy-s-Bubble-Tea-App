@@ -21,6 +21,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          title: 'Home',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="menu"
+        options={{
           title: 'Menu',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cafe-outline" size={size} color={color} />
@@ -35,6 +45,15 @@ export default function TabLayout() {
             <Ionicons name="cart-outline" size={size} color={color} />
           ),
           tabBarBadge: itemCount > 0 ? itemCount : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="order"
+        options={{
+          title: 'Order',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="receipt-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen

@@ -13,6 +13,11 @@
       "bundleIdentifier": "com.mandysbubbletea.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.developer.in-app-payments": [
+          "merchant.com.mandysbubbletea.app"
+        ]
       }
     },
     "android": {

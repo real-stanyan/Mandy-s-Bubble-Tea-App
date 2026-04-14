@@ -1,20 +1,42 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 
+export interface OrderHistoryLineModifier {
+  id: string
+  name: string
+  listName: string
+  priceCents: string
+}
+
+export interface OrderHistoryLine {
+  variationId: string
+  itemId: string
+  imageUrl: string | null
+  name: string
+  variationName: string
+  quantity: number
+  basePriceCents: string
+  modifiers: OrderHistoryLineModifier[]
+}
+
 export interface OrderHistoryItem {
   id: string
   createdAt: string | null
   state: string | null
+  fulfillmentState: string | null
   totalCents: string
   itemSummary: string
   lineCount: number
+  firstItemName: string
+  firstItemImageUrl: string | null
+  lineItems: OrderHistoryLine[]
 }
 
 interface OrderHistoryData {
   orders: OrderHistoryItem[]
   loading: boolean
   error: string | null
-  refresh: () => void
+  refresh: () => Promise<void>
 }
 
 export function useOrderHistory(phone: string | null): OrderHistoryData {

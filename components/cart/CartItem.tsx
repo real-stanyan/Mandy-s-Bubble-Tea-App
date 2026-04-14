@@ -3,14 +3,35 @@ import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cart'
-import type { CartItem as CartItemType } from '@/types/square'
+import type { CartItem as CartItemType, CartModifier } from '@/types/square'
 
 interface Props {
   item: CartItemType
 }
 
+function groupModifiers(mods: CartModifier[]): Array<{ listName: string; names: string[] }> {
+  const byList = new Map<string, string[]>()
+  for (const m of mods) {
+    const key = m.listName || 'OTHER'
+    const arr = byList.get(key) ?? []
+    arr.push(m.name)
+    byList.set(key, arr)
+  }
+  return Array.from(byList.entries()).map(([listName, names]) => ({ listName, names }))
+}
+
+function titleCase(s: string): string {
+  if (!s) return ''
+  return s
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
 export function CartItemRow({ item }: Props) {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const modifierGroups = groupModifiers(item.modifiers ?? [])
 
   return (
     <View style={styles.row}>
@@ -26,18 +47,24 @@ export function CartItemRow({ item }: Props) {
         {item.variationName ? (
           <Text style={styles.variation}>{item.variationName}</Text>
         ) : null}
+        {modifierGroups.map((g) => (
+          <Text key={g.listName} style={styles.modifier} numberOfLines={2}>
+            <Text style={styles.modifierLabel}>{titleCase(g.listName)}:</Text>{' '}
+            {g.names.join(', ')}
+          </Text>
+        ))}
         <Text style={styles.price}>{formatPrice(item.price)}</Text>
       </View>
       <View style={styles.controls}>
         <TouchableOpacity
-          onPress={() => updateQuantity(item.variationId, item.quantity - 1)}
+          onPress={() => updateQuantity(item.lineId, item.quantity - 1)}
           style={styles.qtyBtn}
         >
           <Ionicons name="remove-circle-outline" size={28} color="#666" />
         </TouchableOpacity>
         <Text style={styles.qty}>{item.quantity}</Text>
         <TouchableOpacity
-          onPress={() => updateQuantity(item.variationId, item.quantity + 1)}
+          onPress={() => updateQuantity(item.lineId, item.quantity + 1)}
           style={styles.qtyBtn}
         >
           <Ionicons name="add-circle-outline" size={28} color="#666" />
@@ -65,7 +92,9 @@ const styles = StyleSheet.create({
   info: { flex: 1, gap: 2 },
   name: { fontSize: 16, fontWeight: '500' },
   variation: { fontSize: 13, color: '#888' },
-  price: { fontSize: 14, fontWeight: '500', color: '#333' },
+  modifier: { fontSize: 12, color: '#666', lineHeight: 16 },
+  modifierLabel: { color: '#999', fontWeight: '600' },
+  price: { fontSize: 14, fontWeight: '500', color: '#333', marginTop: 2 },
   controls: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   qtyBtn: { padding: 4 },
   qty: { fontSize: 18, fontWeight: '600', minWidth: 24, textAlign: 'center' },

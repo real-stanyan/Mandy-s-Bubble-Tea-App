@@ -157,6 +157,13 @@ export default function CheckoutScreen() {
 
   async function verifyOtp() {
     if (!otpPhone) return
+    // New-user registration needs a name — enforce before verifying
+    // so we can auto-register after the code check.
+    if (!name.trim()) {
+      setShowFieldErrors(true)
+      setError('Please enter your name to create an account')
+      return
+    }
     setOtpLoading(true)
     setError(null)
     setOtpError(false)
@@ -171,12 +178,28 @@ export default function CheckoutScreen() {
         method: 'POST',
         body: JSON.stringify({ phone: otpPhone, code: otpCode }),
       })
+
+      // If the phone has no Square customer yet, register one with the
+      // user-entered name before treating them as logged in.
+      if (!res.found) {
+        const parts = name.trim().split(/\s+/)
+        const firstName = parts[0]
+        const lastName = parts.slice(1).join(' ') || undefined
+        await apiFetch<{ ok: boolean; customerId: string }>('/api/customer', {
+          method: 'POST',
+          body: JSON.stringify({ firstName, lastName, phone: otpPhone }),
+        })
+      }
+
       // Store device token securely
       await SecureStore.setItemAsync(DEVICE_TOKEN_KEY, res.deviceToken)
       await AsyncStorage.setItem(PHONE_KEY, otpPhone)
-      if (res.givenName || res.familyName) {
+      if (res.found && (res.givenName || res.familyName)) {
         const fullName = [res.givenName, res.familyName].filter(Boolean).join(' ')
         setName((cur) => (cur.trim() === '' ? fullName : cur))
+        await AsyncStorage.setItem(NAME_KEY, fullName)
+      } else {
+        await AsyncStorage.setItem(NAME_KEY, name.trim())
       }
       const verifiedPhone = otpPhone
       setPhoneVerified(true)
@@ -530,6 +553,13 @@ function CheckoutOtpSection({
           <Text style={styles.otpErrorText}>Invalid code. Please try again.</Text>
         )}
         <View style={styles.otpActions}>
+          {resendTimer > 0 ? (
+            <Text style={styles.resendTimer}>Resend in {resendTimer}s</Text>
+          ) : (
+            <TouchableOpacity onPress={onResend} disabled={otpLoading}>
+              <Text style={styles.resendLink}>Resend code</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={onVerify}
             disabled={otpLoading || otpCode.length < 6}
@@ -542,13 +572,6 @@ function CheckoutOtpSection({
               {otpLoading ? 'Verifying...' : 'Verify'}
             </Text>
           </TouchableOpacity>
-          {resendTimer > 0 ? (
-            <Text style={styles.resendTimer}>Resend in {resendTimer}s</Text>
-          ) : (
-            <TouchableOpacity onPress={onResend} disabled={otpLoading}>
-              <Text style={styles.resendLink}>Resend code</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     )
@@ -606,12 +629,13 @@ const styles = StyleSheet.create({
   otpSection: { paddingHorizontal: 16, marginBottom: 12, gap: 10 },
   otpHint: { fontSize: 13, color: '#666' },
   otpErrorText: { fontSize: 13, color: '#ef4444' },
-  otpActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  otpActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   verifyBtn: {
     backgroundColor: BRAND.color,
-    paddingHorizontal: 20,
+    width: '50%',
     paddingVertical: 10,
     borderRadius: 20,
+    alignItems: 'center',
   },
   verifyBtnDisabled: { opacity: 0.5 },
   verifyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },

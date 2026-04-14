@@ -2,8 +2,10 @@ export const BRAND = {
   name: "Mandy's Bubble Tea",
   address: '34 Davenport St, Southport QLD 4215',
   phone: '0404 978 238',
-  color: '#C43A10',
-  accentColor: '#F5E6C8',
+  color: '#8D5524',
+  secondaryColor: '#A2AD91',
+  tertiaryColor: '#FFB380',
+  accentColor: '#FFF9F0',
 } as const
 
 export const LOYALTY = {
@@ -13,7 +15,7 @@ export const LOYALTY = {
 
 export const STORAGE_KEYS = {
   phone: 'mbt:account:phone',
-  deviceToken: 'mbt:account:deviceToken',
+  deviceToken: 'mbt_account_deviceToken',
   name: 'mbt:account:name',
 } as const
 

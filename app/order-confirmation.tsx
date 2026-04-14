@@ -5,6 +5,8 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  Linking,
+  Platform,
   StyleSheet,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -12,15 +14,50 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { Ionicons } from '@expo/vector-icons'
 import { BRAND, LOYALTY } from '@/lib/constants'
-import { formatPrice } from '@/lib/utils'
 import { useLoyalty } from '@/hooks/use-loyalty'
 import type { CartItem } from '@/types/square'
 
 const PHONE_KEY = 'mbt:account:phone'
 
+const STORE_LAT = -27.9673
+const STORE_LNG = 153.4145
+const STORE_LABEL = "Mandy's Bubble Tea"
+const STORE_ADDRESS = '34 Davenport St, Southport QLD 4215'
+
+// Compute OSM tile coords for store location at zoom 16
+const MAP_ZOOM = 16
+const n = Math.pow(2, MAP_ZOOM)
+const centerX = Math.floor(((STORE_LNG + 180) / 360) * n)
+const latRad = (STORE_LAT * Math.PI) / 180
+const centerY = Math.floor(
+  ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
+)
+const tileUrl = (x: number, y: number) =>
+  `https://basemaps.cartocdn.com/rastertiles/voyager/${MAP_ZOOM}/${x}/${y}@2x.png`
+
+function openMapsNavigation() {
+  const url = Platform.select({
+    ios: `maps:?daddr=${STORE_LAT},${STORE_LNG}&q=${encodeURIComponent(STORE_LABEL)}`,
+    android: `google.navigation:q=${STORE_LAT},${STORE_LNG}`,
+    default: `https://www.google.com/maps/dir/?api=1&destination=${STORE_LAT},${STORE_LNG}`,
+  })
+  Linking.openURL(url)
+}
+
+function formatNow(): string {
+  const d = new Date()
+  return d.toLocaleDateString('en-AU', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 export default function OrderConfirmationScreen() {
   const router = useRouter()
-  const { orderId, loyaltyAccrued, total } = useLocalSearchParams<{
+  const { orderId, loyaltyAccrued } = useLocalSearchParams<{
     orderId: string
     loyaltyAccrued: string
     total: string
@@ -30,7 +67,6 @@ export default function OrderConfirmationScreen() {
   const [phone, setPhone] = useState<string | null>(null)
   const { account } = useLoyalty(phone)
 
-  // Derive a 3-digit pickup number from orderId
   const pickupNumber = orderId
     ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0')
     : '#000'
@@ -38,7 +74,6 @@ export default function OrderConfirmationScreen() {
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 
-    // Load saved order items
     AsyncStorage.getItem('mbt:lastOrder:items').then((raw) => {
       if (raw) {
         try {
@@ -47,13 +82,11 @@ export default function OrderConfirmationScreen() {
       }
     })
 
-    // Load phone for loyalty lookup
     AsyncStorage.getItem(PHONE_KEY).then((p) => {
       if (p) setPhone(p)
     })
   }, [])
 
-  const totalCents = Number(total) || 0
   const starsEarned = loyaltyAccrued === '1' ? orderItems.reduce((sum, i) => sum + i.quantity, 0) : 0
   const currentBalance = account?.balance ?? 0
   const starsToGo = Math.max(0, LOYALTY.starsForReward - currentBalance)
@@ -64,12 +97,12 @@ export default function OrderConfirmationScreen() {
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
     >
-      {/* Success icon */}
-      <View style={styles.iconCircle}>
+      {/* Status icon (matches order-detail COMPLETED style) */}
+      <View style={[styles.iconCircle, { backgroundColor: '#6b9e6f' }]}>
         <Ionicons name="checkmark" size={36} color="#fff" />
       </View>
 
-      <Text style={styles.title}>Ready for Pickup Soon!</Text>
+      <Text style={[styles.title, { color: '#2e5e2e' }]}>Ready for Pickup Soon!</Text>
       <Text style={styles.subtitle}>
         Our tea masters are crafting your order. We'll have it ready for you at
         the counter shortly.
@@ -79,23 +112,51 @@ export default function OrderConfirmationScreen() {
       <View style={styles.pickupCard}>
         <Text style={styles.pickupLabel}>YOUR PICKUP NUMBER</Text>
         <Text style={styles.pickupNumber}>{pickupNumber}</Text>
-        <Text style={styles.pickupHint}>
-          Show this number at the counter to collect your order.
-        </Text>
       </View>
 
-      {/* Info row: location + time */}
+      {/* Info row: date + estimated pickup time */}
       <View style={styles.infoRow}>
         <View style={styles.infoBox}>
-          <Text style={styles.infoLabel}>PICKUP LOCATION</Text>
-          <Text style={styles.infoValue}>Southport</Text>
-          <Text style={styles.infoDetail}>{BRAND.address}</Text>
+          <Text style={styles.infoLabel}>DATE</Text>
+          <Text style={styles.infoValue}>{formatNow()}</Text>
         </View>
         <View style={styles.infoBox}>
-          <Text style={styles.infoLabel}>ESTIMATED PICKUP TIME</Text>
-          <Text style={styles.infoTimeValue}>15–20 mins</Text>
+          <Text style={styles.infoLabel}>ESTIMATED PICKUP</Text>
+          <Text style={styles.infoValueLarge}>15–20 mins</Text>
         </View>
       </View>
+
+      {/* Map card */}
+      <TouchableOpacity
+        style={styles.mapCard}
+        onPress={openMapsNavigation}
+        activeOpacity={0.8}
+      >
+        <View style={styles.mapImageWrap}>
+          {[0, 1].map((row) => (
+            <View key={row} style={styles.tileRow}>
+              {[-1, 0, 1].map((col) => (
+                <Image
+                  key={col}
+                  source={{ uri: tileUrl(centerX + col, centerY + row) }}
+                  style={styles.tile}
+                />
+              ))}
+            </View>
+          ))}
+          <View style={styles.mapPinOverlay}>
+            <Ionicons name="location" size={30} color={BRAND.color} />
+          </View>
+        </View>
+        <View style={styles.mapOverlay}>
+          <Ionicons name="location" size={20} color={BRAND.color} />
+          <View style={styles.mapTextWrap}>
+            <Text style={styles.mapStoreName}>{STORE_LABEL}</Text>
+            <Text style={styles.mapAddress}>{STORE_ADDRESS}</Text>
+          </View>
+          <Ionicons name="navigate-outline" size={20} color={BRAND.color} />
+        </View>
+      </TouchableOpacity>
 
       {/* Loyalty stars banner */}
       {starsEarned > 0 && (
@@ -125,7 +186,7 @@ export default function OrderConfirmationScreen() {
         <View style={styles.summarySection}>
           <Text style={styles.summaryHeading}>Order Summary</Text>
           {orderItems.map((item) => (
-            <View key={item.variationId} style={styles.summaryRow}>
+            <View key={item.lineId ?? item.variationId} style={styles.summaryRow}>
               {item.imageUrl ? (
                 <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
               ) : (
@@ -139,6 +200,11 @@ export default function OrderConfirmationScreen() {
                 </Text>
                 {item.variationName ? (
                   <Text style={styles.itemVariation}>{item.variationName}</Text>
+                ) : null}
+                {(item.modifiers ?? []).length > 0 ? (
+                  <Text style={styles.itemVariation} numberOfLines={2}>
+                    {(item.modifiers ?? []).map((m) => m.name).join(', ')}
+                  </Text>
                 ) : null}
               </View>
               <Text style={styles.itemQty}>{item.quantity}x</Text>
@@ -165,21 +231,17 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#faf8f5' },
   scrollContent: { alignItems: 'center', padding: 24, paddingTop: 60 },
 
-  // Success icon
   iconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#6b9e6f',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#2e5e2e',
     textAlign: 'center',
   },
   subtitle: {
@@ -191,7 +253,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  // Pickup number
   pickupCard: {
     marginTop: 24,
     width: '100%',
@@ -214,13 +275,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: BRAND.color,
   },
-  pickupHint: {
-    fontSize: 13,
-    color: '#999',
-    marginTop: 4,
-  },
 
-  // Info row
   infoRow: {
     flexDirection: 'row',
     gap: 12,
@@ -244,20 +299,67 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   infoValue: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#333',
-  },
-  infoDetail: {
-    fontSize: 12,
-    color: '#888',
     textAlign: 'center',
-    marginTop: 2,
   },
-  infoTimeValue: {
+  infoValueLarge: {
     fontSize: 22,
     fontWeight: '700',
     color: '#333',
+  },
+
+  // Map
+  mapCard: {
+    marginTop: 16,
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+  },
+  mapImageWrap: {
+    width: '100%',
+    height: 150,
+    backgroundColor: '#e8f0e8',
+    overflow: 'hidden',
+    flexDirection: 'column',
+  },
+  tileRow: {
+    flexDirection: 'row',
+    height: 128,
+  },
+  tile: {
+    width: '33.33%',
+    height: 128,
+  },
+  mapPinOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -15,
+    marginTop: -30,
+  },
+  mapOverlay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 10,
+  },
+  mapTextWrap: {
+    flex: 1,
+  },
+  mapStoreName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  mapAddress: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 1,
   },
 
   // Loyalty stars banner

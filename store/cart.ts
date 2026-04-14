@@ -1,16 +1,24 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import type { CartItem } from '@/types/square'
+import type { CartItem, CartModifier } from '@/types/square'
 
 interface CartState {
   items: CartItem[]
-  addItem: (item: Omit<CartItem, 'quantity'>) => void
-  removeItem: (variationId: string) => void
-  updateQuantity: (variationId: string, quantity: number) => void
+  addItem: (item: Omit<CartItem, 'quantity' | 'lineId'>) => void
+  removeItem: (lineId: string) => void
+  updateQuantity: (lineId: string, quantity: number) => void
   clearCart: () => void
   total: () => number
   itemCount: () => number
+}
+
+export function buildLineId(variationId: string, modifiers: CartModifier[]): string {
+  const modKey = [...modifiers]
+    .map((m) => m.id)
+    .sort()
+    .join(',')
+  return `${variationId}::${modKey}`
 }
 
 export const useCartStore = create<CartState>()(
@@ -20,32 +28,32 @@ export const useCartStore = create<CartState>()(
 
       addItem: (item) =>
         set((state) => {
-          const existing = state.items.find((i) => i.variationId === item.variationId)
+          const modifiers = item.modifiers ?? []
+          const lineId = buildLineId(item.variationId, modifiers)
+          const existing = state.items.find((i) => i.lineId === lineId)
           if (existing) {
             return {
               items: state.items.map((i) =>
-                i.variationId === item.variationId
-                  ? { ...i, quantity: i.quantity + 1 }
-                  : i
+                i.lineId === lineId ? { ...i, quantity: i.quantity + 1 } : i,
               ),
             }
           }
-          return { items: [...state.items, { ...item, quantity: 1 }] }
+          return { items: [...state.items, { ...item, modifiers, lineId, quantity: 1 }] }
         }),
 
-      removeItem: (variationId) =>
+      removeItem: (lineId) =>
         set((state) => ({
-          items: state.items.filter((i) => i.variationId !== variationId),
+          items: state.items.filter((i) => i.lineId !== lineId),
         })),
 
-      updateQuantity: (variationId, quantity) =>
+      updateQuantity: (lineId, quantity) =>
         set((state) => {
           if (quantity <= 0) {
-            return { items: state.items.filter((i) => i.variationId !== variationId) }
+            return { items: state.items.filter((i) => i.lineId !== lineId) }
           }
           return {
             items: state.items.map((i) =>
-              i.variationId === variationId ? { ...i, quantity } : i
+              i.lineId === lineId ? { ...i, quantity } : i,
             ),
           }
         }),
@@ -59,6 +67,21 @@ export const useCartStore = create<CartState>()(
     {
       name: 'mandys-cart',
       storage: createJSONStorage(() => AsyncStorage),
-    }
-  )
+      // Migrate pre-modifier cart entries so existing sessions don't crash.
+      migrate: (state: unknown) => {
+        const s = state as { items?: Partial<CartItem>[] } | undefined
+        if (!s?.items) return s as CartState
+        return {
+          ...s,
+          items: s.items.map((i) => {
+            const modifiers = (i.modifiers ?? []) as CartModifier[]
+            const lineId =
+              i.lineId ?? buildLineId(i.variationId ?? '', modifiers)
+            return { ...i, modifiers, lineId } as CartItem
+          }),
+        } as CartState
+      },
+      version: 2,
+    },
+  ),
 )

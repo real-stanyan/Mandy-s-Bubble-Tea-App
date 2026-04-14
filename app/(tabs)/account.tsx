@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
   StyleSheet,
 } from 'react-native'
+import { useFocusEffect } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLoyalty } from '@/hooks/use-loyalty'
 import { formatAUPhone } from '@/lib/utils'
@@ -23,7 +25,25 @@ export default function AccountScreen() {
   const [phone, setPhone] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(true)
   const { account, events, loading, error, refresh } = useLoyalty(phone)
-  const { orders, loading: ordersLoading } = useOrderHistory(phone)
+  const { orders, refresh: refreshOrders } = useOrderHistory(phone)
+  const [refreshing, setRefreshing] = useState(false)
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!phone) return
+      refresh()
+      refreshOrders()
+    }, [phone, refresh, refreshOrders]),
+  )
+
+  const onPullRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([refresh(), refreshOrders()])
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     AsyncStorage.getItem(PHONE_KEY).then((saved) => {
@@ -98,7 +118,11 @@ export default function AccountScreen() {
   }
 
   return (
-    <ScrollView>
+    <ScrollView
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={BRAND.color} />
+      }
+    >
       <LoyaltyCard account={account} />
       <TouchableOpacity onPress={handleChangeNumber}>
         <Text style={styles.changeNumber}>Use a different number</Text>
