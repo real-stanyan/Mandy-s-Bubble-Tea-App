@@ -20,8 +20,7 @@ const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 
 interface Props {
   itemId: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ScrollComponent?: ComponentType<ScrollViewProps> | ComponentType<any>
+  ScrollComponent?: ComponentType<ScrollViewProps> | ComponentType<any> // any needed for BottomSheetScrollView compat
   onLoaded?: (item: CatalogItem) => void
 }
 

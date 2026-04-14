@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { View, Text, TouchableOpacity, Share, StyleSheet } from 'react-native'
+import { View, TouchableOpacity, Share, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import {
   BottomSheetModal,
