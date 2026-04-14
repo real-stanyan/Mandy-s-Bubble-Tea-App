@@ -336,33 +336,32 @@ export default function CheckoutScreen() {
           />
         </View>
 
-        {/* Phone input — hidden after verification */}
-        {!phoneVerified && (
-          <View style={styles.fieldSection}>
-            <View style={styles.labelRow}>
-              <Text style={styles.fieldLabel}>Phone</Text>
-              {showFieldErrors && !phone.trim() && (
-                <Text style={styles.requiredStar}> *</Text>
-              )}
-            </View>
-            <TextInput
-              style={[
-                styles.fieldInput,
-                showFieldErrors && !phone.trim() && styles.fieldInputError,
-              ]}
-              placeholder="04xx xxx xxx"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={(t) => {
-                setPhone(t)
-                setPhoneVerified(false)
-                setOtpPhone(null)
-                setShowFieldErrors(false)
-              }}
-              autoComplete="tel"
-            />
+        {/* Phone input — always visible so user can see/edit their number.
+            Verification status is shown by the OTP section below. */}
+        <View style={styles.fieldSection}>
+          <View style={styles.labelRow}>
+            <Text style={styles.fieldLabel}>Phone</Text>
+            {showFieldErrors && !phone.trim() && (
+              <Text style={styles.requiredStar}> *</Text>
+            )}
           </View>
-        )}
+          <TextInput
+            style={[
+              styles.fieldInput,
+              showFieldErrors && !phone.trim() && styles.fieldInputError,
+            ]}
+            placeholder="04xx xxx xxx"
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={(t) => {
+              setPhone(t)
+              setPhoneVerified(false)
+              setOtpPhone(null)
+              setShowFieldErrors(false)
+            }}
+            autoComplete="tel"
+          />
+        </View>
 
         {/* OTP Section */}
         <CheckoutOtpSection
