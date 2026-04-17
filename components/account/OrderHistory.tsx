@@ -94,6 +94,7 @@ export function OrderHistory({ orders }: Props) {
       pathname: '/order-detail',
       params: {
         orderId: order.id,
+        referenceId: order.referenceId ?? '',
         createdAt: order.createdAt ?? '',
         state: order.state ?? '',
         totalCents: order.totalCents,

@@ -76,6 +76,7 @@ export interface LoyaltyEvent {
 
 export interface Order {
   id: string
+  referenceId?: string
   totalMoney?: { amount: number | string; currency: string }
   lineItems?: Array<{
     name: string

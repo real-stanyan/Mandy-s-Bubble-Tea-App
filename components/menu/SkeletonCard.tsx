@@ -1,11 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { View, Animated, StyleSheet } from 'react-native'
 
-const CARD_WIDTH = 140
-
-export function SkeletonCard() {
+function usePulse() {
   const opacity = useRef(new Animated.Value(0.3)).current
-
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
@@ -24,75 +21,171 @@ export function SkeletonCard() {
     animation.start()
     return () => animation.stop()
   }, [opacity])
+  return opacity
+}
 
+/** Skeleton for a single product row (image + name + price + add button) */
+function SkeletonRow() {
+  const opacity = usePulse()
   return (
-    <View style={styles.card}>
-      <Animated.View style={[styles.image, { opacity }]} />
-      <Animated.View style={[styles.nameLine, { opacity }]} />
-      <Animated.View style={[styles.priceLine, { opacity }]} />
-      <Animated.View style={[styles.button, { opacity }]} />
+    <View style={styles.row}>
+      <Animated.View style={[styles.rowImage, { opacity }]} />
+      <View style={styles.rowInfo}>
+        <Animated.View style={[styles.rowName, { opacity }]} />
+        <Animated.View style={[styles.rowPrice, { opacity }]} />
+      </View>
+      <Animated.View style={[styles.addBtn, { opacity }]} />
     </View>
   )
 }
 
+/** Skeleton for a category section (title + rows) */
+function SkeletonRows({ count = 4 }: { count?: number }) {
+  return (
+    <View style={styles.sectionBlock}>
+      <Animated.View style={styles.sectionTitle} />
+      {Array.from({ length: count }, (_, i) => (
+        <SkeletonRow key={i} />
+      ))}
+    </View>
+  )
+}
+
+/** Skeleton for a sidebar tab */
+function SkeletonTab({ width }: { width: number }) {
+  const opacity = usePulse()
+  return (
+    <View style={styles.tab}>
+      <Animated.View style={[styles.tabLine, { width, opacity }]} />
+    </View>
+  )
+}
+
+/** Full-page skeleton matching the new menu layout: sidebar + list */
 export function SkeletonSection() {
   return (
-    <View style={styles.section}>
-      <Animated.View style={styles.titleLine} />
-      <View style={styles.strip}>
-        {[0, 1, 2, 3].map((i) => (
-          <SkeletonCard key={i} />
-        ))}
+    <View style={styles.root}>
+      {/* Search bar skeleton */}
+      <View style={styles.searchBar}>
+        <Animated.View style={styles.searchPlaceholder} />
+      </View>
+
+      <View style={styles.body}>
+        {/* Left sidebar */}
+        <View style={styles.sidebar}>
+          <SkeletonTab width={48} />
+          <SkeletonTab width={40} />
+          <SkeletonTab width={56} />
+          <SkeletonTab width={36} />
+          <SkeletonTab width={52} />
+          <SkeletonTab width={44} />
+          <SkeletonTab width={48} />
+        </View>
+
+        {/* Right content area */}
+        <View style={styles.content}>
+          <SkeletonRows count={4} />
+          <SkeletonRows count={3} />
+          <SkeletonRows count={3} />
+        </View>
       </View>
     </View>
   )
 }
 
+// Keep the old export name for backwards compat, but it's unused now
+export { SkeletonRow as SkeletonCard }
+
 const styles = StyleSheet.create({
-  section: {
-    marginTop: 20,
+  root: {
+    flex: 1,
+    backgroundColor: '#fff',
   },
-  titleLine: {
+  searchBar: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 6,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F2E8DF',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  searchPlaceholder: {
+    width: 100,
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: '#e0d5ca',
+  },
+  body: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  sidebar: {
+    flex: 1,
+    backgroundColor: '#F2E8DF',
+    paddingVertical: 8,
+  },
+  tab: {
+    minHeight: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  tabLine: {
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: '#e0d5ca',
+  },
+  content: {
+    flex: 3,
+    paddingBottom: 48,
+  },
+  sectionBlock: {
+    paddingTop: 16,
+  },
+  sectionTitle: {
     width: 120,
     height: 20,
     borderRadius: 4,
     backgroundColor: '#e0e0e0',
     marginLeft: 16,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  strip: {
+  row: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
   },
-  card: {
-    width: CARD_WIDTH,
-    marginRight: 12,
+  rowImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: '#e0e0e0',
+  },
+  rowInfo: {
+    flex: 1,
+    justifyContent: 'center',
     gap: 6,
   },
-  image: {
-    width: CARD_WIDTH,
-    height: CARD_WIDTH,
-    borderRadius: 10,
-    backgroundColor: '#e0e0e0',
-  },
-  nameLine: {
-    width: 100,
-    height: 13,
+  rowName: {
+    width: '70%',
+    height: 14,
     borderRadius: 4,
     backgroundColor: '#e0e0e0',
-    marginTop: 4,
   },
-  priceLine: {
+  rowPrice: {
     width: 50,
-    height: 13,
+    height: 14,
     borderRadius: 4,
     backgroundColor: '#e0e0e0',
   },
-  button: {
-    width: CARD_WIDTH,
-    height: 30,
-    borderRadius: 6,
+  addBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#e0e0e0',
-    marginTop: 4,
   },
 })

@@ -95,13 +95,7 @@ export default function MenuScreen() {
   }, [])
 
   if (loading && items.length === 0) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.loadingContent}>
-        {[0, 1, 2, 3].map((i) => (
-          <SkeletonSection key={i} />
-        ))}
-      </ScrollView>
-    )
+    return <SkeletonSection />
   }
 
   if (error && items.length === 0) {

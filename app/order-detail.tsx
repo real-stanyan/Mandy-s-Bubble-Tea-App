@@ -85,9 +85,10 @@ function formatCents(cents: string): string {
 
 export default function OrderDetailScreen() {
   const router = useRouter()
-  const { orderId, createdAt, state, totalCents, itemSummary, lineCount } =
+  const { orderId, referenceId, createdAt, state, totalCents, itemSummary, lineCount } =
     useLocalSearchParams<{
       orderId: string
+      referenceId: string
       createdAt: string
       state: string
       totalCents: string
@@ -114,9 +115,8 @@ export default function OrderDetailScreen() {
   }, [])
 
   const stateInfo = STATE_CONFIG[state ?? ''] ?? STATE_CONFIG.COMPLETED
-  const pickupNumber = orderId
-    ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0')
-    : '#000'
+  const pickupNumber = referenceId
+    || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
 
   // Parse "1× Blueberry Cheese, 2× Taro" into items
   const items = (itemSummary ?? '')

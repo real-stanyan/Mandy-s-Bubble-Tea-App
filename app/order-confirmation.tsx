@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Linking,
   Platform,
+  AppState,
   StyleSheet,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -15,7 +16,13 @@ import * as Haptics from 'expo-haptics'
 import { Ionicons } from '@expo/vector-icons'
 import { BRAND, LOYALTY } from '@/lib/constants'
 import { useLoyalty } from '@/hooks/use-loyalty'
+import { apiFetch } from '@/lib/api'
 import type { CartItem } from '@/types/square'
+
+type FulfillmentState = 'PROPOSED' | 'RESERVED' | 'PREPARED' | 'COMPLETED' | 'CANCELED' | 'FAILED'
+
+const TERMINAL_STATES: ReadonlySet<FulfillmentState> = new Set(['COMPLETED', 'CANCELED', 'FAILED'])
+const POLL_MS = 5000
 
 const PHONE_KEY = 'mbt:account:phone'
 
@@ -57,19 +64,23 @@ function formatNow(): string {
 
 export default function OrderConfirmationScreen() {
   const router = useRouter()
-  const { orderId, loyaltyAccrued } = useLocalSearchParams<{
+  const { orderId, pickupNumber: pickupNum, loyaltyAccrued } = useLocalSearchParams<{
     orderId: string
+    pickupNumber: string
     loyaltyAccrued: string
     total: string
   }>()
 
   const [orderItems, setOrderItems] = useState<CartItem[]>([])
   const [phone, setPhone] = useState<string | null>(null)
+  const [fulfillmentState, setFulfillmentState] = useState<FulfillmentState>('PROPOSED')
+  const stateRef = useRef<FulfillmentState>('PROPOSED')
   const { account } = useLoyalty(phone)
 
-  const pickupNumber = orderId
-    ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0')
-    : '#000'
+  // Use the Supabase-generated order number (e.g. OL800) passed from checkout.
+  // Fall back to last 3 digits of orderId for older orders without referenceId.
+  const pickupNumber = pickupNum
+    || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -87,26 +98,67 @@ export default function OrderConfirmationScreen() {
     })
   }, [])
 
+  // Poll fulfillment status every 5 seconds until terminal state
+  useEffect(() => {
+    if (!orderId) return
+    if (TERMINAL_STATES.has(stateRef.current)) return
+
+    let cancelled = false
+
+    const tick = async () => {
+      try {
+        const data = await apiFetch<{ ok: boolean; state: FulfillmentState | null }>(
+          `/api/orders/${orderId}/status`,
+        )
+        if (cancelled || !data.ok || !data.state) return
+        if (data.state !== stateRef.current) {
+          stateRef.current = data.state
+          setFulfillmentState(data.state)
+          // Haptic feedback on meaningful state changes
+          if (data.state === 'PREPARED') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+          }
+        }
+      } catch { /* retry next tick */ }
+    }
+
+    // Initial fetch + interval
+    tick()
+    const id = setInterval(tick, POLL_MS)
+
+    // Also poll on app foregrounding (user may have backgrounded the app)
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && !TERMINAL_STATES.has(stateRef.current)) {
+        tick()
+      }
+    })
+
+    return () => {
+      cancelled = true
+      clearInterval(id)
+      sub.remove()
+    }
+  }, [orderId, fulfillmentState])
+
   const starsEarned = loyaltyAccrued === '1' ? orderItems.reduce((sum, i) => sum + i.quantity, 0) : 0
   const currentBalance = account?.balance ?? 0
   const starsToGo = Math.max(0, LOYALTY.starsForReward - currentBalance)
   const progressRatio = Math.min(currentBalance / LOYALTY.starsForReward, 1)
+
+  const statusUi = getStatusUi(fulfillmentState)
 
   return (
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
     >
-      {/* Status icon (matches order-detail COMPLETED style) */}
-      <View style={[styles.iconCircle, { backgroundColor: '#6b9e6f' }]}>
-        <Ionicons name="checkmark" size={36} color="#fff" />
+      {/* Status icon — changes with fulfillment state */}
+      <View style={[styles.iconCircle, { backgroundColor: statusUi.iconBg }]}>
+        <Ionicons name={statusUi.icon} size={36} color="#fff" />
       </View>
 
-      <Text style={[styles.title, { color: '#2e5e2e' }]}>Ready for Pickup Soon!</Text>
-      <Text style={styles.subtitle}>
-        Our tea masters are crafting your order. We'll have it ready for you at
-        the counter shortly.
-      </Text>
+      <Text style={[styles.title, { color: statusUi.headingColor }]}>{statusUi.heading}</Text>
+      <Text style={styles.subtitle}>{statusUi.body}</Text>
 
       {/* Pickup number card */}
       <View style={styles.pickupCard}>
@@ -225,6 +277,54 @@ export default function OrderConfirmationScreen() {
       <View style={{ height: 40 }} />
     </ScrollView>
   )
+}
+
+type StatusUi = {
+  heading: string
+  body: string
+  headingColor: string
+  iconBg: string
+  icon: keyof typeof Ionicons.glyphMap
+}
+
+function getStatusUi(state: FulfillmentState): StatusUi {
+  switch (state) {
+    case 'PREPARED':
+      return {
+        heading: 'Ready for Pickup!',
+        body: 'Your order is ready at the counter. Show your pickup number to our team.',
+        headingColor: BRAND.color,
+        iconBg: '#FDE5DD',
+        icon: 'bag-check',
+      }
+    case 'COMPLETED':
+      return {
+        heading: 'Picked Up',
+        body: "Enjoy your drink! Thanks for visiting Mandy's Bubble Tea.",
+        headingColor: '#5B7A52',
+        iconBg: '#6b9e6f',
+        icon: 'checkmark',
+      }
+    case 'CANCELED':
+    case 'FAILED':
+      return {
+        heading: 'Order Canceled',
+        body: 'This order was canceled. If you were charged, please speak to a team member at the counter.',
+        headingColor: '#6B7280',
+        iconBg: '#9CA3AF',
+        icon: 'close',
+      }
+    case 'PROPOSED':
+    case 'RESERVED':
+    default:
+      return {
+        heading: 'Ready for Pickup Soon!',
+        body: "Our tea masters are crafting your order. We'll have it ready for you at the counter shortly.",
+        headingColor: '#2e5e2e',
+        iconBg: '#6b9e6f',
+        icon: 'checkmark',
+      }
+  }
 }
 
 const styles = StyleSheet.create({

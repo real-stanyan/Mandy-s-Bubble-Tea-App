@@ -272,7 +272,7 @@ export default function CheckoutScreen() {
 
     try {
       const formattedPhone = formatAUPhone(phone.trim())
-      const { orderId, customerId: orderCustomerId } = await createOrder({
+      const { orderId, customerId: orderCustomerId, order: createdOrder } = await createOrder({
         items,
         name: name.trim() || 'Customer',
         phone: formattedPhone,
@@ -349,6 +349,7 @@ export default function CheckoutScreen() {
         pathname: '/order-confirmation',
         params: {
           orderId,
+          pickupNumber: createdOrder.referenceId ?? '',
           loyaltyAccrued: result.loyaltyAccrued ? '1' : '0',
           total: total.toString(),
         },

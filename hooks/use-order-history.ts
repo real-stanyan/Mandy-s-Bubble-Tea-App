@@ -21,6 +21,7 @@ export interface OrderHistoryLine {
 
 export interface OrderHistoryItem {
   id: string
+  referenceId: string | null
   createdAt: string | null
   state: string | null
   fulfillmentState: string | null
