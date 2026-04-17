@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import 'react-native-reanimated';
 import { ItemDetailSheet } from '@/components/menu/ItemDetailSheet';
+import { CartSheet } from '@/components/cart/CartSheet';
 
 const LightTheme = {
   ...DefaultTheme,
@@ -30,7 +31,19 @@ export default function RootLayout() {
             <Stack.Screen name="menu/[id]" options={{ headerShown: true, title: '' }} />
             <Stack.Screen
               name="checkout"
-              options={{ headerShown: true, title: 'Checkout', headerBackTitle: 'Cart' }}
+              options={{
+                headerShown: true,
+                title: 'Checkout',
+                headerLeft: () => (
+                  <TouchableOpacity
+                    onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu'))}
+                    hitSlop={12}
+                    style={{ paddingHorizontal: 4 }}
+                  >
+                    <Ionicons name="chevron-back" size={26} color="#11181C" />
+                  </TouchableOpacity>
+                ),
+              }}
             />
             <Stack.Screen
               name="order-detail"
@@ -55,6 +68,7 @@ export default function RootLayout() {
             />
           </Stack>
           <ItemDetailSheet />
+          <CartSheet />
           <StatusBar style="dark" />
         </ThemeProvider>
       </BottomSheetModalProvider>

@@ -34,6 +34,7 @@ export function ItemDetailContent({
   useEffect(() => { onLoadedRef.current = onLoaded })
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [item, setItem] = useState<CatalogItem | null>(null)
+  const [imageAspectRatio, setImageAspectRatio] = useState(1)
   const [modifierLists, setModifierLists] = useState<ModifierList[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -171,7 +172,15 @@ export function ItemDetailContent({
     <View style={styles.container}>
       <ScrollComponent>
         {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.heroImage} contentFit="cover" />
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={[styles.heroImage, { aspectRatio: imageAspectRatio }]}
+            contentFit="contain"
+            onLoad={(e) => {
+              const { width, height } = e.source
+              if (width && height) setImageAspectRatio(width / height)
+            }}
+          />
         ) : (
           <View style={[styles.heroImage, styles.placeholderImage]}>
             <Text style={{ fontSize: 64 }}>🧋</Text>
@@ -300,8 +309,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   errorText: { color: 'red', fontSize: 16 },
-  heroImage: { width: '100%', height: 300 },
-  placeholderImage: { backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+  heroImage: { width: '100%' },
+  placeholderImage: { height: 300, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, gap: 12 },
   name: { fontSize: 24, fontWeight: '700' },
   description: { fontSize: 15, color: '#666', lineHeight: 22 },

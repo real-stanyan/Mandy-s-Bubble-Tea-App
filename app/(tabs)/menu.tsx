@@ -12,12 +12,22 @@ import {
 } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  cancelAnimation,
+  Easing,
+} from 'react-native-reanimated'
 import { useMenu } from '@/hooks/use-menu'
 import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { BRAND } from '@/lib/constants'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cart'
 import { useItemSheetStore } from '@/store/itemSheet'
+import { MiniCartBar } from '@/components/cart/MiniCartBar'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 const HIGHLIGHT_OFFSET = 40
@@ -200,6 +210,7 @@ export default function MenuScreen() {
           </View>
         </View>
       )}
+      <MiniCartBar />
     </View>
   )
 }
@@ -229,8 +240,35 @@ function ProductRow({ item }: { item: CatalogItem }) {
   const firstVariation = item.itemData?.variations?.[0]
   const price = firstVariation?.itemVariationData?.priceMoney?.amount
 
+  const btnScale = useSharedValue(1)
+  const checkOpacity = useSharedValue(0)
+
+  const btnStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: btnScale.value }],
+  }))
+  const plusStyle = useAnimatedStyle(() => ({
+    opacity: 1 - checkOpacity.value,
+  }))
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+    transform: [{ scale: 0.6 + checkOpacity.value * 0.4 }],
+  }))
+
   const handleAdd = () => {
     if (!firstVariation) return
+    Haptics.selectionAsync()
+    cancelAnimation(btnScale)
+    cancelAnimation(checkOpacity)
+    btnScale.value = 1
+    checkOpacity.value = 0
+    btnScale.value = withSequence(
+      withTiming(0.9, { duration: 80, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 140, easing: Easing.out(Easing.quad) }),
+    )
+    checkOpacity.value = withSequence(
+      withTiming(1, { duration: 120 }),
+      withTiming(0, { duration: 260 }),
+    )
     addItem({
       id: item.id,
       variationId: firstVariation.id,
@@ -270,9 +308,13 @@ function ProductRow({ item }: { item: CatalogItem }) {
         }}
         activeOpacity={0.8}
         hitSlop={8}
-        style={styles.addBtn}
       >
-        <Text style={styles.addBtnText}>+</Text>
+        <Animated.View style={[styles.addBtn, btnStyle]}>
+          <Animated.Text style={[styles.addBtnText, plusStyle]}>+</Animated.Text>
+          <Animated.View style={[styles.addBtnCheck, checkStyle]} pointerEvents="none">
+            <Ionicons name="checkmark" size={18} color="#fff" />
+          </Animated.View>
+        </Animated.View>
       </TouchableOpacity>
     </TouchableOpacity>
   )
@@ -430,6 +472,7 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.color,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   addBtnText: {
     color: '#fff',
@@ -437,5 +480,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 22,
     marginTop: -2,
+  },
+  addBtnCheck: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })

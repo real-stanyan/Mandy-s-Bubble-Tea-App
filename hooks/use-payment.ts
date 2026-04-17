@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
 
 interface PaymentParams {
-  sourceId: string
+  sourceId?: string
   orderId: string
   customerId: string
   phone: string

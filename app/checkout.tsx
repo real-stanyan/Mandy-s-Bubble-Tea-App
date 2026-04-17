@@ -46,6 +46,7 @@ export default function CheckoutScreen() {
 
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [customerId, setCustomerId] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showFieldErrors, setShowFieldErrors] = useState(false)
@@ -56,6 +57,11 @@ export default function CheckoutScreen() {
   const [applePayAvailable, setApplePayAvailable] = useState(false)
   const [googlePayAvailable, setGooglePayAvailable] = useState(false)
 
+  // Loyalty state (for signed-in users)
+  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null)
+  const [starsPerReward, setStarsPerReward] = useState<number | null>(null)
+  const [useReward, setUseReward] = useState(false)
+
   // OTP state
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [otpPhone, setOtpPhone] = useState<string | null>(null)
@@ -64,7 +70,9 @@ export default function CheckoutScreen() {
   const [otpLoading, setOtpLoading] = useState(false)
   const [resendTimer, setResendTimer] = useState(0)
 
-  // Check device token on mount — if present, skip OTP
+  // Skip OTP if user is already "signed in" on this device (device token or saved phone).
+  // On mobile the app runs on the user's personal device — a phone saved via
+  // Account tab / prior checkout is treated as a soft-login.
   useEffect(() => {
     async function checkToken() {
       let hasToken = false
@@ -72,20 +80,21 @@ export default function CheckoutScreen() {
         const token = await SecureStore.getItemAsync(DEVICE_TOKEN_KEY)
         if (token) hasToken = true
       } catch { /* noop */ }
+      let hasPhone = false
       try {
         const savedPhone = await AsyncStorage.getItem(PHONE_KEY)
         if (savedPhone) {
           setPhone(savedPhone)
+          hasPhone = true
           lookupCustomer(savedPhone)
+          fetchLoyalty(savedPhone)
         }
       } catch { /* noop */ }
       try {
         const savedName = await AsyncStorage.getItem(NAME_KEY)
         if (savedName) setName(savedName)
       } catch { /* noop */ }
-      // Only a device token proves OTP verification. A stored phone alone
-      // (e.g. from Account-tab loyalty lookup) is NOT proof of login.
-      if (hasToken) setPhoneVerified(true)
+      if (hasToken || hasPhone) setPhoneVerified(true)
     }
     checkToken()
 
@@ -117,6 +126,7 @@ export default function CheckoutScreen() {
       const res = await apiFetch<{
         ok: boolean
         found: boolean
+        customerId?: string
         givenName?: string
         familyName?: string
       }>('/api/customer/lookup', {
@@ -124,11 +134,29 @@ export default function CheckoutScreen() {
         body: JSON.stringify({ phone: phoneVal }),
       })
       if (res.found) {
+        if (res.customerId) setCustomerId(res.customerId)
         const fullName = [res.givenName, res.familyName].filter(Boolean).join(' ')
         if (fullName) {
           setName((cur) => (cur.trim() === '' ? fullName : cur))
           await AsyncStorage.setItem(NAME_KEY, fullName)
         }
+      }
+    } catch { /* noop */ }
+  }
+
+  async function fetchLoyalty(phoneVal: string) {
+    try {
+      const res = await apiFetch<{
+        ok: boolean
+        account: { id: string; balance: number } | null
+        starsPerReward?: number
+      }>(`/api/loyalty/account?phone=${encodeURIComponent(phoneVal)}`)
+      if (res.account) {
+        setLoyaltyBalance(res.account.balance)
+        if (res.starsPerReward) setStarsPerReward(res.starsPerReward)
+      } else {
+        setLoyaltyBalance(0)
+        if (res.starsPerReward) setStarsPerReward(res.starsPerReward)
       }
     } catch { /* noop */ }
   }
@@ -220,21 +248,23 @@ export default function CheckoutScreen() {
   const handlePay = async () => {
     if (items.length === 0) return
 
-    // Validate required fields
-    const missingName = !name.trim()
-    const missingPhone = !phone.trim()
-    if (missingName || missingPhone) {
-      setShowFieldErrors(true)
-      const parts: string[] = []
-      if (missingName) parts.push('your name')
-      if (missingPhone) parts.push('your phone')
-      setError(`Please enter ${parts.join(' and ')}`)
-      return
-    }
+    // Signed-in users skip the name/phone fields entirely — they're pulled from storage.
+    if (!isLoggedIn) {
+      const missingName = !name.trim()
+      const missingPhone = !phone.trim()
+      if (missingName || missingPhone) {
+        setShowFieldErrors(true)
+        const parts: string[] = []
+        if (missingName) parts.push('your name')
+        if (missingPhone) parts.push('your phone')
+        setError(`Please enter ${parts.join(' and ')}`)
+        return
+      }
 
-    if (!phoneVerified) {
-      setError('Please verify your phone number first')
-      return
+      if (!phoneVerified) {
+        setError('Please verify your phone number first')
+        return
+      }
     }
 
     setProcessing(true)
@@ -242,36 +272,64 @@ export default function CheckoutScreen() {
 
     try {
       const formattedPhone = formatAUPhone(phone.trim())
-      const { orderId, customerId } = await createOrder({
+      const { orderId, customerId: orderCustomerId } = await createOrder({
         items,
-        name: name.trim(),
+        name: name.trim() || 'Customer',
         phone: formattedPhone,
       })
 
-      // Get payment nonce from Square SDK based on selected method
-      const priceDollars = (total / 100).toFixed(2)
-      let nonce: string
-      try {
-        switch (payMethod) {
-          case 'apple':
-            nonce = await startApplePayPayment(priceDollars)
-            break
-          case 'google':
-            nonce = await startGooglePayPayment(priceDollars)
-            break
-          case 'card':
-          default:
-            nonce = await startCardPayment()
-            break
+      // Optionally redeem a loyalty reward before charging. Square
+      // discounts the order server-side and returns the new total so
+      // the payment nonce matches the post-discount amount.
+      let amountCents = total
+      if (useReward && canRedeem && orderCustomerId) {
+        const redeemRes = await apiFetch<{
+          ok: boolean
+          updatedAmountCents?: string
+          error?: string
+        }>('/api/loyalty/redeem', {
+          method: 'POST',
+          body: JSON.stringify({
+            customerId: orderCustomerId,
+            phone: formattedPhone,
+            orderId,
+          }),
+        })
+        if (!redeemRes.ok) {
+          throw new Error(redeemRes.error ?? 'Could not redeem reward')
         }
-      } catch (sdkErr) {
-        // User cancelled or SDK error — don't show as payment failure
-        const msg = sdkErr instanceof Error ? sdkErr.message : String(sdkErr)
-        if (msg.includes('cancelled') || msg.includes('canceled')) {
-          setProcessing(false)
-          return
+        if (typeof redeemRes.updatedAmountCents === 'string') {
+          amountCents = Number(redeemRes.updatedAmountCents)
         }
-        throw sdkErr
+      }
+
+      const isFreeOrder = amountCents <= 0
+
+      // Get payment nonce from Square SDK — skip entirely for a free order.
+      let nonce: string | undefined
+      if (!isFreeOrder) {
+        const priceDollars = (amountCents / 100).toFixed(2)
+        try {
+          switch (payMethod) {
+            case 'apple':
+              nonce = await startApplePayPayment(priceDollars)
+              break
+            case 'google':
+              nonce = await startGooglePayPayment(priceDollars)
+              break
+            case 'card':
+            default:
+              nonce = await startCardPayment()
+              break
+          }
+        } catch (sdkErr) {
+          const msg = sdkErr instanceof Error ? sdkErr.message : String(sdkErr)
+          if (msg.includes('cancelled') || msg.includes('canceled')) {
+            setProcessing(false)
+            return
+          }
+          throw sdkErr
+        }
       }
 
       await AsyncStorage.setItem(PHONE_KEY, formattedPhone)
@@ -279,7 +337,7 @@ export default function CheckoutScreen() {
       const result = await pay({
         sourceId: nonce,
         orderId,
-        customerId,
+        customerId: orderCustomerId,
         phone: formattedPhone,
       })
 
@@ -307,12 +365,40 @@ export default function CheckoutScreen() {
   }
 
   const isLoading = orderLoading || payLoading || processing
+  const isLoggedIn = phoneVerified
+  const canRedeem =
+    loyaltyBalance != null &&
+    starsPerReward != null &&
+    starsPerReward > 0 &&
+    loyaltyBalance >= starsPerReward
+  const willBeFreeOrder = useReward && canRedeem && total - cheapestItemPrice(items) <= 0
 
   return (
     <View style={styles.container}>
       <ScrollView keyboardShouldPersistTaps="handled">
         <OrderSummary items={items} total={total} />
 
+        {isLoggedIn && (
+          <View style={styles.signedInBadge}>
+            <Ionicons name="person-circle" size={18} color="#15803d" />
+            <Text style={styles.signedInText} numberOfLines={1}>
+              Signed in as {name || phone}
+            </Text>
+          </View>
+        )}
+
+        {isLoggedIn && loyaltyBalance != null && starsPerReward != null && starsPerReward > 0 && (
+          <LoyaltyRewardCard
+            balance={loyaltyBalance}
+            starsPerReward={starsPerReward}
+            useReward={useReward}
+            onToggle={() => setUseReward((v) => !v)}
+            rewardDiscountCents={cheapestItemPrice(items)}
+          />
+        )}
+
+        {!isLoggedIn && (
+        <>
         {/* Name input */}
         <View style={styles.fieldSection}>
           <View style={styles.labelRow}>
@@ -377,6 +463,8 @@ export default function CheckoutScreen() {
           onCodeChange={setOtpCode}
           onResend={() => sendOtp()}
         />
+        </>
+        )}
 
         {/* Payment Method Selector */}
         <View style={styles.fieldSection}>
@@ -473,26 +561,91 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <View style={styles.payButtonContent}>
-              {payMethod === 'apple' && (
+              {willBeFreeOrder ? (
+                <Ionicons name="star" size={18} color="#fff" style={{ marginRight: 6 }} />
+              ) : payMethod === 'apple' ? (
                 <Ionicons name="logo-apple" size={20} color="#fff" style={{ marginRight: 6 }} />
-              )}
-              {payMethod === 'google' && (
+              ) : payMethod === 'google' ? (
                 <Ionicons name="logo-google" size={18} color="#fff" style={{ marginRight: 6 }} />
-              )}
-              {payMethod === 'card' && (
+              ) : (
                 <Ionicons name="card-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
               )}
               <Text style={styles.payButtonText}>
-                {payMethod === 'apple'
-                  ? 'Pay with Apple Pay'
-                  : payMethod === 'google'
-                    ? 'Pay with Google Pay'
-                    : 'Pay with Card'}
+                {willBeFreeOrder
+                  ? 'Place Free Order'
+                  : payMethod === 'apple'
+                    ? 'Pay with Apple Pay'
+                    : payMethod === 'google'
+                      ? 'Pay with Google Pay'
+                      : 'Pay with Card'}
               </Text>
             </View>
           )}
         </TouchableOpacity>
       </View>
+    </View>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Loyalty reward card                                               */
+/* ------------------------------------------------------------------ */
+
+function cheapestItemPrice(items: { price: number }[]): number {
+  if (items.length === 0) return 0
+  return items.reduce((min, it) => (it.price < min ? it.price : min), items[0].price)
+}
+
+function LoyaltyRewardCard({
+  balance,
+  starsPerReward,
+  useReward,
+  onToggle,
+  rewardDiscountCents,
+}: {
+  balance: number
+  starsPerReward: number
+  useReward: boolean
+  onToggle: () => void
+  rewardDiscountCents: number
+}) {
+  const canRedeem = balance >= starsPerReward
+  const pct = Math.min((balance / starsPerReward) * 100, 100)
+  const discountDollars = (rewardDiscountCents / 100).toFixed(2)
+  return (
+    <View style={styles.loyaltyCard}>
+      <View style={styles.loyaltyHeader}>
+        <Text style={styles.loyaltyTitle}>⭐ Loyalty Stars</Text>
+        <Text style={styles.loyaltyCount}>
+          {balance} / {starsPerReward}
+        </Text>
+      </View>
+      <View style={styles.loyaltyBarTrack}>
+        <View style={[styles.loyaltyBarFill, { width: `${pct}%` }]} />
+      </View>
+      {canRedeem ? (
+        <TouchableOpacity
+          style={[styles.rewardToggle, useReward && styles.rewardToggleActive]}
+          onPress={onToggle}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.checkbox, useReward && styles.checkboxActive]}>
+            {useReward && <Ionicons name="checkmark" size={14} color="#fff" />}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rewardToggleTitle}>
+              Redeem free drink reward
+            </Text>
+            <Text style={styles.rewardToggleSub}>
+              Save A${discountDollars} on this order
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.loyaltyHint}>
+          {starsPerReward - balance} more ⭐ for a free drink
+        </Text>
+      )}
     </View>
   )
 }
@@ -610,6 +763,77 @@ const styles = StyleSheet.create({
   fieldInputError: {
     borderColor: '#f87171',
   },
+  signedInBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 12,
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  signedInText: { fontSize: 14, fontWeight: '600', color: '#15803d', flex: 1 },
+  // Loyalty reward card
+  loyaltyCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: BRAND.accentColor,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  loyaltyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  loyaltyTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  loyaltyCount: { fontSize: 14, fontWeight: '700', color: BRAND.color },
+  loyaltyBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    overflow: 'hidden',
+  },
+  loyaltyBarFill: {
+    height: '100%',
+    backgroundColor: BRAND.color,
+    borderRadius: 4,
+  },
+  loyaltyHint: { fontSize: 12, color: '#8a8076', textAlign: 'center', marginTop: 2 },
+  rewardToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+  },
+  rewardToggleActive: {
+    borderColor: BRAND.color,
+    backgroundColor: '#fff',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#ccc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxActive: {
+    backgroundColor: BRAND.color,
+    borderColor: BRAND.color,
+  },
+  rewardToggleTitle: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
+  rewardToggleSub: { fontSize: 12, color: BRAND.color, marginTop: 2, fontWeight: '600' },
   // OTP verified badge
   verifiedBadge: {
     flexDirection: 'row',

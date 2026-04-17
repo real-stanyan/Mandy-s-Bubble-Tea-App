@@ -1,25 +1,34 @@
 import { Platform } from 'react-native'
-import {
-  SQIPCore,
-  SQIPCardEntry,
-  SQIPApplePay,
-  SQIPGooglePay,
-  GooglePayEnvironment,
-  GooglePayPriceStatus,
-  PaymentType,
-  ApplePayNonceSuccessState,
-  type CardDetails,
-  type ErrorDetails,
-} from 'react-native-square-in-app-payments'
+import Constants from 'expo-constants'
 
 const SQUARE_APP_ID = 'sq0idp-1IOAOYqjBpdqlMPwxWpqXA'
 const SQUARE_LOCATION_ID = 'LFS3V7YRVTGTK'
 const APPLE_MERCHANT_ID = 'merchant.com.mandysbubbletea.app'
 
+// Expo Go 不含原生模块。在 Expo Go 里 require 会 throw,需要在 dev build / production build 里使用。
+const isExpoGo = Constants.appOwnership === 'expo'
+
+type SquareModule = typeof import('react-native-square-in-app-payments')
+let sqip: SquareModule | null = null
+
+function loadSqip(): SquareModule {
+  if (sqip) return sqip
+  if (isExpoGo) {
+    throw new Error(
+      'Square payments 需要 dev build,Expo Go 不支持。请运行 `eas build --profile development` 并用该 build 打开。'
+    )
+  }
+  // 动态 require,避免在 Expo Go 解析模块时 crash
+  sqip = require('react-native-square-in-app-payments') as SquareModule
+  return sqip
+}
+
 let initialized = false
 
 export function initSquarePayments() {
   if (initialized) return
+  if (isExpoGo) return // Expo Go 下静默跳过,避免启动就 crash
+  const { SQIPCore, SQIPApplePay, SQIPGooglePay, GooglePayEnvironment } = loadSqip()
   SQIPCore.setSquareApplicationId(SQUARE_APP_ID)
   if (Platform.OS === 'android') {
     SQIPGooglePay.initializeGooglePay(
@@ -36,8 +45,9 @@ export function initSquarePayments() {
 /** Check if Apple Pay is available on this device */
 export async function canUseApplePay(): Promise<boolean> {
   if (Platform.OS !== 'ios') return false
+  if (isExpoGo) return false
   try {
-    return await SQIPApplePay.canUseApplePay()
+    return await loadSqip().SQIPApplePay.canUseApplePay()
   } catch {
     return false
   }
@@ -46,8 +56,9 @@ export async function canUseApplePay(): Promise<boolean> {
 /** Check if Google Pay is available on this device */
 export async function canUseGooglePay(): Promise<boolean> {
   if (Platform.OS !== 'android') return false
+  if (isExpoGo) return false
   try {
-    return await SQIPGooglePay.canUseGooglePay()
+    return await loadSqip().SQIPGooglePay.canUseGooglePay()
   } catch {
     return false
   }
@@ -58,9 +69,10 @@ export async function canUseGooglePay(): Promise<boolean> {
  */
 export function startCardPayment(): Promise<string> {
   return new Promise((resolve, reject) => {
+    const { SQIPCardEntry } = loadSqip()
     SQIPCardEntry.startCardEntryFlow(
       false, // don't collect postal code (AU)
-      async (cardDetails: CardDetails) => {
+      async (cardDetails) => {
         if (cardDetails.nonce) {
           return { success: true, onCardEntryComplete: () => resolve(cardDetails.nonce!) }
         }
@@ -79,6 +91,7 @@ export function startCardPayment(): Promise<string> {
  */
 export function startApplePayPayment(priceDollars: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    const { SQIPApplePay, PaymentType, ApplePayNonceSuccessState } = loadSqip()
     SQIPApplePay.requestApplePayNonce(
       {
         price: priceDollars,
@@ -87,7 +100,7 @@ export function startApplePayPayment(priceDollars: string): Promise<string> {
         currencyCode: 'AUD',
         paymentType: PaymentType.PaymentTypeFinal,
       },
-      async (cardDetails: CardDetails) => {
+      async (cardDetails) => {
         if (cardDetails.nonce) {
           resolve(cardDetails.nonce)
           return { state: ApplePayNonceSuccessState.Succeeded }
@@ -97,7 +110,7 @@ export function startApplePayPayment(priceDollars: string): Promise<string> {
           errorMessage: 'No nonce returned',
         }
       },
-      (error: ErrorDetails) => {
+      (error) => {
         reject(new Error(error.message || 'Apple Pay failed'))
       },
       (status, errorMessage) => {
@@ -117,20 +130,21 @@ export function startApplePayPayment(priceDollars: string): Promise<string> {
  */
 export function startGooglePayPayment(priceDollars: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    const { SQIPGooglePay, GooglePayPriceStatus } = loadSqip()
     SQIPGooglePay.requestGooglePayNonce(
       {
         price: priceDollars,
         currencyCode: 'AUD',
         priceStatus: GooglePayPriceStatus.TotalPriceStatusFinal,
       },
-      (cardDetails: CardDetails) => {
+      (cardDetails) => {
         if (cardDetails.nonce) {
           resolve(cardDetails.nonce)
         } else {
           reject(new Error('No nonce returned'))
         }
       },
-      (error: ErrorDetails) => {
+      (error) => {
         reject(new Error(error.message || 'Google Pay failed'))
       },
       () => {
@@ -139,3 +153,5 @@ export function startGooglePayPayment(priceDollars: string): Promise<string> {
     )
   })
 }
+
+export { isExpoGo }
