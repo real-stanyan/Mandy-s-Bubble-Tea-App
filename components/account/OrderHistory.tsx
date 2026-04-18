@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native'
-import { useRouter } from 'expo-router'
+import { usePathname, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { BRAND } from '@/lib/constants'
 import { useCartStore } from '@/store/cart'
@@ -59,10 +59,13 @@ function parseFirstName(summary: string): string {
 
 interface Props {
   orders: OrderHistoryItem[]
+  title?: string
+  hideIfEmpty?: boolean
 }
 
-export function OrderHistory({ orders }: Props) {
+export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = false }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
   const replaceCart = useCartStore((s) => s.clearCart)
   const addItem = useCartStore((s) => s.addItem)
   const [imageByName, setImageByName] = useState<Record<string, string>>({})
@@ -81,6 +84,7 @@ export function OrderHistory({ orders }: Props) {
   }, [])
 
   if (orders.length === 0) {
+    if (hideIfEmpty) return null
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="receipt-outline" size={32} color="#ccc" />
@@ -90,6 +94,9 @@ export function OrderHistory({ orders }: Props) {
   }
 
   const goToDetail = (order: OrderHistoryItem) => {
+    // `from` drives order-detail's back-button label so it reads
+    // "My Orders" vs "Account" depending on where we came from.
+    const from = pathname === '/order' ? 'orders' : 'account'
     router.push({
       pathname: '/order-detail',
       params: {
@@ -100,6 +107,7 @@ export function OrderHistory({ orders }: Props) {
         totalCents: order.totalCents,
         itemSummary: order.itemSummary,
         lineCount: String(order.lineCount),
+        from,
       },
     })
   }
@@ -120,7 +128,7 @@ export function OrderHistory({ orders }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.heading}>Recent Orders</Text>
+        <Text style={styles.heading}>{title}</Text>
       </View>
 
       {orders.map((order) => {
