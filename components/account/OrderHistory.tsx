@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import { usePathname, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -10,6 +10,30 @@ import type {
   OrderHistoryItem,
   OrderHistoryLine,
 } from '@/hooks/use-order-history'
+
+// Module-level single-flight + in-memory cache for the catalog-name ->
+// image-url map. OrderHistory is mounted on two tabs (Account + My
+// Orders) and we don't want each mount to refetch /api/catalog (~1MB).
+let catalogImageMap: Record<string, string> | null = null
+let catalogFetchInFlight: Promise<Record<string, string>> | null = null
+function fetchCatalogImageMap(): Promise<Record<string, string>> {
+  if (catalogImageMap) return Promise.resolve(catalogImageMap)
+  if (catalogFetchInFlight) return catalogFetchInFlight
+  catalogFetchInFlight = apiFetch<{ items: CatalogItem[] }>('/api/catalog')
+    .then((data) => {
+      const map: Record<string, string> = {}
+      for (const item of data.items ?? []) {
+        const name = item.itemData?.name
+        if (name && item.imageUrl) map[name] = item.imageUrl
+      }
+      catalogImageMap = map
+      return map
+    })
+    .finally(() => {
+      catalogFetchInFlight = null
+    })
+  return catalogFetchInFlight
+}
 
 const STATE_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   COMPLETED: { label: 'COMPLETED', color: '#6b7260', bg: '#eae7dc' },
@@ -68,20 +92,60 @@ export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = fa
   const pathname = usePathname()
   const replaceCart = useCartStore((s) => s.clearCart)
   const addItem = useCartStore((s) => s.addItem)
-  const [imageByName, setImageByName] = useState<Record<string, string>>({})
+  const [imageByName, setImageByName] = useState<Record<string, string>>(
+    () => catalogImageMap ?? {},
+  )
 
   useEffect(() => {
-    apiFetch<{ items: CatalogItem[] }>('/api/catalog')
-      .then((data) => {
-        const map: Record<string, string> = {}
-        for (const item of data.items ?? []) {
-          const name = item.itemData?.name
-          if (name && item.imageUrl) map[name] = item.imageUrl
-        }
-        setImageByName(map)
+    if (catalogImageMap) return
+    let cancelled = false
+    fetchCatalogImageMap()
+      .then((map) => {
+        if (!cancelled) setImageByName(map)
       })
       .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [])
+
+  const goToDetail = useCallback(
+    (order: OrderHistoryItem) => {
+      // `from` drives order-detail's back-button label so it reads
+      // "My Orders" vs "Account" depending on where we came from.
+      const from = pathname === '/order' ? 'orders' : 'account'
+      router.push({
+        pathname: '/order-detail',
+        params: {
+          orderId: order.id,
+          referenceId: order.referenceId ?? '',
+          createdAt: order.createdAt ?? '',
+          state: order.state ?? '',
+          totalCents: order.totalCents,
+          itemSummary: order.itemSummary,
+          lineCount: String(order.lineCount),
+          from,
+        },
+      })
+    },
+    [pathname, router],
+  )
+
+  const handleReorder = useCallback(
+    (order: OrderHistoryItem) => {
+      const usable = order.lineItems.filter((l) => l.variationId)
+      if (usable.length === 0) {
+        Alert.alert('Unavailable', 'These items are no longer available.')
+        return
+      }
+      replaceCart()
+      for (const line of usable) {
+        addItemLine(addItem, line)
+      }
+      router.push('/checkout')
+    },
+    [replaceCart, addItem, router],
+  )
 
   if (orders.length === 0) {
     if (hideIfEmpty) return null
@@ -93,113 +157,102 @@ export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = fa
     )
   }
 
-  const goToDetail = (order: OrderHistoryItem) => {
-    // `from` drives order-detail's back-button label so it reads
-    // "My Orders" vs "Account" depending on where we came from.
-    const from = pathname === '/order' ? 'orders' : 'account'
-    router.push({
-      pathname: '/order-detail',
-      params: {
-        orderId: order.id,
-        referenceId: order.referenceId ?? '',
-        createdAt: order.createdAt ?? '',
-        state: order.state ?? '',
-        totalCents: order.totalCents,
-        itemSummary: order.itemSummary,
-        lineCount: String(order.lineCount),
-        from,
-      },
-    })
-  }
-
-  const handleReorder = (order: OrderHistoryItem) => {
-    const usable = order.lineItems.filter((l) => l.variationId)
-    if (usable.length === 0) {
-      Alert.alert('Unavailable', 'These items are no longer available.')
-      return
-    }
-    replaceCart()
-    for (const line of usable) {
-      addItemLine(addItem, line)
-    }
-    router.push('/checkout')
-  }
-
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.heading}>{title}</Text>
       </View>
 
-      {orders.map((order) => {
-        const stateKey = effectiveState(order.state, order.fulfillmentState)
-        const stateInfo = STATE_STYLES[stateKey] ?? {
-          label: stateKey || 'UNKNOWN',
-          color: '#555',
-          bg: '#eee',
-        }
-        const isCompleted = stateKey === 'COMPLETED'
-        const firstName = order.firstItemName || parseFirstName(order.itemSummary)
-        const thumb = order.firstItemImageUrl ?? imageByName[firstName] ?? null
-        const subtitle = `${order.lineCount} Item${order.lineCount !== 1 ? 's' : ''} · ${formatDateTime(order.createdAt)}`
-
-        return (
-          <TouchableOpacity
-            key={order.id}
-            style={styles.card}
-            onPress={() => goToDetail(order)}
-            activeOpacity={0.85}
-          >
-            {thumb ? (
-              <Image source={{ uri: thumb }} style={styles.thumb} />
-            ) : (
-              <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                <Text style={{ fontSize: 22 }}>🧋</Text>
-              </View>
-            )}
-
-            <View style={styles.middle}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {firstName || 'Order'}
-                </Text>
-                <View style={[styles.badge, { backgroundColor: stateInfo.bg }]}>
-                  <Text style={[styles.badgeText, { color: stateInfo.color }]}>
-                    {stateInfo.label}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.subtitle} numberOfLines={1}>
-                {subtitle}
-              </Text>
-              <Text style={styles.price}>{formatCents(order.totalCents)}</Text>
-            </View>
-
-            <View style={styles.actions}>
-              {isCompleted ? (
-                <TouchableOpacity
-                  style={styles.primaryBtn}
-                  onPress={() => handleReorder(order)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.primaryBtnText}>Reorder</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.secondaryBtn}
-                  onPress={() => goToDetail(order)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.secondaryBtnText}>Track</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </TouchableOpacity>
-        )
-      })}
+      {orders.map((order) => (
+        <OrderCardRow
+          key={order.id}
+          order={order}
+          imageByName={imageByName}
+          onOpen={goToDetail}
+          onReorder={handleReorder}
+        />
+      ))}
     </View>
   )
 }
+
+interface OrderCardProps {
+  order: OrderHistoryItem
+  imageByName: Record<string, string>
+  onOpen: (order: OrderHistoryItem) => void
+  onReorder: (order: OrderHistoryItem) => void
+}
+
+const OrderCardRow = memo(function OrderCardRow({
+  order,
+  imageByName,
+  onOpen,
+  onReorder,
+}: OrderCardProps) {
+  const stateKey = effectiveState(order.state, order.fulfillmentState)
+  const stateInfo = STATE_STYLES[stateKey] ?? {
+    label: stateKey || 'UNKNOWN',
+    color: '#555',
+    bg: '#eee',
+  }
+  const isCompleted = stateKey === 'COMPLETED'
+  const firstName = order.firstItemName || parseFirstName(order.itemSummary)
+  const thumb = order.firstItemImageUrl ?? imageByName[firstName] ?? null
+  const subtitle = `${order.lineCount} Item${order.lineCount !== 1 ? 's' : ''} · ${formatDateTime(order.createdAt)}`
+
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onOpen(order)}
+      activeOpacity={0.85}
+    >
+      {thumb ? (
+        <Image source={{ uri: thumb }} style={styles.thumb} />
+      ) : (
+        <View style={[styles.thumb, styles.thumbPlaceholder]}>
+          <Text style={{ fontSize: 22 }}>🧋</Text>
+        </View>
+      )}
+
+      <View style={styles.middle}>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {firstName || 'Order'}
+          </Text>
+          <View style={[styles.badge, { backgroundColor: stateInfo.bg }]}>
+            <Text style={[styles.badgeText, { color: stateInfo.color }]}>
+              {stateInfo.label}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+        <Text style={styles.price}>{formatCents(order.totalCents)}</Text>
+      </View>
+
+      <View style={styles.actions}>
+        {isCompleted ? (
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={() => onReorder(order)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryBtnText}>Reorder</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => onOpen(order)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.secondaryBtnText}>Track</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </TouchableOpacity>
+  )
+})
 
 function addItemLine(
   add: ReturnType<typeof useCartStore.getState>['addItem'],

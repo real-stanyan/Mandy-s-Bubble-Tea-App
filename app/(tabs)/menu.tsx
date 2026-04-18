@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback } from 'react'
+import { memo, useMemo, useRef, useState, useCallback } from 'react'
 import {
   View,
   ScrollView,
@@ -224,7 +224,7 @@ export default function MenuScreen() {
   )
 }
 
-function CategorySection({
+const CategorySection = memo(function CategorySection({
   category,
   items,
   onLayoutY,
@@ -247,9 +247,9 @@ function CategorySection({
       ))}
     </View>
   )
-}
+})
 
-function ProductRow({ item }: { item: CatalogItem }) {
+const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
   const addItem = useCartStore((s) => s.addItem)
   const name = item.itemData?.name ?? 'Unknown'
   const firstVariation = item.itemData?.variations?.[0]
@@ -333,7 +333,7 @@ function ProductRow({ item }: { item: CatalogItem }) {
       </TouchableOpacity>
     </TouchableOpacity>
   )
-}
+})
 
 const styles = StyleSheet.create({
   root: {

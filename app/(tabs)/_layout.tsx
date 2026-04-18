@@ -4,13 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { BRAND, STORAGE_KEYS } from '@/lib/constants';
-import { isUnfinished, useOrdersStore } from '@/store/orders';
+import { useOrdersStore } from '@/store/orders';
 
 export default function TabLayout() {
   const refreshOrders = useOrdersStore((s) => s.refresh);
-  const unfinishedCount = useOrdersStore(
-    (s) => s.orders.filter(isUnfinished).length,
-  );
+  const unfinishedCount = useOrdersStore((s) => s.activeOrderCount);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.phone).then((saved) => {

@@ -42,12 +42,20 @@ export function isUnfinished(order: Pick<OrderHistoryItem, 'state'>): boolean {
 
 interface OrdersState {
   orders: OrderHistoryItem[]
+  // Cached count of unfinished orders (state === 'OPEN'). Derived fields
+  // live on state so subscribers (tab badge, etc.) don't have to filter
+  // on every render — zustand skips re-render when the scalar is stable.
+  activeOrderCount: number
   phone: string | null
   customerId: string | null
   loading: boolean
   error: string | null
   refresh: (phone?: string | null) => Promise<void>
   clear: () => void
+}
+
+function withActiveCount(orders: OrderHistoryItem[]) {
+  return { orders, activeOrderCount: orders.filter(isUnfinished).length }
 }
 
 // De-duplicate concurrent refreshes: two screens can both fire one on
@@ -58,6 +66,7 @@ let inFlight: Promise<void> | null = null
 
 export const useOrdersStore = create<OrdersState>((set, get) => ({
   orders: [],
+  activeOrderCount: 0,
   phone: null,
   customerId: null,
   loading: false,
@@ -69,7 +78,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
       set({ phone: phoneArg, customerId: null })
     }
     if (!nextPhone) {
-      set({ orders: [], customerId: null, error: null })
+      set({ ...withActiveCount([]), customerId: null, error: null })
       return Promise.resolve()
     }
     if (inFlight) return inFlight
@@ -85,7 +94,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
           body: JSON.stringify({ phone: nextPhone }),
         })
         if (!customerRes.found || !customerRes.customerId) {
-          set({ orders: [], customerId: null })
+          set({ ...withActiveCount([]), customerId: null })
           return
         }
         set({ customerId: customerRes.customerId })
@@ -96,7 +105,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
           method: 'POST',
           body: JSON.stringify({ customerId: customerRes.customerId }),
         })
-        set({ orders: historyRes.orders ?? [] })
+        set(withActiveCount(historyRes.orders ?? []))
       } catch (e) {
         set({ error: e instanceof Error ? e.message : 'Failed to load orders' })
       } finally {
@@ -107,5 +116,11 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     return inFlight
   },
 
-  clear: () => set({ orders: [], phone: null, customerId: null, error: null }),
+  clear: () =>
+    set({
+      ...withActiveCount([]),
+      phone: null,
+      customerId: null,
+      error: null,
+    }),
 }))
