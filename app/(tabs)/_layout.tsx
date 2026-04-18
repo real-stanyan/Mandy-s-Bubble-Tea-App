@@ -1,9 +1,23 @@
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { BRAND } from '@/lib/constants';
+import { BRAND, STORAGE_KEYS } from '@/lib/constants';
+import { isUnfinished, useOrdersStore } from '@/store/orders';
 
 export default function TabLayout() {
+  const refreshOrders = useOrdersStore((s) => s.refresh);
+  const unfinishedCount = useOrdersStore(
+    (s) => s.orders.filter(isUnfinished).length,
+  );
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEYS.phone).then((saved) => {
+      refreshOrders(saved ?? null);
+    });
+  }, [refreshOrders]);
+
   return (
     <Tabs
       screenOptions={{
@@ -41,6 +55,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="receipt-outline" size={size} color={color} />
           ),
+          tabBarBadge: unfinishedCount > 0 ? unfinishedCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: BRAND.color,
+            color: '#fff',
+            fontSize: 11,
+            fontWeight: '700',
+          },
         }}
       />
       <Tabs.Screen

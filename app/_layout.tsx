@@ -1,13 +1,14 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { TouchableOpacity } from 'react-native';
+import { Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import 'react-native-reanimated';
 import { ItemDetailSheet } from '@/components/menu/ItemDetailSheet';
 import { CartSheet } from '@/components/cart/CartSheet';
+import { useReadyVibration } from '@/hooks/use-ready-vibration';
 
 const LightTheme = {
   ...DefaultTheme,
@@ -22,6 +23,7 @@ const LightTheme = {
 };
 
 export default function RootLayout() {
+  useReadyVibration();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
@@ -47,7 +49,37 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="order-detail"
-              options={{ headerShown: true, title: 'Order Detail', headerBackTitle: 'Account' }}
+              options={({ route }) => {
+                const from = (route.params as { from?: string } | undefined)?.from
+                const label = from === 'orders' ? 'My Orders' : 'Account'
+                const fallback = from === 'orders' ? '/(tabs)/order' : '/(tabs)/account'
+                return {
+                  headerShown: true,
+                  title: 'Order Detail',
+                  headerBackVisible: false,
+                  headerLeft: () => (
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.canGoBack() ? router.back() : router.replace(fallback)
+                      }
+                      hitSlop={12}
+                      style={{
+                        paddingHorizontal: 4,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={26} color="#11181C" />
+                      <Text style={{ fontSize: 17, color: '#11181C' }}>{label}</Text>
+                    </TouchableOpacity>
+                  ),
+                }
+              }}
+            />
+            <Stack.Screen
+              name="promotions"
+              options={{ headerShown: true, title: 'Promotions', headerBackTitle: 'Account' }}
             />
             <Stack.Screen
               name="order-confirmation"

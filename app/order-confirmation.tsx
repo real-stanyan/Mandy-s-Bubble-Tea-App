@@ -17,7 +17,28 @@ import { Ionicons } from '@expo/vector-icons'
 import { BRAND, LOYALTY } from '@/lib/constants'
 import { useLoyalty } from '@/hooks/use-loyalty'
 import { apiFetch } from '@/lib/api'
-import type { CartItem } from '@/types/square'
+import { useOrdersStore } from '@/store/orders'
+import type { CartItem, CartModifier } from '@/types/square'
+
+function groupModifiers(mods: CartModifier[]): Array<{ listName: string; names: string[] }> {
+  const byList = new Map<string, string[]>()
+  for (const m of mods) {
+    const key = m.listName || 'OTHER'
+    const arr = byList.get(key) ?? []
+    arr.push(m.name)
+    byList.set(key, arr)
+  }
+  return Array.from(byList.entries()).map(([listName, names]) => ({ listName, names }))
+}
+
+function titleCase(s: string): string {
+  if (!s) return ''
+  return s
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
 
 type FulfillmentState = 'PROPOSED' | 'RESERVED' | 'PREPARED' | 'COMPLETED' | 'CANCELED' | 'FAILED'
 
@@ -94,7 +115,10 @@ export default function OrderConfirmationScreen() {
     })
 
     AsyncStorage.getItem(PHONE_KEY).then((p) => {
-      if (p) setPhone(p)
+      if (p) {
+        setPhone(p)
+        useOrdersStore.getState().refresh(p)
+      }
     })
   }, [])
 
@@ -117,6 +141,10 @@ export default function OrderConfirmationScreen() {
           // Haptic feedback on meaningful state changes
           if (data.state === 'PREPARED') {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+          }
+          // Refresh global orders so tab badge + history reflect terminal changes
+          if (TERMINAL_STATES.has(data.state)) {
+            useOrdersStore.getState().refresh()
           }
         }
       } catch { /* retry next tick */ }
@@ -250,14 +278,15 @@ export default function OrderConfirmationScreen() {
                 <Text style={styles.itemName} numberOfLines={1}>
                   {item.name}
                 </Text>
-                {item.variationName ? (
-                  <Text style={styles.itemVariation}>{item.variationName}</Text>
-                ) : null}
-                {(item.modifiers ?? []).length > 0 ? (
-                  <Text style={styles.itemVariation} numberOfLines={2}>
-                    {(item.modifiers ?? []).map((m) => m.name).join(', ')}
+                <Text style={styles.itemVariation} numberOfLines={1}>
+                  <Text style={styles.itemVariationLabel}>Size:</Text> Large 700ml
+                </Text>
+                {groupModifiers(item.modifiers ?? []).map((g) => (
+                  <Text key={g.listName} style={styles.itemVariation} numberOfLines={2}>
+                    <Text style={styles.itemVariationLabel}>{titleCase(g.listName)}:</Text>{' '}
+                    {g.names.join(', ')}
                   </Text>
-                ) : null}
+                ))}
               </View>
               <Text style={styles.itemQty}>{item.quantity}x</Text>
             </View>
@@ -544,7 +573,8 @@ const styles = StyleSheet.create({
   },
   itemInfo: { flex: 1, gap: 2 },
   itemName: { fontSize: 15, fontWeight: '500' },
-  itemVariation: { fontSize: 13, color: '#888' },
+  itemVariation: { fontSize: 13, color: '#888', lineHeight: 17 },
+  itemVariationLabel: { color: '#aaa', fontWeight: '600' },
   itemQty: {
     fontSize: 15,
     fontWeight: '600',
