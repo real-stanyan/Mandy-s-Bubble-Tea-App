@@ -12,6 +12,7 @@ interface PaymentResult {
   ok: boolean
   paymentId?: string
   loyaltyAccrued?: boolean
+  welcomeDiscountConsumed?: boolean
   payment?: unknown
 }
 

@@ -5,9 +5,12 @@ import type { CartItem } from '@/types/square'
 interface Props {
   items: CartItem[]
   total: number
+  welcomeDiscount?: { amountCents: number; percentage: number } | null
 }
 
-export function OrderSummary({ items, total }: Props) {
+export function OrderSummary({ items, total, welcomeDiscount }: Props) {
+  const discountAmount = welcomeDiscount?.amountCents ?? 0
+  const discountedTotal = Math.max(total - discountAmount, 0)
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Order Summary</Text>
@@ -40,9 +43,25 @@ export function OrderSummary({ items, total }: Props) {
         </View>
       ))}
       <View style={styles.divider} />
+      {welcomeDiscount && discountAmount > 0 ? (
+        <>
+          <View style={styles.subRow}>
+            <Text style={styles.subLabel}>Subtotal</Text>
+            <Text style={styles.subValue}>{formatPrice(total)}</Text>
+          </View>
+          <View style={styles.subRow}>
+            <Text style={styles.discountLabel}>
+              Welcome {welcomeDiscount.percentage}% Off
+            </Text>
+            <Text style={styles.discountValue}>
+              −{formatPrice(discountAmount)}
+            </Text>
+          </View>
+        </>
+      ) : null}
       <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>Total</Text>
-        <Text style={styles.totalValue}>{formatPrice(total)}</Text>
+        <Text style={styles.totalValue}>{formatPrice(discountedTotal)}</Text>
       </View>
     </View>
   )
@@ -85,4 +104,14 @@ const styles = StyleSheet.create({
   },
   totalLabel: { flex: 1, fontSize: 18, fontWeight: '600' },
   totalValue: { fontSize: 20, fontWeight: '700' },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  subLabel: { fontSize: 14, color: '#666' },
+  subValue: { fontSize: 14, color: '#333', fontWeight: '500' },
+  discountLabel: { fontSize: 14, color: '#15803d', fontWeight: '600' },
+  discountValue: { fontSize: 14, color: '#15803d', fontWeight: '700' },
 })

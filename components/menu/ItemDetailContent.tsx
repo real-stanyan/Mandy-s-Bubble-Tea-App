@@ -192,9 +192,22 @@ export function ItemDetailContent({
             <Text style={styles.description}>{item.itemData.description}</Text>
           ) : null}
 
+          {/* Size — single fixed option, matches web. Actual variation
+              selection (when >1) uses its own section below. */}
+          <View style={styles.modifierSection}>
+            <Text style={styles.sectionTitle}>Size</Text>
+            <View style={styles.pillRow}>
+              <View style={[styles.pill, styles.pillDisabled]}>
+                <Text style={[styles.pillText, styles.pillTextDisabled]}>
+                  Large 700ml
+                </Text>
+              </View>
+            </View>
+          </View>
+
           {variations.length > 1 ? (
             <View style={styles.modifierSection}>
-              <Text style={styles.sectionTitle}>Size</Text>
+              <Text style={styles.sectionTitle}>Select Size</Text>
               <View style={styles.pillRow}>
                 {variations.map((v) => {
                   const active = v.id === selectedVariation?.id

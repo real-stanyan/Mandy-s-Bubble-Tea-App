@@ -44,9 +44,9 @@ export function CartItemRow({ item }: Props) {
       )}
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-        {item.variationName ? (
-          <Text style={styles.variation}>{item.variationName}</Text>
-        ) : null}
+        <Text style={styles.modifier} numberOfLines={1}>
+          <Text style={styles.modifierLabel}>Size:</Text> Large 700ml
+        </Text>
         {modifierGroups.map((g) => (
           <Text key={g.listName} style={styles.modifier} numberOfLines={2}>
             <Text style={styles.modifierLabel}>{titleCase(g.listName)}:</Text>{' '}
@@ -91,7 +91,6 @@ const styles = StyleSheet.create({
   },
   info: { flex: 1, gap: 2 },
   name: { fontSize: 16, fontWeight: '500' },
-  variation: { fontSize: 13, color: '#888' },
   modifier: { fontSize: 12, color: '#666', lineHeight: 16 },
   modifierLabel: { color: '#999', fontWeight: '600' },
   price: { fontSize: 14, fontWeight: '500', color: '#333', marginTop: 2 },

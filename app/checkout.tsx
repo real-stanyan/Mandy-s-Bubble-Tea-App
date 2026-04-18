@@ -5,9 +5,7 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
-  Platform,
   StyleSheet,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -19,8 +17,11 @@ import { usePayment } from '@/hooks/use-payment'
 import { formatAUPhone } from '@/lib/utils'
 import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { OtpInput } from '@/components/checkout/OtpInput'
-import { BRAND, STORAGE_KEYS } from '@/lib/constants'
+import { LoyaltyCard } from '@/components/account/LoyaltyCard'
+import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
+import { BRAND, LOYALTY, STORAGE_KEYS } from '@/lib/constants'
 import { apiFetch } from '@/lib/api'
+import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
 import { Ionicons } from '@expo/vector-icons'
 import {
   initSquarePayments,
@@ -49,7 +50,14 @@ export default function CheckoutScreen() {
   const [customerId, setCustomerId] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
   const [showFieldErrors, setShowFieldErrors] = useState(false)
+
+  // Welcome discount (new-user 30% off)
+  const welcomeAvailable = useWelcomeDiscountStore((s) => s.available)
+  const welcomePercentage = useWelcomeDiscountStore((s) => s.percentage)
+  const refreshWelcome = useWelcomeDiscountStore((s) => s.refresh)
+  const markWelcomeConsumed = useWelcomeDiscountStore((s) => s.markConsumed)
 
   // Payment method state
   type PayMethod = 'card' | 'apple' | 'google'
@@ -88,6 +96,7 @@ export default function CheckoutScreen() {
           hasPhone = true
           lookupCustomer(savedPhone)
           fetchLoyalty(savedPhone)
+          refreshWelcome(savedPhone)
         }
       } catch { /* noop */ }
       try {
@@ -112,6 +121,7 @@ export default function CheckoutScreen() {
     } catch (e) {
       console.warn('Square SDK init failed:', e)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Resend timer countdown
@@ -151,13 +161,8 @@ export default function CheckoutScreen() {
         account: { id: string; balance: number } | null
         starsPerReward?: number
       }>(`/api/loyalty/account?phone=${encodeURIComponent(phoneVal)}`)
-      if (res.account) {
-        setLoyaltyBalance(res.account.balance)
-        if (res.starsPerReward) setStarsPerReward(res.starsPerReward)
-      } else {
-        setLoyaltyBalance(0)
-        if (res.starsPerReward) setStarsPerReward(res.starsPerReward)
-      }
+      setLoyaltyBalance(res.account ? res.account.balance : 0)
+      setStarsPerReward(res.starsPerReward ?? LOYALTY.starsForReward)
     } catch { /* noop */ }
   }
 
@@ -233,6 +238,8 @@ export default function CheckoutScreen() {
       setOtpPhone(null)
       setOtpCode('')
       void lookupCustomer(verifiedPhone)
+      void fetchLoyalty(verifiedPhone)
+      void refreshWelcome(verifiedPhone)
     } catch (err) {
       // 401 = wrong code
       if (err instanceof Error && err.message.includes('401')) {
@@ -269,6 +276,12 @@ export default function CheckoutScreen() {
 
     setProcessing(true)
     setError(null)
+    setPaymentError(null)
+
+    // Loyalty reward (line-level) beats welcome (order-level) in display —
+    // only pass the welcome flag when the user isn't redeeming a reward, so
+    // the totals shown at checkout match what Square actually charges.
+    const useWelcome = welcomeAvailable && !(useReward && canRedeem)
 
     try {
       const formattedPhone = formatAUPhone(phone.trim())
@@ -276,12 +289,19 @@ export default function CheckoutScreen() {
         items,
         name: name.trim() || 'Customer',
         phone: formattedPhone,
+        applyWelcomeDiscount: useWelcome,
       })
 
       // Optionally redeem a loyalty reward before charging. Square
       // discounts the order server-side and returns the new total so
       // the payment nonce matches the post-discount amount.
       let amountCents = total
+      if (useWelcome) {
+        amountCents = Math.max(
+          total - Math.round((total * welcomePercentage) / 100),
+          0,
+        )
+      }
       if (useReward && canRedeem && orderCustomerId) {
         const redeemRes = await apiFetch<{
           ok: boolean
@@ -341,6 +361,10 @@ export default function CheckoutScreen() {
         phone: formattedPhone,
       })
 
+      if (result.welcomeDiscountConsumed) {
+        markWelcomeConsumed()
+      }
+
       // Save order items for confirmation page before clearing cart
       await AsyncStorage.setItem('mbt:lastOrder:items', JSON.stringify(items))
 
@@ -355,11 +379,9 @@ export default function CheckoutScreen() {
         },
       })
     } catch (e) {
-      Alert.alert(
-        'Payment Failed',
-        e instanceof Error ? e.message : 'Something went wrong. Please try again.',
-        [{ text: 'OK' }],
-      )
+      const message =
+        e instanceof Error ? e.message : 'Something went wrong. Please try again.'
+      setPaymentError(message)
     } finally {
       setProcessing(false)
     }
@@ -373,11 +395,31 @@ export default function CheckoutScreen() {
     starsPerReward > 0 &&
     loyaltyBalance >= starsPerReward
   const willBeFreeOrder = useReward && canRedeem && total - cheapestItemPrice(items) <= 0
+  const showWelcomeLine = welcomeAvailable && !(useReward && canRedeem)
+  const welcomeDiscountForSummary = showWelcomeLine
+    ? {
+        amountCents: Math.round((total * welcomePercentage) / 100),
+        percentage: welcomePercentage,
+      }
+    : null
 
   return (
     <View style={styles.container}>
+      <PaymentErrorDialog
+        visible={!!paymentError}
+        message={paymentError}
+        onCancel={() => setPaymentError(null)}
+        onRetry={() => {
+          setPaymentError(null)
+          handlePay()
+        }}
+      />
       <ScrollView keyboardShouldPersistTaps="handled">
-        <OrderSummary items={items} total={total} />
+        <OrderSummary
+          items={items}
+          total={total}
+          welcomeDiscount={welcomeDiscountForSummary}
+        />
 
         {isLoggedIn && (
           <View style={styles.signedInBadge}>
@@ -389,13 +431,25 @@ export default function CheckoutScreen() {
         )}
 
         {isLoggedIn && loyaltyBalance != null && starsPerReward != null && starsPerReward > 0 && (
-          <LoyaltyRewardCard
-            balance={loyaltyBalance}
-            starsPerReward={starsPerReward}
-            useReward={useReward}
-            onToggle={() => setUseReward((v) => !v)}
-            rewardDiscountCents={cheapestItemPrice(items)}
-          />
+          <View style={styles.loyaltyWrap}>
+            <LoyaltyCard
+              account={{
+                id: '',
+                balance: loyaltyBalance,
+                lifetimePoints: 0,
+                availableRewards: canRedeem
+                  ? [{ id: 'reward', status: 'AVAILABLE' }]
+                  : [],
+              }}
+            />
+            {canRedeem && (
+              <RedeemToggle
+                useReward={useReward}
+                onToggle={() => setUseReward((v) => !v)}
+                rewardDiscountCents={cheapestItemPrice(items)}
+              />
+            )}
+          </View>
         )}
 
         {!isLoggedIn && (
@@ -597,57 +651,32 @@ function cheapestItemPrice(items: { price: number }[]): number {
   return items.reduce((min, it) => (it.price < min ? it.price : min), items[0].price)
 }
 
-function LoyaltyRewardCard({
-  balance,
-  starsPerReward,
+function RedeemToggle({
   useReward,
   onToggle,
   rewardDiscountCents,
 }: {
-  balance: number
-  starsPerReward: number
   useReward: boolean
   onToggle: () => void
   rewardDiscountCents: number
 }) {
-  const canRedeem = balance >= starsPerReward
-  const pct = Math.min((balance / starsPerReward) * 100, 100)
   const discountDollars = (rewardDiscountCents / 100).toFixed(2)
   return (
-    <View style={styles.loyaltyCard}>
-      <View style={styles.loyaltyHeader}>
-        <Text style={styles.loyaltyTitle}>⭐ Loyalty Stars</Text>
-        <Text style={styles.loyaltyCount}>
-          {balance} / {starsPerReward}
+    <TouchableOpacity
+      style={[styles.rewardToggle, useReward && styles.rewardToggleActive]}
+      onPress={onToggle}
+      activeOpacity={0.8}
+    >
+      <View style={[styles.checkbox, useReward && styles.checkboxActive]}>
+        {useReward && <Ionicons name="checkmark" size={14} color="#fff" />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rewardToggleTitle}>Redeem free drink reward</Text>
+        <Text style={styles.rewardToggleSub}>
+          Save A${discountDollars} on this order
         </Text>
       </View>
-      <View style={styles.loyaltyBarTrack}>
-        <View style={[styles.loyaltyBarFill, { width: `${pct}%` }]} />
-      </View>
-      {canRedeem ? (
-        <TouchableOpacity
-          style={[styles.rewardToggle, useReward && styles.rewardToggleActive]}
-          onPress={onToggle}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.checkbox, useReward && styles.checkboxActive]}>
-            {useReward && <Ionicons name="checkmark" size={14} color="#fff" />}
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.rewardToggleTitle}>
-              Redeem free drink reward
-            </Text>
-            <Text style={styles.rewardToggleSub}>
-              Save A${discountDollars} on this order
-            </Text>
-          </View>
-        </TouchableOpacity>
-      ) : (
-        <Text style={styles.loyaltyHint}>
-          {starsPerReward - balance} more ⭐ for a free drink
-        </Text>
-      )}
-    </View>
+    </TouchableOpacity>
   )
 }
 
@@ -777,40 +806,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   signedInText: { fontSize: 14, fontWeight: '600', color: '#15803d', flex: 1 },
-  // Loyalty reward card
-  loyaltyCard: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: BRAND.accentColor,
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
+  loyaltyWrap: {
+    marginBottom: 24,
   },
-  loyaltyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  loyaltyTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
-  loyaltyCount: { fontSize: 14, fontWeight: '700', color: BRAND.color },
-  loyaltyBarTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(0,0,0,0.08)',
-    overflow: 'hidden',
-  },
-  loyaltyBarFill: {
-    height: '100%',
-    backgroundColor: BRAND.color,
-    borderRadius: 4,
-  },
-  loyaltyHint: { fontSize: 12, color: '#8a8076', textAlign: 'center', marginTop: 2 },
+  // Redeem toggle (sits below the LoyaltyCard when a reward is available)
   rewardToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 10,
-    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#ddd',
     backgroundColor: '#fff',

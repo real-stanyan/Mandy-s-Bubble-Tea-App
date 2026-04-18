@@ -6,6 +6,7 @@ interface CreateOrderParams {
   items: CartItem[]
   name: string
   phone: string
+  applyWelcomeDiscount?: boolean
 }
 
 interface CreateOrderResult {
@@ -24,7 +25,12 @@ export function useCreateOrder(): CreateOrderHook {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const createOrder = async ({ items, name, phone }: CreateOrderParams): Promise<CreateOrderResult> => {
+  const createOrder = async ({
+    items,
+    name,
+    phone,
+    applyWelcomeDiscount,
+  }: CreateOrderParams): Promise<CreateOrderResult> => {
     setLoading(true)
     setError(null)
     try {
@@ -60,6 +66,7 @@ export function useCreateOrder(): CreateOrderHook {
           recipientName: name.trim(),
           recipientPhone: phone.trim(),
           lines,
+          applyWelcomeDiscount: !!applyWelcomeDiscount,
         }),
       })
 
