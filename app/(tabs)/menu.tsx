@@ -32,6 +32,21 @@ import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 const HIGHLIGHT_OFFSET = 40
 
+const CATEGORY_BANNERS: Record<string, ReturnType<typeof require>> = {
+  milky: require('@/assets/images/categories/milky.webp'),
+  fruity: require('@/assets/images/categories/fruity.webp'),
+  specialmix: require('@/assets/images/categories/special-mix.webp'),
+  freshbrew: require('@/assets/images/categories/fresh-brew.webp'),
+  fruityblacktea: require('@/assets/images/categories/fruity-black-tea.webp'),
+  frozen: require('@/assets/images/categories/frozen.webp'),
+  cheesecream: require('@/assets/images/categories/cheese-cream.webp'),
+}
+
+function categoryBanner(name: string) {
+  const key = name.toLowerCase().replace(/[^a-z]/g, '')
+  return CATEGORY_BANNERS[key]
+}
+
 export default function MenuScreen() {
   const { items, categories, loading, error } = useMenu()
   const scrollRef = useRef<ScrollView>(null)
@@ -218,9 +233,15 @@ function CategorySection({
   items: CatalogItem[]
   onLayoutY: (y: number) => void
 }) {
+  const banner = categoryBanner(category.name)
   return (
     <View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)} style={styles.section}>
-      <Text style={styles.sectionTitle}>{category.name}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{category.name}</Text>
+        {banner ? (
+          <Image source={banner} style={styles.sectionBanner} contentFit="cover" />
+        ) : null}
+      </View>
       {items.map((item) => (
         <ProductRow key={item.id} item={item} />
       ))}
@@ -417,12 +438,27 @@ const styles = StyleSheet.create({
   section: {
     paddingTop: 16,
   },
+  sectionHeader: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: BRAND.accentColor,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(141,85,36,0.15)',
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1a1a1a',
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    color: BRAND.color,
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  sectionBanner: {
+    width: '100%',
+    height: 110,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.04)',
   },
   row: {
     flexDirection: 'row',
