@@ -6,19 +6,34 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  ImageBackground,
   useWindowDimensions,
   StyleSheet,
 } from 'react-native'
+import Animated, { LinearTransition } from 'react-native-reanimated'
 import { useFocusEffect, useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLoyalty } from '@/hooks/use-loyalty'
 import { LoyaltyCard } from '@/components/account/LoyaltyCard'
 import { HeroCarousel } from '@/components/home/HeroCarousel'
+import { WelcomeDiscountBanner } from '@/components/home/WelcomeDiscountBanner'
+import { MiniCartBar } from '@/components/cart/MiniCartBar'
+import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
 import { BRAND, STORAGE_KEYS } from '@/lib/constants'
+import type { LoyaltyAccount } from '@/types/square'
 
 const PHONE_KEY = STORAGE_KEYS.phone
 const BANNER_ASPECT = 4608 / 3712
 const CARD_OVERLAP = 56
+
+// Zero-balance fallback for newly-signed-up users whose Square loyalty
+// account hasn't materialised yet (gets created on first purchase).
+const EMPTY_LOYALTY: LoyaltyAccount = {
+  id: '',
+  balance: 0,
+  lifetimePoints: 0,
+  availableRewards: [],
+}
 
 export default function HomeScreen() {
   const router = useRouter()
@@ -27,6 +42,8 @@ export default function HomeScreen() {
   const [phone, setPhone] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(true)
   const { account, loading, refresh } = useLoyalty(phone)
+  const refreshWelcome = useWelcomeDiscountStore((s) => s.refresh)
+  const clearWelcome = useWelcomeDiscountStore((s) => s.clear)
 
   useEffect(() => {
     AsyncStorage.getItem(PHONE_KEY).then((saved) => {
@@ -38,10 +55,18 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       AsyncStorage.getItem(PHONE_KEY).then((saved) => {
-        setPhone(saved ?? null)
+        const next = saved ?? null
+        setPhone(next)
+        if (next) {
+          refreshWelcome(next)
+        } else {
+          clearWelcome()
+        }
       })
-      if (phone) refresh()
-    }, [phone, refresh]),
+      if (phone) {
+        refresh()
+      }
+    }, [phone, refresh, refreshWelcome, clearWelcome]),
   )
 
   if (initializing) {
@@ -53,6 +78,7 @@ export default function HomeScreen() {
   }
 
   return (
+    <View style={{ flex: 1, backgroundColor: '#F2E8DF' }}>
     <ScrollView
       style={{ backgroundColor: '#F2E8DF' }}
       contentContainerStyle={styles.scrollContent}
@@ -76,36 +102,42 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <View style={[styles.overlapWrap, { marginTop: -CARD_OVERLAP }]}>
-        {!phone ? (
-          <View style={styles.signInCard}>
-            <Text style={styles.welcome}>Welcome to {BRAND.name}</Text>
-            <TouchableOpacity
-              style={styles.loginBtn}
-              onPress={() => router.push('/account')}
+      <View style={{ marginTop: -CARD_OVERLAP }}>
+        <WelcomeDiscountBanner />
+        <Animated.View style={styles.overlapWrap} layout={LinearTransition.duration(260)}>
+          {!phone ? (
+            <ImageBackground
+              source={require('@/assets/images/hero-banner-signed-out.webp')}
+              style={styles.signInCard}
+              imageStyle={styles.signInCardImage}
+              resizeMode="cover"
             >
-              <Text style={styles.loginText}>Sign in</Text>
-            </TouchableOpacity>
-          </View>
-        ) : loading && !account ? (
-          <ActivityIndicator
-            size="large"
-            color={BRAND.color}
-            style={{ marginTop: 40 }}
-          />
-        ) : account ? (
-          <LoyaltyCard account={account} />
-        ) : (
-          <View style={styles.signInCard}>
-            <Text style={styles.muted}>
-              No loyalty account found for {phone}
-            </Text>
-          </View>
-        )}
+              <View style={styles.signInCta}>
+                <Text style={styles.signInPitch}>First order 30% Off</Text>
+                <TouchableOpacity
+                  style={styles.loginBtn}
+                  onPress={() => router.push('/account')}
+                >
+                  <Text style={styles.loginText}>Sign in</Text>
+                </TouchableOpacity>
+              </View>
+            </ImageBackground>
+          ) : loading && !account ? (
+            <ActivityIndicator
+              size="large"
+              color={BRAND.color}
+              style={{ marginTop: 40 }}
+            />
+          ) : (
+            <LoyaltyCard account={account ?? EMPTY_LOYALTY} />
+          )}
+        </Animated.View>
       </View>
 
-      <HeroCarousel height={width} />
+      <HeroCarousel />
     </ScrollView>
+    <MiniCartBar />
+    </View>
   )
 }
 
@@ -121,18 +153,37 @@ const styles = StyleSheet.create({
     height: 120,
   },
   overlapWrap: { paddingHorizontal: 0, marginBottom: 24 },
-  welcome: { fontSize: 20, fontWeight: '600', marginBottom: 16, textAlign: 'center' },
   signInCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     marginHorizontal: 16,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    overflow: 'hidden',
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    borderWidth: 1,
+    borderColor: 'rgba(141,85,36,0.35)',
+    shadowColor: '#5a3510',
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  signInCardImage: {
+    borderRadius: 16,
+  },
+  signInCta: {
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  signInPitch: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   loginBtn: {
     backgroundColor: BRAND.color,
