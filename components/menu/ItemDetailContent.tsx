@@ -4,23 +4,26 @@ import {
   Text,
   ScrollView,
   ScrollViewProps,
-  TouchableOpacity,
-  ActivityIndicator,
+  Pressable,
   StyleSheet,
 } from 'react-native'
 import { Image } from 'expo-image'
 import * as Haptics from 'expo-haptics'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { apiFetch } from '@/lib/api'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cart'
-import { BRAND } from '@/lib/constants'
+import { Icon } from '@/components/brand/Icon'
+import { CupArt } from '@/components/brand/CupArt'
+import { hashColor } from '@/components/brand/color'
+import { T, TYPE, RADIUS } from '@/constants/theme'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 
 interface Props {
   itemId: string
-  ScrollComponent?: ComponentType<ScrollViewProps> | ComponentType<any> // any needed for BottomSheetScrollView compat
+  ScrollComponent?: ComponentType<ScrollViewProps> | ComponentType<any>
   onLoaded?: (item: CatalogItem) => void
 }
 
@@ -30,17 +33,18 @@ export function ItemDetailContent({
   onLoaded,
 }: Props) {
   const addItem = useCartStore((s) => s.addItem)
+  const insets = useSafeAreaInsets()
   const onLoadedRef = useRef(onLoaded)
   useEffect(() => { onLoadedRef.current = onLoaded })
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [item, setItem] = useState<CatalogItem | null>(null)
-  const [imageAspectRatio, setImageAspectRatio] = useState(1)
   const [modifierLists, setModifierLists] = useState<ModifierList[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedVariation, setSelectedVariation] = useState<CatalogItemVariation | null>(null)
   const [selectedByList, setSelectedByList] = useState<Record<string, Set<string>>>({})
   const [added, setAdded] = useState(false)
+  const [retryNonce, setRetryNonce] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -81,7 +85,14 @@ export function ItemDetailContent({
     return () => {
       cancelled = true
     }
-  }, [itemId])
+  }, [itemId, retryNonce])
+
+  useEffect(
+    () => () => {
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
+    },
+    [],
+  )
 
   const getExclusivePartner = (list: ModifierList, modifierId: string): string | null => {
     const mod = list.modifiers.find((m) => m.id === modifierId)
@@ -149,24 +160,30 @@ export function ItemDetailContent({
     addedTimerRef.current = setTimeout(() => setAdded(false), 1500)
   }
 
-  useEffect(() => () => { if (addedTimerRef.current) clearTimeout(addedTimerRef.current) }, [])
-
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={BRAND.color} />
-      </View>
-    )
+    return <LoadingSkeleton />
   }
+
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error ?? 'Item not found'}</Text>
-      </View>
+      <ErrorView
+        message={error ?? 'Item not found'}
+        onRetry={() => setRetryNonce((n) => n + 1)}
+      />
     )
   }
 
   const variations = item.itemData?.variations ?? []
+  const baseCents = Number(selectedVariation?.itemVariationData?.priceMoney?.amount ?? 0)
+  const modifierCents = modifierLists.reduce((sum, ml) => {
+    const picks = selectedByList[ml.id] ?? new Set()
+    return (
+      sum +
+      ml.modifiers.filter((m) => picks.has(m.id)).reduce((s, m) => s + Number(m.priceCents ?? 0), 0)
+    )
+  }, 0)
+  const totalCents = baseCents + modifierCents
+  const addDisabled = !selectedVariation
 
   return (
     <View style={styles.container}>
@@ -174,138 +191,238 @@ export function ItemDetailContent({
         {item.imageUrl ? (
           <Image
             source={{ uri: item.imageUrl }}
-            style={[styles.heroImage, { aspectRatio: imageAspectRatio }]}
-            contentFit="contain"
-            onLoad={(e) => {
-              const { width, height } = e.source
-              if (width && height) setImageAspectRatio(width / height)
-            }}
+            style={styles.hero}
+            contentFit="cover"
+            contentPosition="center"
           />
         ) : (
-          <View style={[styles.heroImage, styles.placeholderImage]}>
-            <Text style={{ fontSize: 64 }}>🧋</Text>
+          <View style={[styles.hero, styles.heroFallback]}>
+            <CupArt fill={hashColor(itemId)} size={200} />
           </View>
         )}
+
         <View style={styles.content}>
-          <Text style={styles.name}>{item.itemData?.name}</Text>
+          <Text style={[TYPE.screenTitleLg, { color: T.ink }]}>
+            {item.itemData?.name}
+          </Text>
           {item.itemData?.description ? (
-            <Text style={styles.description}>{item.itemData.description}</Text>
+            <Text style={[TYPE.body, { color: T.ink3, marginTop: 4 }]}>
+              {item.itemData.description}
+            </Text>
           ) : null}
 
-          {/* Size — single fixed option, matches web. Actual variation
-              selection (when >1) uses its own section below. */}
-          <View style={styles.modifierSection}>
-            <Text style={styles.sectionTitle}>Size</Text>
-            <View style={styles.pillRow}>
-              <View style={[styles.pill, styles.pillDisabled]}>
-                <Text style={[styles.pillText, styles.pillTextDisabled]}>
-                  Large 700ml
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {variations.length > 1 ? (
-            <View style={styles.modifierSection}>
-              <Text style={styles.sectionTitle}>Select Size</Text>
-              <View style={styles.pillRow}>
-                {variations.map((v) => {
-                  const active = v.id === selectedVariation?.id
-                  return (
-                    <TouchableOpacity
-                      key={v.id}
-                      style={[styles.pill, active && styles.pillActive]}
-                      onPress={() => setSelectedVariation(v)}
-                    >
-                      <Text style={[styles.pillText, active && styles.pillTextActive]}>
-                        {v.itemVariationData?.name ?? 'Regular'}
-                      </Text>
-                      {v.itemVariationData?.priceMoney?.amount != null ? (
-                        <Text style={[styles.pillPrice, active && styles.pillTextActive]}>
-                          {formatPrice(v.itemVariationData.priceMoney.amount)}
-                        </Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  )
-                })}
-              </View>
-            </View>
-          ) : null}
+          {/* Size section (unified — single or multi variation) */}
+          <ModifierSection
+            eyebrow="SIZE"
+            title="Choose size"
+            hint={variations.length > 1 ? 'Pick one' : 'Only option'}
+          >
+            {variations.map((v) => {
+              const selected = v.id === selectedVariation?.id
+              const priceAmt = v.itemVariationData?.priceMoney?.amount
+              return (
+                <Chip
+                  key={v.id}
+                  label={v.itemVariationData?.name ?? 'Regular'}
+                  priceSuffix={priceAmt != null ? `+${formatPrice(priceAmt)}` : null}
+                  selected={selected}
+                  disabled={false}
+                  onPress={() => setSelectedVariation(v)}
+                />
+              )
+            })}
+          </ModifierSection>
 
           {modifierLists.map((ml) => {
             const selected = selectedByList[ml.id] ?? new Set()
             return (
-              <View key={ml.id} style={styles.modifierSection}>
-                <View style={styles.modifierHeader}>
-                  <Text style={styles.sectionTitle}>{ml.name}</Text>
-                  <Text style={styles.selectionHint}>{describeSelection(ml)}</Text>
-                </View>
-                <View style={styles.pillRow}>
-                  {ml.modifiers.map((mod) => {
-                    const isSelected = selected.has(mod.id)
-                    const isDisabled = isModifierDisabled(ml, mod.id)
-                    return (
-                      <TouchableOpacity
-                        key={mod.id}
-                        style={[
-                          styles.pill,
-                          isSelected && styles.pillActive,
-                          !isSelected && isDisabled && styles.pillDisabled,
-                        ]}
-                        onPress={() => toggleModifier(ml, mod.id)}
-                        disabled={isDisabled}
-                        activeOpacity={isDisabled ? 1 : 0.6}
-                      >
-                        <Text style={[styles.checkmark, !isSelected && styles.checkmarkHidden]}>
-                          ✓
-                        </Text>
-                        <Text
-                          style={[
-                            styles.pillText,
-                            isSelected && styles.pillTextActive,
-                            !isSelected && isDisabled && styles.pillTextDisabled,
-                          ]}
-                        >
-                          {mod.name}
-                        </Text>
-                        {mod.priceCents != null && mod.priceCents > 0 ? (
-                          <Text
-                            style={[
-                              styles.pillPrice,
-                              isSelected && styles.pillTextActive,
-                              !isSelected && isDisabled && styles.pillTextDisabled,
-                            ]}
-                          >
-                            +{formatPrice(mod.priceCents)}
-                          </Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    )
-                  })}
-                </View>
-              </View>
+              <ModifierSection
+                key={ml.id}
+                eyebrow={eyebrowForList(ml.name)}
+                title={titleForList(ml.name)}
+                hint={describeSelection(ml)}
+              >
+                {ml.modifiers.map((mod) => {
+                  const isSelected = selected.has(mod.id)
+                  const isDisabled = isModifierDisabled(ml, mod.id)
+                  return (
+                    <Chip
+                      key={mod.id}
+                      label={mod.name}
+                      priceSuffix={
+                        mod.priceCents != null && mod.priceCents > 0
+                          ? `+${formatPrice(mod.priceCents)}`
+                          : null
+                      }
+                      selected={isSelected}
+                      disabled={!isSelected && isDisabled}
+                      onPress={() => toggleModifier(ml, mod.id)}
+                    />
+                  )
+                })}
+              </ModifierSection>
             )
           })}
-
-          {selectedVariation?.itemVariationData?.priceMoney?.amount != null ? (
-            <Text style={styles.price}>
-              {formatPrice(selectedVariation.itemVariationData.priceMoney.amount)}
-            </Text>
-          ) : null}
         </View>
       </ScrollComponent>
 
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[styles.addButton, added && styles.addedButton]}
+      <View style={[styles.ctaBar, { paddingBottom: 12 + insets.bottom }]}>
+        <Pressable
           onPress={handleAddToCart}
-          activeOpacity={0.8}
+          disabled={addDisabled}
+          style={({ pressed }) => [
+            styles.cta,
+            added && styles.ctaAdded,
+            addDisabled && styles.ctaDisabled,
+            pressed && !addDisabled && { opacity: 0.85 },
+          ]}
         >
-          <Text style={styles.addButtonText}>{added ? 'Added!' : 'Add to Cart'}</Text>
-        </TouchableOpacity>
+          {added ? (
+            <View style={styles.ctaAddedRow}>
+              <Icon name="check" color="#fff" size={18} />
+              <Text style={styles.ctaAddedText}>Added</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.ctaLeft}>Add to cart</Text>
+              {!addDisabled ? (
+                <Text style={styles.ctaRight}>{formatPrice(totalCents)}</Text>
+              ) : null}
+            </>
+          )}
+        </Pressable>
       </View>
     </View>
   )
+}
+
+function ModifierSection({
+  eyebrow,
+  title,
+  hint,
+  children,
+}: {
+  eyebrow: string
+  title: string
+  hint: string
+  children: React.ReactNode
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={{ gap: 2 }}>
+          <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{eyebrow}</Text>
+          <Text style={[TYPE.cardTitle, { color: T.ink }]}>{title}</Text>
+        </View>
+        <Text style={styles.sectionHint}>{hint}</Text>
+      </View>
+      <View style={styles.chipRow}>{children}</View>
+    </View>
+  )
+}
+
+function Chip({
+  label,
+  priceSuffix,
+  selected,
+  disabled,
+  onPress,
+}: {
+  label: string
+  priceSuffix: string | null
+  selected: boolean
+  disabled: boolean
+  onPress: () => void
+}) {
+  const chipStyle = [
+    styles.chip,
+    selected
+      ? styles.chipSelected
+      : disabled
+        ? styles.chipDisabled
+        : styles.chipUnselected,
+  ]
+  const labelStyle = selected
+    ? styles.chipLabelSelected
+    : disabled
+      ? styles.chipLabelDisabled
+      : styles.chipLabel
+  const priceStyle = selected
+    ? styles.chipPriceSelected
+    : disabled
+      ? styles.chipPriceDisabled
+      : styles.chipPrice
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [chipStyle, pressed && !disabled && { opacity: 0.6 }]}
+    >
+      <Text style={labelStyle}>{label}</Text>
+      {priceSuffix ? <Text style={priceStyle}>{priceSuffix}</Text> : null}
+    </Pressable>
+  )
+}
+
+function LoadingSkeleton() {
+  return (
+    <View style={{ flex: 1, backgroundColor: T.paper }}>
+      <View style={[styles.hero, { backgroundColor: T.sage }]} />
+      <View style={{ padding: 20, gap: 10 }}>
+        <View style={{ height: 28, width: '70%', borderRadius: 8, backgroundColor: T.line }} />
+        <View style={{ height: 14, width: '100%', borderRadius: 7, backgroundColor: T.line }} />
+        <View style={{ height: 14, width: '60%', borderRadius: 7, backgroundColor: T.line }} />
+        <View style={{ marginTop: 24, gap: 10 }}>
+          <View style={{ height: 10, width: 80, borderRadius: 5, backgroundColor: T.line }} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ height: 36, width: 80, borderRadius: 999, backgroundColor: T.line }} />
+            <View style={{ height: 36, width: 80, borderRadius: 999, backgroundColor: T.line }} />
+            <View style={{ height: 36, width: 80, borderRadius: 999, backgroundColor: T.line }} />
+          </View>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function ErrorView({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <View style={styles.errorCenter}>
+      <Icon name="cafe" color={T.ink3} size={32} />
+      <Text style={[TYPE.cardTitle, { color: T.ink, textAlign: 'center', marginTop: 12 }]}>
+        Couldn&apos;t load this drink.
+      </Text>
+      <Text
+        style={[TYPE.body, { color: T.ink3, textAlign: 'center', marginTop: 6 }]}
+      >
+        {message || 'Try again.'}
+      </Text>
+      <Pressable
+        onPress={onRetry}
+        style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.6 }]}
+      >
+        <Text style={styles.retryText}>Try again</Text>
+      </Pressable>
+    </View>
+  )
+}
+
+function eyebrowForList(name: string): string {
+  const upper = (name ?? '').toUpperCase()
+  if (upper.includes('SUGAR')) return 'SUGAR'
+  if (upper.includes('ICE')) return 'ICE'
+  if (upper === 'TOPPING' || upper.includes('TOPPING')) return 'TOPPINGS'
+  if (upper.includes('SIZE')) return 'SIZE'
+  return upper
+}
+
+function titleForList(name: string): string {
+  const upper = (name ?? '').toUpperCase()
+  if (upper.includes('SUGAR')) return 'Sugar level'
+  if (upper.includes('ICE')) return 'Ice level'
+  if (upper === 'TOPPING' || upper.includes('TOPPING')) return 'Add toppings'
+  if (upper.includes('SIZE')) return 'Choose size'
+  return name
 }
 
 function describeSelection(ml: ModifierList): string {
@@ -319,56 +436,101 @@ function describeSelection(ml: ModifierList): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  errorText: { color: 'red', fontSize: 16 },
-  heroImage: { width: '100%' },
-  placeholderImage: { height: 300, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, gap: 12 },
-  name: { fontSize: 24, fontWeight: '700' },
-  description: { fontSize: 15, color: '#666', lineHeight: 22 },
-  modifierSection: { marginTop: 8 },
-  modifierHeader: {
+  container: { flex: 1, backgroundColor: T.paper },
+  hero: { width: '100%', aspectRatio: 1, backgroundColor: T.sage },
+  heroFallback: { alignItems: 'center', justifyContent: 'center' },
+  content: { padding: 20 },
+
+  section: { marginTop: 20 },
+  sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  selectionHint: { fontSize: 12, color: '#999' },
-  pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  pill: {
+  sectionHint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: T.ink3,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
+    gap: 6,
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
   },
-  pillActive: { borderColor: BRAND.color, backgroundColor: BRAND.color },
-  pillDisabled: { borderColor: '#eee', backgroundColor: '#fafafa' },
-  pillText: { fontSize: 14, color: '#333' },
-  pillPrice: { fontSize: 12, color: '#888', marginTop: 2 },
-  pillTextActive: { color: '#fff', fontWeight: '600' },
-  pillTextDisabled: { color: '#ccc' },
-  checkmark: { color: '#fff', fontSize: 12, fontWeight: '700', width: 12, textAlign: 'center' },
-  checkmarkHidden: { color: 'transparent' },
-  price: { fontSize: 22, fontWeight: '700', color: BRAND.color },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 32,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
+  chipUnselected: { backgroundColor: T.paper, borderColor: T.line },
+  chipSelected: { backgroundColor: T.brand, borderColor: T.brand },
+  chipDisabled: { backgroundColor: T.bg, borderColor: T.line, opacity: 0.5 },
+  chipLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: T.ink },
+  chipLabelSelected: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#fff' },
+  chipLabelDisabled: { fontFamily: 'Inter_500Medium', fontSize: 14, color: T.ink4 },
+  chipPrice: { fontFamily: 'Inter_500Medium', fontSize: 12, color: T.ink3, marginLeft: 4 },
+  chipPriceSelected: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    marginLeft: 4,
   },
-  addButton: {
-    backgroundColor: BRAND.color,
-    paddingVertical: 16,
-    borderRadius: 12,
+  chipPriceDisabled: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: T.ink4,
+    marginLeft: 4,
+  },
+
+  ctaBar: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: T.paper,
+    borderTopWidth: 1,
+    borderTopColor: T.line,
+  },
+  cta: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 999,
+    backgroundColor: T.brand,
   },
-  addedButton: { backgroundColor: '#2e7d32' },
-  addButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  ctaAdded: { backgroundColor: T.greenDark, justifyContent: 'center' },
+  ctaDisabled: { backgroundColor: T.ink4 },
+  ctaLeft: { fontFamily: 'Fraunces_500Medium', fontSize: 16, color: '#fff' },
+  ctaRight: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  ctaAddedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  ctaAddedText: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 16,
+    color: '#fff',
+    marginLeft: 8,
+  },
+
+  errorCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    backgroundColor: T.paper,
+  },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: T.brand,
+    backgroundColor: 'transparent',
+  },
+  retryText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: T.brand },
 })
