@@ -451,22 +451,36 @@ function ToppingSection({
   required?: boolean
   children: React.ReactNode
 }) {
+  const [expanded, setExpanded] = useState(true)
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}, ${expanded ? 'collapse' : 'expand'}`}
+        accessibilityState={{ expanded }}
+        style={({ pressed }) => [styles.sectionHeader, pressed && { opacity: 0.6 }]}
+      >
         <View style={{ gap: 2 }}>
           <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{eyebrow}</Text>
           <Text style={[TYPE.cardTitle, { color: T.ink }]}>{title}</Text>
         </View>
-        {required ? (
-          <View style={styles.requiredPill}>
-            <Text style={styles.requiredPillText}>REQUIRED</Text>
-          </View>
-        ) : (
-          <Text style={styles.sectionHint}>{hint}</Text>
-        )}
-      </View>
-      <View style={styles.toppingList}>{children}</View>
+        <View style={styles.sectionHeaderRight}>
+          {required ? (
+            <View style={styles.requiredPill}>
+              <Text style={styles.requiredPillText}>REQUIRED</Text>
+            </View>
+          ) : (
+            <Text style={styles.sectionHint}>{hint}</Text>
+          )}
+          <Text
+            style={[styles.toppingChevron, !expanded && { transform: [{ rotate: '180deg' }] }]}
+          >
+            ▾
+          </Text>
+        </View>
+      </Pressable>
+      {expanded ? <View style={styles.toppingList}>{children}</View> : null}
     </View>
   )
 }
@@ -791,6 +805,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     fontSize: 13,
     color: T.ink3,
+  },
+  sectionHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toppingChevron: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+    color: T.ink3,
+    lineHeight: 14,
   },
 
   requiredPill: {
