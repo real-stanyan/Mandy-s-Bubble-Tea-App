@@ -6,10 +6,8 @@ import { BRAND } from '@/lib/constants'
 import { useCartStore } from '@/store/cart'
 import { apiFetch } from '@/lib/api'
 import type { CatalogItem } from '@/types/square'
-import type {
-  OrderHistoryItem,
-  OrderHistoryLine,
-} from '@/hooks/use-order-history'
+import type { OrderHistoryItem } from '@/hooks/use-order-history'
+import { reorder } from '@/components/orders/reorder'
 
 // Module-level single-flight + in-memory cache for the catalog-name ->
 // image-url map. OrderHistory is mounted on two tabs (Account + My
@@ -133,14 +131,10 @@ export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = fa
 
   const handleReorder = useCallback(
     (order: OrderHistoryItem) => {
-      const usable = order.lineItems.filter((l) => l.variationId)
-      if (usable.length === 0) {
+      const result = reorder(replaceCart, addItem, order)
+      if (result === 'empty') {
         Alert.alert('Unavailable', 'These items are no longer available.')
         return
-      }
-      replaceCart()
-      for (const line of usable) {
-        addItemLine(addItem, line)
       }
       router.push('/checkout')
     },
@@ -253,33 +247,6 @@ const OrderCardRow = memo(function OrderCardRow({
     </TouchableOpacity>
   )
 })
-
-function addItemLine(
-  add: ReturnType<typeof useCartStore.getState>['addItem'],
-  line: OrderHistoryLine,
-) {
-  const modPrice = line.modifiers.reduce(
-    (sum, m) => sum + Number(m.priceCents || '0'),
-    0,
-  )
-  const unitPrice = Number(line.basePriceCents || '0') + modPrice
-  const item = {
-    id: line.itemId,
-    variationId: line.variationId,
-    name: line.name,
-    variationName: line.variationName || undefined,
-    price: unitPrice,
-    imageUrl: line.imageUrl ?? undefined,
-    modifiers: line.modifiers.map((m) => ({
-      id: m.id,
-      name: m.name,
-      listName: m.listName,
-      priceCents: Number(m.priceCents || '0'),
-    })),
-  }
-  const qty = Math.max(1, line.quantity)
-  for (let i = 0; i < qty; i++) add(item)
-}
 
 const styles = StyleSheet.create({
   container: {
