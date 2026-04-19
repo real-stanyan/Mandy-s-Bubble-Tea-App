@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   BottomSheetModal,
   BottomSheetScrollView,
@@ -10,9 +10,10 @@ import {
 } from '@gorhom/bottom-sheet'
 import { useCartStore } from '@/store/cart'
 import { useCartSheetStore } from '@/store/cartSheet'
-import { formatPrice } from '@/lib/utils'
 import { CartItemRow } from './CartItem'
-import { BRAND } from '@/lib/constants'
+import { Icon } from '@/components/brand/Icon'
+import { formatPrice } from '@/lib/utils'
+import { T, FONT, RADIUS } from '@/constants/theme'
 
 export function CartSheet() {
   const open = useCartSheetStore((s) => s.open)
@@ -21,6 +22,7 @@ export function CartSheet() {
   const total = useCartStore((s) => s.total())
   const clearCart = useCartStore((s) => s.clearCart)
   const router = useRouter()
+  const insets = useSafeAreaInsets()
 
   const ref = useRef<BottomSheetModal>(null)
   const snapPoints = useMemo(() => ['75%'], [])
@@ -30,7 +32,6 @@ export function CartSheet() {
     else ref.current?.dismiss()
   }, [open])
 
-  // Auto-close when cart becomes empty
   useEffect(() => {
     if (open && items.length === 0) hide()
   }, [items.length, open, hide])
@@ -59,6 +60,9 @@ export function CartSheet() {
     [],
   )
 
+  const count = items.reduce((s, i) => s + i.quantity, 0)
+  const disabled = items.length === 0
+
   return (
     <BottomSheetModal
       ref={ref}
@@ -67,13 +71,19 @@ export function CartSheet() {
       enablePanDownToClose
       onChange={onChange}
       backdropComponent={renderBackdrop}
+      backgroundStyle={styles.sheetBg}
+      handleIndicatorStyle={styles.sheetHandle}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Cart</Text>
+        <View>
+          <Text style={styles.eyebrow}>YOUR CART</Text>
+          <Text style={styles.title}>
+            {count} {count === 1 ? 'item' : 'items'}
+          </Text>
+        </View>
         {items.length > 0 ? (
           <TouchableOpacity onPress={clearCart} hitSlop={8} style={styles.clearBtn}>
-            <Ionicons name="trash-outline" size={16} color="#8a8076" />
-            <Text style={styles.clearText}>Clear all</Text>
+            <Text style={styles.clearText}>Clear</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -82,19 +92,27 @@ export function CartSheet() {
         {items.map((item) => (
           <CartItemRow key={item.lineId} item={item} />
         ))}
+
+        {items.length > 0 ? (
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>TOTAL</Text>
+            <Text style={styles.totalValue}>{formatPrice(total)}</Text>
+          </View>
+        ) : null}
       </BottomSheetScrollView>
 
-      <View style={styles.bottomBar}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>{formatPrice(total)}</Text>
-        </View>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
+        <TouchableOpacity style={styles.keepBtn} onPress={hide} activeOpacity={0.8}>
+          <Text style={styles.keepText}>Keep browsing</Text>
+        </TouchableOpacity>
         <TouchableOpacity
-          style={styles.checkoutButton}
+          style={[styles.checkoutBtn, disabled && styles.checkoutBtnDisabled]}
           onPress={handleCheckout}
-          activeOpacity={0.8}
+          disabled={disabled}
+          activeOpacity={0.85}
         >
           <Text style={styles.checkoutText}>Checkout</Text>
+          <Icon name="arrow" size={14} color={T.cream} />
         </TouchableOpacity>
       </View>
     </BottomSheetModal>
@@ -102,39 +120,119 @@ export function CartSheet() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+  sheetBg: {
+    backgroundColor: T.paper,
+    borderTopLeftRadius: RADIUS.sheetTop,
+    borderTopRightRadius: RADIUS.sheetTop,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#11181C' },
-  clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  clearText: { fontSize: 13, color: '#8a8076' },
-  scrollContent: { paddingBottom: 16 },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 24,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
-    gap: 12,
-    backgroundColor: '#fff',
+  sheetHandle: {
+    backgroundColor: T.ink4,
+    width: 40,
+    height: 4,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  eyebrow: {
+    fontFamily: FONT.mono,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: T.brand,
+  },
+  title: {
+    marginTop: 4,
+    fontFamily: FONT.serif,
+    fontSize: 26,
+    fontWeight: '500',
+    letterSpacing: -0.6,
+    color: T.ink,
+    lineHeight: 29,
+  },
+  clearBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  clearText: {
+    fontFamily: FONT.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: T.ink3,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 0,
   },
   totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  totalLabel: { fontSize: 16, fontWeight: '600' },
-  totalValue: { fontSize: 20, fontWeight: '700', color: BRAND.color },
-  checkoutButton: {
-    backgroundColor: BRAND.color,
+    marginTop: 8,
+    marginHorizontal: -8,
+    paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: T.line,
+    borderStyle: 'dashed',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
-  checkoutText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  totalLabel: {
+    fontFamily: FONT.mono,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: T.ink3,
+  },
+  totalValue: {
+    fontFamily: FONT.mono,
+    fontSize: 22,
+    fontWeight: '700',
+    color: T.ink,
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: T.paper,
+  },
+  keepBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: RADIUS.pill,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: T.line,
+  },
+  keepText: {
+    fontFamily: FONT.sans,
+    fontSize: 14,
+    fontWeight: '600',
+    color: T.ink2,
+  },
+  checkoutBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: RADIUS.pill,
+    backgroundColor: T.ink,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  checkoutBtnDisabled: {
+    backgroundColor: T.ink4,
+  },
+  checkoutText: {
+    fontFamily: FONT.sans,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    color: T.cream,
+  },
 })
