@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Circle, Path, Rect, G } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { T } from '@/constants/theme';
 
 export type IconName =
