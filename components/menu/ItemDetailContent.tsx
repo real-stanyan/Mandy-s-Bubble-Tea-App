@@ -17,6 +17,7 @@ import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
 import { T, TYPE, RADIUS } from '@/constants/theme'
+import { isBestseller } from '@/components/menu/bestsellers'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
@@ -174,6 +175,13 @@ export function ItemDetailContent({
   }
 
   const variations = item.itemData?.variations ?? []
+  const baselineVariation =
+    variations.find(
+      (v) => (v.itemVariationData?.name ?? '').toLowerCase() === 'regular',
+    ) ?? variations[0] ?? null
+  const baselineAmount = Number(
+    baselineVariation?.itemVariationData?.priceMoney?.amount ?? 0,
+  )
   const baseCents = Number(selectedVariation?.itemVariationData?.priceMoney?.amount ?? 0)
   const modifierCents = modifierLists.reduce((sum, ml) => {
     const picks = selectedByList[ml.id] ?? new Set()
@@ -202,9 +210,19 @@ export function ItemDetailContent({
         )}
 
         <View style={styles.content}>
-          <Text style={[TYPE.screenTitleLg, { color: T.ink }]}>
-            {item.itemData?.name}
-          </Text>
+          {isBestseller(item.itemData?.name) ? (
+            <View style={styles.bestsellerPill}>
+              <Text style={styles.bestsellerText}>BESTSELLER</Text>
+            </View>
+          ) : null}
+          <View style={styles.titleRow}>
+            <Text style={[TYPE.screenTitleLg, styles.titleText, { color: T.ink }]} numberOfLines={2}>
+              {item.itemData?.name}
+            </Text>
+            {baselineAmount > 0 ? (
+              <Text style={styles.headlinePrice}>{formatPrice(baselineAmount)}</Text>
+            ) : null}
+          </View>
           {item.itemData?.description ? (
             <Text style={[TYPE.body, { color: T.ink3, marginTop: 4 }]}>
               {item.itemData.description}
@@ -535,4 +553,33 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   retryText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: T.brand },
+
+  bestsellerPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: T.star,
+    marginBottom: 8,
+  },
+  bestsellerText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 1.4,
+    color: T.ink,
+    textTransform: 'uppercase',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  titleText: { flex: 1 },
+  headlinePrice: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 22,
+    color: T.ink,
+    marginTop: 6,
+  },
 })
