@@ -6,8 +6,8 @@ import { CupArt } from '@/components/brand/CupArt';
 import { Icon, type IconName } from '@/components/brand/Icon';
 import { StarDots } from '@/components/brand/StarDots';
 
-const COLORS: Array<{ name: keyof typeof T; value: string }> = (
-  Object.entries(T) as Array<[keyof typeof T, string]>
+const COLORS: { name: keyof typeof T; value: string }[] = (
+  Object.entries(T) as [keyof typeof T, string][]
 ).map(([name, value]) => ({ name, value }));
 
 const ICONS: IconName[] = [
@@ -16,7 +16,7 @@ const ICONS: IconName[] = [
   'chevR', 'logout', 'gift', 'cup', 'settings',
 ];
 
-const TYPE_ENTRIES = Object.entries(TYPE) as Array<[keyof typeof TYPE, (typeof TYPE)[keyof typeof TYPE]]>;
+const TYPE_ENTRIES = Object.entries(TYPE) as [keyof typeof TYPE, (typeof TYPE)[keyof typeof TYPE]][];
 
 export default function ThemeShowcase() {
   if (!__DEV__) {

@@ -18,7 +18,7 @@ export function CupArt({
   filled = true,
 }: CupArtProps) {
   const h = size * 1.3;
-  const pearls: Array<[number, number]> = [
+  const pearls: [number, number][] = [
     [28, 78], [38, 84], [50, 80], [34, 90], [48, 92], [42, 72],
   ];
   return (
