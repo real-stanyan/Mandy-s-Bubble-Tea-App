@@ -4,6 +4,7 @@ import {
   ScrollView,
   Text,
   TextInput,
+  Pressable,
   TouchableOpacity,
   StyleSheet,
   Keyboard,
@@ -11,7 +12,6 @@ import {
   type NativeScrollEvent,
 } from 'react-native'
 import { Image } from 'expo-image'
-import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import Animated, {
   useSharedValue,
@@ -23,11 +23,14 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useMenu } from '@/hooks/use-menu'
 import { SkeletonSection } from '@/components/menu/SkeletonCard'
-import { BRAND } from '@/lib/constants'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cart'
 import { useItemSheetStore } from '@/store/itemSheet'
 import { MiniCartBar } from '@/components/cart/MiniCartBar'
+import { Icon } from '@/components/brand/Icon'
+import { CupArt } from '@/components/brand/CupArt'
+import { hashColor } from '@/components/brand/color'
+import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 const HIGHLIGHT_OFFSET = 40
@@ -115,8 +118,10 @@ export default function MenuScreen() {
 
   if (error && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
+      <View style={styles.root}>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>Menu unavailable. Try again later.</Text>
+        </View>
       </View>
     )
   }
@@ -124,11 +129,11 @@ export default function MenuScreen() {
   return (
     <View style={styles.root}>
       <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color="#8a8076" />
+        <Icon name="search" color={T.ink3} size={18} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search drinks"
-          placeholderTextColor="#8a8076"
+          placeholderTextColor={T.ink3}
           value={query}
           onChangeText={setQuery}
           returnKeyType="search"
@@ -137,8 +142,8 @@ export default function MenuScreen() {
           autoCapitalize="none"
         />
         {query.length > 0 ? (
-          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color="#8a8076" />
+          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={styles.searchClearBtn}>
+            <Icon name="close" color={T.ink3} size={16} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -153,9 +158,9 @@ export default function MenuScreen() {
           onScrollBeginDrag={Keyboard.dismiss}
         >
           {searchResults.length === 0 ? (
-            <Text style={styles.empty}>No drinks match "{query.trim()}"</Text>
+            <Text style={styles.empty}>No drinks match &quot;{query.trim()}&quot;</Text>
           ) : (
-            <View style={styles.section}>
+            <View style={styles.searchResults}>
               {searchResults.map((item) => (
                 <ProductRow key={item.id} item={item} />
               ))}
@@ -165,32 +170,32 @@ export default function MenuScreen() {
       ) : (
         <View style={styles.container}>
           <View style={styles.sidebarWrap}>
-        <ScrollView
-          style={styles.sidebar}
-          contentContainerStyle={styles.sidebarContent}
-          showsVerticalScrollIndicator={false}
-        >
-        {sections.map(({ category }) => {
-          const active = category.id === currentActive
-          return (
-            <TouchableOpacity
-              key={category.id}
-              onPress={() => handleTabPress(category.id)}
-              activeOpacity={0.7}
-              style={[styles.tab, active && styles.tabActive]}
+            <ScrollView
+              style={styles.sidebar}
+              contentContainerStyle={styles.sidebarContent}
+              showsVerticalScrollIndicator={false}
             >
-              {active ? <View style={styles.tabBar} /> : null}
-              <Text
-                style={[styles.tabText, active && styles.tabTextActive]}
-                numberOfLines={2}
-              >
-                {category.name}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-        </ScrollView>
-      </View>
+              {sections.map(({ category }) => {
+                const active = category.id === currentActive
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    onPress={() => handleTabPress(category.id)}
+                    activeOpacity={0.7}
+                    style={[styles.tab, active && styles.tabActive]}
+                  >
+                    {active ? <View style={styles.tabBar} /> : null}
+                    <Text
+                      style={[styles.tabText, active && styles.tabTextActive]}
+                      numberOfLines={2}
+                    >
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </ScrollView>
+          </View>
 
           <View style={styles.mainWrap}>
             <ScrollView
@@ -205,9 +210,10 @@ export default function MenuScreen() {
               onScrollEndDrag={handleMomentumEnd}
               onScrollBeginDrag={Keyboard.dismiss}
             >
-              {sections.map((section) => (
+              {sections.map((section, i) => (
                 <CategorySection
                   key={section.category.id}
+                  index={i}
                   category={section.category}
                   items={section.items}
                   onLayoutY={(y) => {
@@ -225,21 +231,35 @@ export default function MenuScreen() {
 }
 
 const CategorySection = memo(function CategorySection({
+  index,
   category,
   items,
   onLayoutY,
 }: {
+  index: number
   category: CatalogCategory
   items: CatalogItem[]
   onLayoutY: (y: number) => void
 }) {
   const banner = categoryBanner(category.name)
+  const indexLabel = String(index + 1).padStart(2, '0')
   return (
-    <View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)} style={styles.section}>
+    <View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{category.name}</Text>
+        <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{`CATEGORY ${indexLabel}`}</Text>
+        <Text style={styles.sectionTitle} numberOfLines={1}>
+          {category.name}
+        </Text>
         {banner ? (
-          <Image source={banner} style={styles.sectionBanner} contentFit="cover" />
+          <View style={styles.bannerWrap}>
+            <Image
+              source={banner}
+              style={styles.sectionBanner}
+              contentFit="cover"
+              contentPosition="center"
+            />
+            <View style={styles.bannerOverlay} pointerEvents="none" />
+          </View>
         ) : null}
       </View>
       {items.map((item) => (
@@ -254,6 +274,9 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
   const name = item.itemData?.name ?? 'Unknown'
   const firstVariation = item.itemData?.variations?.[0]
   const price = firstVariation?.itemVariationData?.priceMoney?.amount
+  const variationName = firstVariation?.itemVariationData?.name
+  const showVariationSubtitle =
+    variationName && variationName.toLowerCase() !== 'regular'
 
   const btnScale = useSharedValue(1)
   const checkOpacity = useSharedValue(0)
@@ -299,38 +322,49 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
     <TouchableOpacity
       style={styles.row}
       onPress={() => useItemSheetStore.getState().open(item.id)}
-      activeOpacity={0.7}
+      activeOpacity={0.6}
     >
       {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.rowImage} contentFit="cover" />
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.rowImage}
+          contentFit="cover"
+          contentPosition="center"
+        />
       ) : (
         <View style={[styles.rowImage, styles.placeholder]}>
-          <Text style={styles.placeholderText}>🧋</Text>
+          <CupArt fill={hashColor(item.id)} size={60} />
         </View>
       )}
       <View style={styles.rowInfo}>
         <Text style={styles.rowName} numberOfLines={2}>
           {name}
         </Text>
+        {showVariationSubtitle ? (
+          <Text style={styles.rowSubtitle} numberOfLines={1}>
+            {variationName}
+          </Text>
+        ) : null}
         {price != null ? (
           <Text style={styles.rowPrice}>{formatPrice(price)}</Text>
         ) : null}
       </View>
-      <TouchableOpacity
+      <Pressable
         onPress={(e) => {
           e.stopPropagation?.()
           handleAdd()
         }}
-        activeOpacity={0.8}
         hitSlop={8}
       >
         <Animated.View style={[styles.addBtn, btnStyle]}>
-          <Animated.Text style={[styles.addBtnText, plusStyle]}>+</Animated.Text>
-          <Animated.View style={[styles.addBtnCheck, checkStyle]} pointerEvents="none">
-            <Ionicons name="checkmark" size={18} color="#fff" />
+          <Animated.View style={[styles.addBtnGlyph, plusStyle]}>
+            <Icon name="plus" color="#fff" size={18} />
+          </Animated.View>
+          <Animated.View style={[styles.addBtnGlyph, checkStyle]} pointerEvents="none">
+            <Icon name="check" color="#fff" size={18} />
           </Animated.View>
         </Animated.View>
-      </TouchableOpacity>
+      </Pressable>
     </TouchableOpacity>
   )
 })
@@ -338,39 +372,49 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: T.bg,
   },
   container: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#fff',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     marginHorizontal: 12,
     marginTop: 8,
     marginBottom: 6,
-    paddingHorizontal: 12,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F2E8DF',
+    paddingHorizontal: 14,
+    height: 42,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: T.line,
+    backgroundColor: T.paper,
   },
   searchInput: {
     flex: 1,
+    fontFamily: 'Inter_400Regular',
     fontSize: 14,
-    color: '#1a1a1a',
+    color: T.ink,
     paddingVertical: 0,
+  },
+  searchClearBtn: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   empty: {
     textAlign: 'center',
-    color: '#8a8076',
-    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    color: T.ink3,
     marginTop: 40,
   },
-  loadingContent: {
-    paddingBottom: 24,
+  searchResults: {
+    paddingTop: 8,
   },
   center: {
     flex: 1,
@@ -379,13 +423,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: 'red',
-    fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    color: T.ink3,
     textAlign: 'center',
   },
   sidebarWrap: {
     flex: 1,
-    backgroundColor: '#F2E8DF',
+    backgroundColor: T.bg,
   },
   sidebar: {
     flex: 1,
@@ -394,40 +440,40 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   tab: {
-    minHeight: 60,
-    justifyContent: 'center',
+    minHeight: 64,
     paddingHorizontal: 6,
-    paddingVertical: 8,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabActive: {
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
   },
   tabBar: {
     position: 'absolute',
     left: 0,
-    top: 10,
-    bottom: 10,
-    width: 3,
-    backgroundColor: BRAND.color,
+    top: 12,
+    bottom: 12,
+    width: 4,
+    backgroundColor: T.brand,
     borderTopRightRadius: 2,
     borderBottomRightRadius: 2,
   },
   tabText: {
     flex: 1,
+    fontFamily: 'Inter_500Medium',
     fontSize: 12,
     lineHeight: 15,
     textAlign: 'center',
-    color: '#8a8076',
-    fontWeight: '500',
+    color: T.ink3,
   },
   tabTextActive: {
-    color: BRAND.color,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    color: T.brand,
   },
   mainWrap: {
-    flex: 3,
+    flex: 3.2,
   },
   main: {
     flex: 1,
@@ -435,83 +481,84 @@ const styles = StyleSheet.create({
   mainContent: {
     paddingBottom: 48,
   },
-  section: {
-    paddingTop: 16,
-  },
   sectionHeader: {
     marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: BRAND.accentColor,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(141,85,36,0.15)',
+    marginTop: 24,
+    marginBottom: 8,
+    padding: 14,
+    backgroundColor: T.paper,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: T.line,
+    ...SHADOW.card,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: BRAND.color,
+    ...TYPE.screenTitleSm,
+    color: T.ink,
+    marginTop: 2,
     marginBottom: 10,
-    letterSpacing: 0.5,
+  },
+  bannerWrap: {
+    width: '100%',
+    height: 96,
+    borderRadius: RADIUS.tile,
+    overflow: 'hidden',
+    backgroundColor: T.sage,
   },
   sectionBanner: {
     width: '100%',
-    height: 110,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    height: '100%',
+  },
+  bannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(42,30,20,0.06)',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingVertical: 10,
+    gap: 14,
   },
   rowImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+    width: 76,
+    height: 76,
+    borderRadius: RADIUS.tile,
+    backgroundColor: T.sage,
   },
   placeholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholderText: {
-    fontSize: 32,
-  },
   rowInfo: {
     flex: 1,
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
   },
   rowName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    ...TYPE.cardTitle,
+    color: T.ink,
+  },
+  rowSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: T.ink3,
   },
   rowPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: BRAND.color,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: T.ink2,
   },
   addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: BRAND.color,
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    backgroundColor: T.brand,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  addBtnText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 22,
-    marginTop: -2,
-  },
-  addBtnCheck: {
+  addBtnGlyph: {
     position: 'absolute',
     top: 0,
     left: 0,
