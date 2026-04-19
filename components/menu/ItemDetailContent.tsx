@@ -67,8 +67,13 @@ export function ItemDetailContent({
             : ml,
         )
         setModifierLists(mls)
-        if (data.item.itemData?.variations?.length) {
-          setSelectedVariation(data.item.itemData.variations[0])
+        const vars = data.item.itemData?.variations ?? []
+        if (vars.length) {
+          const baseline =
+            vars.find(
+              (v) => (v.itemVariationData?.name ?? '').toLowerCase() === 'regular',
+            ) ?? vars[0]
+          setSelectedVariation(baseline)
         }
         const initial: Record<string, Set<string>> = {}
         for (const ml of mls) {
@@ -237,12 +242,19 @@ export function ItemDetailContent({
           >
             {variations.map((v) => {
               const selected = v.id === selectedVariation?.id
-              const priceAmt = v.itemVariationData?.priceMoney?.amount
+              const priceAmt = Number(v.itemVariationData?.priceMoney?.amount ?? 0)
+              const delta = priceAmt - baselineAmount
+              const priceSuffix =
+                delta === 0
+                  ? null
+                  : delta < 0
+                    ? `−${formatPrice(Math.abs(delta))}`
+                    : `+${formatPrice(delta)}`
               return (
                 <Chip
                   key={v.id}
                   label={v.itemVariationData?.name ?? 'Regular'}
-                  priceSuffix={priceAmt != null ? `+${formatPrice(priceAmt)}` : null}
+                  priceSuffix={priceSuffix}
                   selected={selected}
                   disabled={false}
                   onPress={() => setSelectedVariation(v)}
