@@ -46,6 +46,7 @@ export function ItemDetailContent({
   const [selectedByList, setSelectedByList] = useState<Record<string, Set<string>>>({})
   const [added, setAdded] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
+  const [quantity, setQuantity] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -151,17 +152,20 @@ export function ItemDetailContent({
         }))
     })
     const modifierTotal = chosenModifiers.reduce((sum, m) => sum + m.priceCents, 0)
-    addItem({
-      id: item.id,
-      variationId: selectedVariation.id,
-      name: item.itemData?.name ?? 'Unknown',
-      price: basePrice + modifierTotal,
-      imageUrl: item.imageUrl,
-      variationName: selectedVariation.itemVariationData?.name,
-      modifiers: chosenModifiers,
-    })
+    for (let i = 0; i < quantity; i++) {
+      addItem({
+        id: item.id,
+        variationId: selectedVariation.id,
+        name: item.itemData?.name ?? 'Unknown',
+        price: basePrice + modifierTotal,
+        imageUrl: item.imageUrl,
+        variationName: selectedVariation.itemVariationData?.name,
+        modifiers: chosenModifiers,
+      })
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     setAdded(true)
+    setQuantity(1)
     if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
     addedTimerRef.current = setTimeout(() => setAdded(false), 1500)
   }
@@ -326,11 +330,57 @@ export function ItemDetailContent({
       </ScrollComponent>
 
       <View style={[styles.ctaBar, { paddingBottom: 12 + insets.bottom }]}>
+        <View style={styles.stepper}>
+          <Pressable
+            onPress={() => {
+              if (quantity <= 1) return
+              Haptics.selectionAsync()
+              setQuantity((q) => Math.max(1, q - 1))
+            }}
+            disabled={quantity <= 1}
+            accessibilityRole="button"
+            accessibilityLabel="Decrease quantity"
+            accessibilityState={{ disabled: quantity <= 1 }}
+            style={({ pressed }) => [
+              styles.stepperBtn,
+              quantity <= 1 && { opacity: 0.4 },
+              pressed && quantity > 1 && { opacity: 0.5 },
+            ]}
+          >
+            <Text style={styles.stepperMinus}>−</Text>
+          </Pressable>
+          <Text
+            style={styles.stepperCount}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`Quantity ${quantity}`}
+          >
+            {quantity}
+          </Text>
+          <Pressable
+            onPress={() => {
+              if (quantity >= 99) return
+              Haptics.selectionAsync()
+              setQuantity((q) => Math.min(99, q + 1))
+            }}
+            disabled={quantity >= 99}
+            accessibilityRole="button"
+            accessibilityLabel="Increase quantity"
+            accessibilityState={{ disabled: quantity >= 99 }}
+            style={({ pressed }) => [
+              styles.stepperBtn,
+              quantity >= 99 && { opacity: 0.4 },
+              pressed && quantity < 99 && { opacity: 0.5 },
+            ]}
+          >
+            <Icon name="plus" size={18} color={T.ink} />
+          </Pressable>
+        </View>
         <Pressable
           onPress={handleAddToCart}
           disabled={addDisabled}
           style={({ pressed }) => [
             styles.cta,
+            styles.ctaFlex,
             added && styles.ctaAdded,
             addDisabled && styles.ctaDisabled,
             pressed && !addDisabled && { opacity: 0.85 },
@@ -345,7 +395,7 @@ export function ItemDetailContent({
             <>
               <Text style={styles.ctaLeft}>Add to cart</Text>
               {!addDisabled ? (
-                <Text style={styles.ctaRight}>{formatPrice(totalCents)}</Text>
+                <Text style={styles.ctaRight}>{formatPrice(totalCents * quantity)}</Text>
               ) : null}
             </>
           )}
@@ -623,6 +673,9 @@ const styles = StyleSheet.create({
   },
 
   ctaBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     paddingHorizontal: 16,
     paddingTop: 12,
     backgroundColor: T.paper,
@@ -753,4 +806,37 @@ const styles = StyleSheet.create({
     color: T.brand,
     textTransform: 'uppercase',
   },
+
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: T.line,
+    backgroundColor: T.paper,
+  },
+  stepperBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperMinus: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 22,
+    lineHeight: 22,
+    color: T.ink,
+  },
+  stepperCount: {
+    minWidth: 24,
+    textAlign: 'center',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: T.ink,
+  },
+  ctaFlex: { flex: 1 },
 })
