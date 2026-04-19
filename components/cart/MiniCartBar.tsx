@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,8 +12,9 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useCartStore } from '@/store/cart'
 import { useCartSheetStore } from '@/store/cartSheet'
+import { Icon } from '@/components/brand/Icon'
 import { formatPrice } from '@/lib/utils'
-import { BRAND } from '@/lib/constants'
+import { T, FONT, SHADOW } from '@/constants/theme'
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity)
 
@@ -21,32 +22,29 @@ export function MiniCartBar() {
   const itemCount = useCartStore((s) => s.itemCount())
   const total = useCartStore((s) => s.total())
   const show = useCartSheetStore((s) => s.show)
+  const tabBarHeight = useBottomTabBarHeight()
 
   const barScale = useSharedValue(1)
   const badgeScale = useSharedValue(1)
   const translateY = useSharedValue(0)
   const opacity = useSharedValue(1)
 
-  // Run on UI thread, fires reliably on every itemCount change
   useAnimatedReaction(
     () => itemCount,
     (curr, prev) => {
       if (prev === null) return
       if (curr === 0) {
-        // Leaving: fade/slide out
         opacity.value = withTiming(0, { duration: 160 })
         translateY.value = withTiming(30, { duration: 160 })
         return
       }
       if (prev === 0 && curr > 0) {
-        // Entrance: slide up + fade in
         translateY.value = 40
         opacity.value = 0
         translateY.value = withSpring(0, { damping: 14, stiffness: 180 })
         opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.ease) })
       }
       if (curr > prev) {
-        // Pulse on add — subtle, cancel previous so rapid adds don't stack/freeze
         cancelAnimation(barScale)
         cancelAnimation(badgeScale)
         barScale.value = 1
@@ -76,14 +74,13 @@ export function MiniCartBar() {
   if (itemCount === 0) return null
 
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
-      <AnimatedTouchable
-        style={[styles.bar, barStyle]}
-        onPress={show}
-        activeOpacity={0.85}
-      >
+    <View
+      style={[styles.wrap, { bottom: tabBarHeight + 8 }]}
+      pointerEvents="box-none"
+    >
+      <AnimatedTouchable style={[styles.bar, barStyle]} onPress={show} activeOpacity={0.85}>
         <View style={styles.bagWrap}>
-          <Ionicons name="bag-handle" size={22} color="#fff" />
+          <Icon name="bag" size={20} color="#fff" />
           <Animated.View style={[styles.badge, badgeStyle]}>
             <Text style={styles.badgeText}>{itemCount}</Text>
           </Animated.View>
@@ -103,12 +100,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    bottom: 8,
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.color,
+    backgroundColor: T.brand,
     borderRadius: 28,
     paddingLeft: 14,
     paddingRight: 6,
@@ -116,12 +112,12 @@ const styles = StyleSheet.create({
     gap: 10,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.18,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
+        shadowColor: SHADOW.miniCart.shadowColor,
+        shadowOpacity: SHADOW.miniCart.shadowOpacity,
+        shadowRadius: SHADOW.miniCart.shadowRadius,
+        shadowOffset: SHADOW.miniCart.shadowOffset,
       },
-      android: { elevation: 6 },
+      android: { elevation: SHADOW.miniCart.elevation },
     }),
   },
   bagWrap: {
@@ -132,36 +128,39 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -2,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: 9,
+    top: -3,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: {
-    color: BRAND.color,
-    fontSize: 11,
+    fontFamily: FONT.sans,
+    color: T.brand,
+    fontSize: 10,
     fontWeight: '800',
   },
   total: {
+    fontFamily: FONT.sans,
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   spacer: { flex: 1 },
   checkoutBtn: {
     backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 22,
   },
   checkoutText: {
-    color: BRAND.color,
-    fontSize: 14,
+    fontFamily: FONT.sans,
+    color: T.brand,
+    fontSize: 13,
     fontWeight: '700',
   },
 })
