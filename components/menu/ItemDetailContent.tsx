@@ -239,6 +239,7 @@ export function ItemDetailContent({
             eyebrow="SIZE"
             title="Choose size"
             hint={variations.length > 1 ? 'Pick one' : 'Only option'}
+            required
           >
             {variations.map((v) => {
               const selected = v.id === selectedVariation?.id
@@ -271,6 +272,7 @@ export function ItemDetailContent({
                 eyebrow={eyebrowForList(ml.name)}
                 title={titleForList(ml.name)}
                 hint={describeSelection(ml)}
+                required={ml.minSelected >= 1}
               >
                 {ml.modifiers.map((mod) => {
                   const isSelected = selected.has(mod.id)
@@ -330,11 +332,13 @@ function ModifierSection({
   eyebrow,
   title,
   hint,
+  required,
   children,
 }: {
   eyebrow: string
   title: string
   hint: string
+  required?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -344,7 +348,13 @@ function ModifierSection({
           <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{eyebrow}</Text>
           <Text style={[TYPE.cardTitle, { color: T.ink }]}>{title}</Text>
         </View>
-        <Text style={styles.sectionHint}>{hint}</Text>
+        {required ? (
+          <View style={styles.requiredPill}>
+            <Text style={styles.requiredPillText}>REQUIRED</Text>
+          </View>
+        ) : (
+          <Text style={styles.sectionHint}>{hint}</Text>
+        )}
       </View>
       <View style={styles.chipRow}>{children}</View>
     </View>
@@ -593,5 +603,19 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: T.ink,
     marginTop: 6,
+  },
+
+  requiredPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(196,58,16,0.12)',
+  },
+  requiredPillText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: T.brand,
+    textTransform: 'uppercase',
   },
 })
