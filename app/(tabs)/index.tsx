@@ -1,5 +1,6 @@
 // app/(tabs)/index.tsx
 import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HomeLoyaltyHero } from '@/components/home/HomeLoyaltyHero';
 import { YourUsual } from '@/components/home/YourUsual';
@@ -11,8 +12,9 @@ import { MiniCartBar } from '@/components/cart/MiniCartBar';
 import { T } from '@/constants/theme';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg }}>
+    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: insets.top }}>
       <ScrollView
         style={{ backgroundColor: T.bg }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
