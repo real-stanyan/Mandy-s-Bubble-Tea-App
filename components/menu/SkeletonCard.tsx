@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { View, Animated, StyleSheet } from 'react-native'
+import { T } from '@/constants/theme'
 
 function usePulse() {
   const opacity = useRef(new Animated.Value(0.3)).current
@@ -99,23 +100,25 @@ export { SkeletonRow as SkeletonCard }
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: T.bg,
   },
   searchBar: {
     marginHorizontal: 12,
     marginTop: 8,
     marginBottom: 6,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F2E8DF',
+    height: 42,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: T.line,
+    backgroundColor: T.paper,
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   searchPlaceholder: {
     width: 100,
     height: 14,
     borderRadius: 4,
-    backgroundColor: '#e0d5ca',
+    backgroundColor: T.line,
   },
   body: {
     flex: 1,
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     flex: 1,
-    backgroundColor: '#F2E8DF',
+    backgroundColor: T.bg,
     paddingVertical: 8,
   },
   tab: {
@@ -135,7 +138,7 @@ const styles = StyleSheet.create({
   tabLine: {
     height: 14,
     borderRadius: 4,
-    backgroundColor: '#e0d5ca',
+    backgroundColor: T.line,
   },
   content: {
     flex: 3,
@@ -148,7 +151,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 20,
     borderRadius: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: T.line,
     marginLeft: 16,
     marginBottom: 8,
   },
@@ -160,10 +163,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowImage: {
-    width: 72,
-    height: 72,
+    width: 76,
+    height: 76,
     borderRadius: 12,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: T.sage,
   },
   rowInfo: {
     flex: 1,
@@ -174,18 +177,18 @@ const styles = StyleSheet.create({
     width: '70%',
     height: 14,
     borderRadius: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: T.line,
   },
   rowPrice: {
     width: 50,
     height: 14,
     borderRadius: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: T.line,
   },
   addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#e0e0e0',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: T.line,
   },
 })
