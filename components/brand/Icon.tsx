@@ -8,7 +8,7 @@ export type IconName =
   | 'search' | 'close'
   | 'home' | 'cafe' | 'receipt' | 'user'
   | 'qr' | 'clock'
-  | 'chevR' | 'logout' | 'gift' | 'cup' | 'settings';
+  | 'chevR' | 'logout' | 'gift' | 'cup' | 'settings' | 'share';
 
 export type IconProps = {
   name: IconName;
@@ -225,6 +225,28 @@ export function Icon({ name, color, size, filled }: IconProps) {
         <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
           <Circle cx={12} cy={12} r={3} stroke={c} strokeWidth={1.6} />
           <Path d="M12 3v2M12 19v2M21 12h-2M5 12H3M18.4 5.6l-1.4 1.4M7 17l-1.4 1.4M18.4 18.4L17 17M7 7L5.6 5.6" stroke={c} strokeWidth={1.6} strokeLinecap="round" />
+        </Svg>
+      );
+    }
+    case 'share': {
+      const c = color ?? T.ink;
+      const s = size ?? 20;
+      return (
+        <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M12 3 L7 8 M12 3 L17 8 M12 3 V15"
+            stroke={c}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M5 13 V19 Q5 21 7 21 H17 Q19 21 19 19 V13"
+            stroke={c}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </Svg>
       );
     }
