@@ -104,6 +104,7 @@ export function HeroCarousel() {
               source={item.image}
               style={[styles.cardImage, { width: cardWidth, height: cardHeight }]}
               contentFit="cover"
+              contentPosition="center"
             />
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.35)']}
