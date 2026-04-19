@@ -1,15 +1,17 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { Image } from 'expo-image'
-import { Ionicons } from '@expo/vector-icons'
-import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cart'
+import { Icon } from '@/components/brand/Icon'
+import { CupArt } from '@/components/brand/CupArt'
+import { T, FONT } from '@/constants/theme'
+import { formatPrice } from '@/lib/utils'
 import type { CartItem as CartItemType, CartModifier } from '@/types/square'
 
 interface Props {
   item: CartItemType
 }
 
-function groupModifiers(mods: CartModifier[]): Array<{ listName: string; names: string[] }> {
+function groupModifiers(mods: CartModifier[]): { listName: string; names: string[] }[] {
   const byList = new Map<string, string[]>()
   for (const m of mods) {
     const key = m.listName || 'OTHER'
@@ -35,13 +37,14 @@ export function CartItemRow({ item }: Props) {
 
   return (
     <View style={styles.row}>
-      {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.image} contentFit="cover" />
-      ) : (
-        <View style={[styles.image, styles.placeholder]}>
-          <Text style={{ fontSize: 24 }}>🧋</Text>
-        </View>
-      )}
+      <View style={styles.thumb}>
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        ) : (
+          <CupArt size={28} fill={T.brand} stroke={T.ink} />
+        )}
+      </View>
+
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.modifier} numberOfLines={1}>
@@ -55,19 +58,22 @@ export function CartItemRow({ item }: Props) {
         ))}
         <Text style={styles.price}>{formatPrice(item.price)}</Text>
       </View>
-      <View style={styles.controls}>
+
+      <View style={styles.stepper}>
         <TouchableOpacity
+          style={styles.stepBtnMinus}
           onPress={() => updateQuantity(item.lineId, item.quantity - 1)}
-          style={styles.qtyBtn}
+          activeOpacity={0.7}
         >
-          <Ionicons name="remove-circle-outline" size={28} color="#666" />
+          <Text style={styles.minusText}>−</Text>
         </TouchableOpacity>
         <Text style={styles.qty}>{item.quantity}</Text>
         <TouchableOpacity
+          style={styles.stepBtnPlus}
           onPress={() => updateQuantity(item.lineId, item.quantity + 1)}
-          style={styles.qtyBtn}
+          activeOpacity={0.7}
         >
-          <Ionicons name="add-circle-outline" size={28} color="#666" />
+          <Icon name="plus" size={14} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -77,24 +83,83 @@ export function CartItemRow({ item }: Props) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    padding: 12,
-    gap: 12,
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    gap: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: T.line,
   },
-  image: { width: 60, height: 60, borderRadius: 8 },
-  placeholder: {
-    backgroundColor: '#f5f5f5',
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#F1EBE4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  info: { flex: 1, minWidth: 0 },
+  name: {
+    fontFamily: FONT.sans,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: T.ink,
+    lineHeight: 16,
+  },
+  modifier: {
+    marginTop: 2,
+    fontFamily: FONT.sans,
+    fontSize: 11,
+    color: T.ink3,
+    lineHeight: 15,
+  },
+  modifierLabel: { color: T.ink3, fontWeight: '600' },
+  price: {
+    marginTop: 2,
+    fontFamily: FONT.mono,
+    fontSize: 12,
+    fontWeight: '600',
+    color: T.brand,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(42,30,20,0.05)',
+    borderRadius: 999,
+    padding: 3,
+  },
+  stepBtnMinus: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  info: { flex: 1, gap: 2 },
-  name: { fontSize: 16, fontWeight: '500' },
-  modifier: { fontSize: 12, color: '#666', lineHeight: 16 },
-  modifierLabel: { color: '#999', fontWeight: '600' },
-  price: { fontSize: 14, fontWeight: '500', color: '#333', marginTop: 2 },
-  controls: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  qtyBtn: { padding: 4 },
-  qty: { fontSize: 18, fontWeight: '600', minWidth: 24, textAlign: 'center' },
+  stepBtnPlus: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: T.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  minusText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: T.ink2,
+    lineHeight: 18,
+    includeFontPadding: false,
+  },
+  qty: {
+    minWidth: 14,
+    textAlign: 'center',
+    fontFamily: FONT.mono,
+    fontSize: 13,
+    fontWeight: '700',
+    color: T.ink,
+  },
 })
