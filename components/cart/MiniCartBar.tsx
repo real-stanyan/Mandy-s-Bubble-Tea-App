@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native'
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,7 +22,9 @@ export function MiniCartBar() {
   const itemCount = useCartStore((s) => s.itemCount())
   const total = useCartStore((s) => s.total())
   const show = useCartSheetStore((s) => s.show)
-  const tabBarHeight = useBottomTabBarHeight()
+  const insets = useSafeAreaInsets()
+  const tabBarHeight =
+    Platform.OS === 'ios' ? 49 + insets.bottom + 8 : 56 + 8 + 8
 
   const barScale = useSharedValue(1)
   const badgeScale = useSharedValue(1)
