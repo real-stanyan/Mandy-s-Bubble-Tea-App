@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { View, TouchableOpacity, Share, StyleSheet } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { View, Pressable, Share, StyleSheet } from 'react-native'
 import {
   BottomSheetModal,
   BottomSheetScrollView,
@@ -8,6 +7,8 @@ import {
   BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet'
 import { useItemSheetStore } from '@/store/itemSheet'
+import { Icon } from '@/components/brand/Icon'
+import { T, RADIUS } from '@/constants/theme'
 import { ItemDetailContent } from './ItemDetailContent'
 
 export function ItemDetailSheet() {
@@ -54,14 +55,25 @@ export function ItemDetailSheet() {
       enablePanDownToClose
       onChange={onChange}
       backdropComponent={renderBackdrop}
+      handleComponent={null}
+      backgroundStyle={styles.sheetBg}
     >
+      <View style={styles.dragHandle} />
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleShare} hitSlop={12} style={styles.iconBtn}>
-          <Ionicons name="share-outline" size={22} color="#11181C" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={close} hitSlop={12} style={styles.iconBtn}>
-          <Ionicons name="close" size={24} color="#11181C" />
-        </TouchableOpacity>
+        <Pressable
+          onPress={handleShare}
+          hitSlop={8}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+        >
+          <Icon name="share" color={T.ink} size={20} />
+        </Pressable>
+        <Pressable
+          onPress={close}
+          hitSlop={8}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+        >
+          <Icon name="close" color={T.ink} size={22} />
+        </Pressable>
       </View>
       {itemId ? (
         <ItemDetailContent itemId={itemId} ScrollComponent={BottomSheetScrollView} />
@@ -71,12 +83,27 @@ export function ItemDetailSheet() {
 }
 
 const styles = StyleSheet.create({
+  sheetBg: {
+    backgroundColor: T.paper,
+    borderTopLeftRadius: RADIUS.sheetTop,
+    borderTopRightRadius: RADIUS.sheetTop,
+  },
+  dragHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: T.ink4,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    height: 44,
+    borderBottomWidth: 1,
+    borderBottomColor: T.line,
   },
   iconBtn: {
     width: 36,
@@ -84,6 +111,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'transparent',
+  },
+  iconBtnPressed: {
+    opacity: 0.6,
   },
 })
