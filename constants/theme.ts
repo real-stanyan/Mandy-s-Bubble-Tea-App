@@ -124,6 +124,13 @@ export const SHADOW = {
     shadowRadius: 30,
     elevation: 12,
   },
+  readyCard: {
+    shadowColor: '#3C644C',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.45,
+    shadowRadius: 26,
+    elevation: 10,
+  },
 } as const;
 
 export const TYPE = {
