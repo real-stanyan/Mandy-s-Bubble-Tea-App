@@ -207,10 +207,10 @@ const CLOSE_HOUR = 21;
 // getStoreStatus(new Date('2026-04-19T13:00:00Z')) // 23:00 Brisbane → closed, "9am tomorrow"
 // getStoreStatus(new Date('2026-04-18T22:00:00Z')) // 08:00 Brisbane Sat → closed, "9am"
 export function getStoreStatus(now: Date = new Date()): StoreStatus {
-  const brisbaneMs = now.getTime() + (10 * 60 - now.getTimezoneOffset() + now.getTimezoneOffset()) * 60 * 1000;
-  // Express current moment as Brisbane hour — convert via UTC + 10h offset.
-  const brisbane = new Date(now.getTime() + (10 * 60 + now.getTimezoneOffset()) * 60 * 1000);
-  const hour = brisbane.getUTCHours();
+  // Brisbane is UTC+10 year-round (no DST). Shift UTC timestamp by +10h then
+  // read with getUTCHours() to get the Brisbane wall-clock hour regardless
+  // of the device's local timezone.
+  const hour = new Date(now.getTime() + 10 * 60 * 60 * 1000).getUTCHours();
   const isOpen = hour >= OPEN_HOUR && hour < CLOSE_HOUR;
   if (isOpen) {
     return { open: true, nextLabel: `until ${formatHour(CLOSE_HOUR)}` };
@@ -251,8 +251,7 @@ export function normalizeSlug(name: string): string {
 // timeGreeting(new Date('2026-04-19T05:00:00Z')) // 15:00 Brisbane → 'Good afternoon'
 // timeGreeting(new Date('2026-04-19T10:00:00Z')) // 20:00 Brisbane → 'Good evening'
 export function timeGreeting(now: Date = new Date()): 'Good morning' | 'Good afternoon' | 'Good evening' {
-  const brisbane = new Date(now.getTime() + (10 * 60 + now.getTimezoneOffset()) * 60 * 1000);
-  const hour = brisbane.getUTCHours();
+  const hour = new Date(now.getTime() + 10 * 60 * 60 * 1000).getUTCHours();
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
