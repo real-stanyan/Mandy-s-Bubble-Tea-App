@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useOrdersStore } from '@/store/orders';
 import { Icon, type IconName } from '@/components/brand/Icon';
 import { MiniCartBar } from '@/components/cart/MiniCartBar';
+import { CartSheet } from '@/components/cart/CartSheet';
 import { T, FONT } from '@/constants/theme';
 
 function TabIcon({ name, color }: { name: IconName; color: string }) {
@@ -84,6 +85,7 @@ export default function TabLayout() {
         />
       </Tabs>
       <MiniCartBar />
+      <CartSheet />
     </View>
   );
 }
