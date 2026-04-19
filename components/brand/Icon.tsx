@@ -236,14 +236,14 @@ export function Icon({ name, color, size, filled }: IconProps) {
           <Path
             d="M12 3 L7 8 M12 3 L17 8 M12 3 V15"
             stroke={c}
-            strokeWidth={2}
+            strokeWidth={1.8}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
           <Path
             d="M5 13 V19 Q5 21 7 21 H17 Q19 21 19 19 V13"
             stroke={c}
-            strokeWidth={2}
+            strokeWidth={1.8}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
