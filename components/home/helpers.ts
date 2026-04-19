@@ -104,36 +104,41 @@ function buildSubtitle(mods: YourUsualItem['modifiers'], size?: string): string 
 
 export type StoreStatus = { open: boolean; nextLabel: string };
 
-// Store runs 09:00–21:00 Australia/Brisbane (UTC+10, no DST) every day per
-// AGENTS.md / .claude/CLAUDE.md. YAGNI: no holiday exceptions.
-const OPEN_HOUR = 9;
-const CLOSE_HOUR = 21;
+// Store runs 10:30–22:30 Australia/Brisbane (UTC+10, no DST) every day.
+// YAGNI: no holiday exceptions, no per-weekday variation.
+const OPEN_MIN = 10 * 60 + 30; // 10:30
+const CLOSE_MIN = 22 * 60 + 30; // 22:30
 
 // @verification
-// getStoreStatus(new Date('2026-04-19T03:00:00Z')) // 13:00 Brisbane → open, "until 9pm"
-// getStoreStatus(new Date('2026-04-19T13:00:00Z')) // 23:00 Brisbane → closed, "9am tomorrow"
-// getStoreStatus(new Date('2026-04-18T22:00:00Z')) // 08:00 Brisbane Sat → closed, "9am"
+// getStoreStatus(new Date('2026-04-19T03:00:00Z')) // 13:00 Brisbane → open, "until 10:30pm"
+// getStoreStatus(new Date('2026-04-19T13:00:00Z')) // 23:00 Brisbane → closed, "10:30am tomorrow"
+// getStoreStatus(new Date('2026-04-18T22:00:00Z')) // 08:00 Brisbane Sat → closed, "10:30am"
 export function getStoreStatus(now: Date = new Date()): StoreStatus {
   // Brisbane is UTC+10 year-round (no DST). Shift UTC timestamp by +10h then
-  // read with getUTCHours() to get the Brisbane wall-clock hour regardless
-  // of the device's local timezone.
-  const hour = new Date(now.getTime() + 10 * 60 * 60 * 1000).getUTCHours();
-  const isOpen = hour >= OPEN_HOUR && hour < CLOSE_HOUR;
+  // read with getUTCHours()/getUTCMinutes() to get the Brisbane wall clock
+  // regardless of the device's local timezone.
+  const brisbane = new Date(now.getTime() + 10 * 60 * 60 * 1000);
+  const minutes = brisbane.getUTCHours() * 60 + brisbane.getUTCMinutes();
+  const isOpen = minutes >= OPEN_MIN && minutes < CLOSE_MIN;
   if (isOpen) {
-    return { open: true, nextLabel: `until ${formatHour(CLOSE_HOUR)}` };
+    return { open: true, nextLabel: `until ${formatClock(CLOSE_MIN)}` };
   }
-  const beforeOpen = hour < OPEN_HOUR;
+  const beforeOpen = minutes < OPEN_MIN;
   return {
     open: false,
-    nextLabel: beforeOpen ? `${formatHour(OPEN_HOUR)}` : `${formatHour(OPEN_HOUR)} tomorrow`,
+    nextLabel: beforeOpen
+      ? `${formatClock(OPEN_MIN)}`
+      : `${formatClock(OPEN_MIN)} tomorrow`,
   };
 }
 
-function formatHour(h24: number): string {
+function formatClock(minsOfDay: number): string {
+  const h24 = Math.floor(minsOfDay / 60);
+  const m = minsOfDay % 60;
   const suffix = h24 < 12 || h24 === 24 ? 'am' : 'pm';
   const mod = h24 % 12;
-  const label = mod === 0 ? 12 : mod;
-  return `${label}${suffix}`;
+  const hLabel = mod === 0 ? 12 : mod;
+  return m === 0 ? `${hLabel}${suffix}` : `${hLabel}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
 // ---------------------------------------------------------------------
