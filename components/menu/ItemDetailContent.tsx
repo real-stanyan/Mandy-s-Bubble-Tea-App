@@ -266,6 +266,33 @@ export function ItemDetailContent({
 
           {modifierLists.map((ml) => {
             const selected = selectedByList[ml.id] ?? new Set()
+            const isTopping = (ml.name ?? '').toUpperCase().includes('TOPPING')
+            if (isTopping) {
+              return (
+                <ToppingSection
+                  key={ml.id}
+                  eyebrow={eyebrowForList(ml.name)}
+                  title={titleForList(ml.name)}
+                  hint={describeSelection(ml)}
+                  required={ml.minSelected >= 1}
+                >
+                  {ml.modifiers.map((mod) => {
+                    const isSelected = selected.has(mod.id)
+                    const isDisabled = isModifierDisabled(ml, mod.id)
+                    return (
+                      <ToppingRow
+                        key={mod.id}
+                        label={mod.name}
+                        priceCents={Number(mod.priceCents ?? 0)}
+                        selected={isSelected}
+                        disabled={isDisabled}
+                        onPress={() => toggleModifier(ml, mod.id)}
+                      />
+                    )
+                  })}
+                </ToppingSection>
+              )
+            }
             return (
               <ModifierSection
                 key={ml.id}
@@ -361,6 +388,39 @@ function ModifierSection({
   )
 }
 
+function ToppingSection({
+  eyebrow,
+  title,
+  hint,
+  required,
+  children,
+}: {
+  eyebrow: string
+  title: string
+  hint: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={{ gap: 2 }}>
+          <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{eyebrow}</Text>
+          <Text style={[TYPE.cardTitle, { color: T.ink }]}>{title}</Text>
+        </View>
+        {required ? (
+          <View style={styles.requiredPill}>
+            <Text style={styles.requiredPillText}>REQUIRED</Text>
+          </View>
+        ) : (
+          <Text style={styles.sectionHint}>{hint}</Text>
+        )}
+      </View>
+      <View style={styles.toppingList}>{children}</View>
+    </View>
+  )
+}
+
 function Chip({
   label,
   priceSuffix,
@@ -402,6 +462,42 @@ function Chip({
     >
       <Text style={labelStyle}>{label}</Text>
       {priceSuffix ? <Text style={priceStyle}>{priceSuffix}</Text> : null}
+    </Pressable>
+  )
+}
+
+function ToppingRow({
+  label,
+  priceCents,
+  selected,
+  disabled,
+  onPress,
+}: {
+  label: string
+  priceCents: number
+  selected: boolean
+  disabled: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled && !selected}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected, disabled: disabled && !selected }}
+      style={({ pressed }) => [
+        styles.toppingRow,
+        disabled && !selected && { opacity: 0.45 },
+        pressed && !(disabled && !selected) && { opacity: 0.6 },
+      ]}
+    >
+      <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
+        {selected ? <Icon name="check" size={14} color="#fff" /> : null}
+      </View>
+      <Text style={styles.toppingLabel}>{label}</Text>
+      {priceCents > 0 ? (
+        <Text style={styles.toppingPrice}>+{formatPrice(priceCents)}</Text>
+      ) : null}
     </Pressable>
   )
 }
@@ -603,6 +699,45 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: T.ink,
     marginTop: 6,
+  },
+
+  toppingList: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: T.line,
+  },
+  toppingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: T.line,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: T.line,
+    backgroundColor: T.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    borderColor: T.brand,
+    backgroundColor: T.brand,
+  },
+  toppingLabel: {
+    flex: 1,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 15,
+    color: T.ink,
+  },
+  toppingPrice: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    color: T.ink3,
   },
 
   requiredPill: {
