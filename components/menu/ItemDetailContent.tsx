@@ -356,6 +356,8 @@ function Chip({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled }}
       style={({ pressed }) => [chipStyle, pressed && !disabled && { opacity: 0.6 }]}
     >
       <Text style={labelStyle}>{label}</Text>
