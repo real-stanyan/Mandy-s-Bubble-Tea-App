@@ -13,7 +13,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useItemSheetStore } from '@/store/itemSheet';
 import { useMenu } from '@/hooks/use-menu';
-import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme';
+import { T, TYPE, SHADOW } from '@/constants/theme';
 import { SectionHead } from './SectionHead';
 
 const SLIDES = [

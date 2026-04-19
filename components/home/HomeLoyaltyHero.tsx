@@ -12,6 +12,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function HomeLoyaltyHero() {
   const router = useRouter();
   const { profile, loyalty, starsPerReward } = useAuth();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   if (!profile) return null;
 
@@ -19,9 +21,6 @@ export function HomeLoyaltyHero() {
   const goal = starsPerReward ?? 9;
   const toGo = Math.max(0, goal - balance);
   const reached = balance >= goal;
-
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>

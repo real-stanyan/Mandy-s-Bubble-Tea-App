@@ -1,5 +1,5 @@
 // components/home/helpers.ts
-import type { OrderHistoryItem, OrderHistoryLine, OrderHistoryLineModifier } from '@/store/orders';
+import type { OrderHistoryItem, OrderHistoryLine } from '@/store/orders';
 
 export type YourUsualItem = {
   key: string;
@@ -7,7 +7,7 @@ export type YourUsualItem = {
   variationId: string;
   name: string;
   variationName?: string;
-  modifiers: Array<{ id: string; name: string; listName: string; priceCents: number }>;
+  modifiers: { id: string; name: string; listName: string; priceCents: number }[];
   size?: string;
   subtitle: string;
   priceCents: number;
