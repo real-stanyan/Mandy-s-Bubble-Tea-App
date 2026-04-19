@@ -72,6 +72,7 @@ export default function TabLayout() {
           name="order"
           options={{
             title: 'My Orders',
+            headerShown: false,
             tabBarIcon: ({ color }) => <TabIcon name="receipt" color={color} />,
             tabBarBadge: unfinishedCount > 0 ? unfinishedCount : undefined,
           }}
