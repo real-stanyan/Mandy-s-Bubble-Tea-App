@@ -8,7 +8,6 @@ import { DailySpecial } from '@/components/home/DailySpecial';
 import { CategoriesStrip } from '@/components/home/CategoriesStrip';
 import { HotPicks } from '@/components/home/HeroCarousel';
 import { StoreCard } from '@/components/home/StoreCard';
-import { MiniCartBar } from '@/components/cart/MiniCartBar';
 import { T } from '@/constants/theme';
 
 export default function HomeScreen() {
@@ -28,7 +27,6 @@ export default function HomeScreen() {
         <HotPicks />
         <StoreCard />
       </ScrollView>
-      <MiniCartBar />
     </View>
   );
 }

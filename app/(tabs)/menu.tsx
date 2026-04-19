@@ -26,7 +26,6 @@ import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cart'
 import { useItemSheetStore } from '@/store/itemSheet'
-import { MiniCartBar } from '@/components/cart/MiniCartBar'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
@@ -225,7 +224,6 @@ export default function MenuScreen() {
           </View>
         </View>
       )}
-      <MiniCartBar />
     </View>
   )
 }

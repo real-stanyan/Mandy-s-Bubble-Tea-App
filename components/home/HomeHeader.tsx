@@ -1,15 +1,15 @@
 import { Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useCartStore } from '@/store/cart';
+import { useCartSheetStore } from '@/store/cartSheet';
 import { Icon } from '@/components/brand/Icon';
 import { T, TYPE } from '@/constants/theme';
 import { timeGreeting, getStoreStatus } from './helpers';
 
 export function HomeHeader() {
-  const router = useRouter();
   const { profile } = useAuth();
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
+  const showCart = useCartSheetStore((s) => s.show);
 
   const greeting = timeGreeting();
   const firstName = profile?.first_name?.trim() || (profile ? 'Friend' : 'Welcome');
@@ -70,7 +70,7 @@ export function HomeHeader() {
 
           <Pressable
             hitSlop={6}
-            onPress={() => router.push('/(tabs)/cart')}
+            onPress={showCart}
             style={({ pressed }) => ({
               width: 40,
               height: 40,
