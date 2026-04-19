@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -11,18 +10,15 @@ import {
   StyleSheet,
 } from 'react-native'
 import Animated, { LinearTransition } from 'react-native-reanimated'
-import { useFocusEffect, useRouter } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useLoyalty } from '@/hooks/use-loyalty'
+import { useRouter } from 'expo-router'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { LoyaltyCard } from '@/components/account/LoyaltyCard'
 import { HeroCarousel } from '@/components/home/HeroCarousel'
 import { WelcomeDiscountBanner } from '@/components/home/WelcomeDiscountBanner'
 import { MiniCartBar } from '@/components/cart/MiniCartBar'
-import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
-import { BRAND, STORAGE_KEYS } from '@/lib/constants'
+import { BRAND } from '@/lib/constants'
 import type { LoyaltyAccount } from '@/types/square'
 
-const PHONE_KEY = STORAGE_KEYS.phone
 const BANNER_ASPECT = 4608 / 3712
 const CARD_OVERLAP = 56
 
@@ -32,44 +28,20 @@ const EMPTY_LOYALTY: LoyaltyAccount = {
   id: '',
   balance: 0,
   lifetimePoints: 0,
-  availableRewards: [],
 }
 
 export default function HomeScreen() {
   const router = useRouter()
   const { width } = useWindowDimensions()
   const bannerHeight = width / BANNER_ASPECT
-  const [phone, setPhone] = useState<string | null>(null)
-  const [initializing, setInitializing] = useState(true)
-  const { account, loading, refresh } = useLoyalty(phone)
-  const refreshWelcome = useWelcomeDiscountStore((s) => s.refresh)
-  const clearWelcome = useWelcomeDiscountStore((s) => s.clear)
+  const { profile, loyalty, starsPerReward, loading } = useAuth()
 
-  useEffect(() => {
-    AsyncStorage.getItem(PHONE_KEY).then((saved) => {
-      if (saved) setPhone(saved)
-      setInitializing(false)
-    })
-  }, [])
+  const signedIn = !!profile
+  const account: LoyaltyAccount | null = loyalty
+    ? { id: loyalty.accountId, balance: loyalty.balance, lifetimePoints: loyalty.lifetimePoints }
+    : null
 
-  useFocusEffect(
-    useCallback(() => {
-      AsyncStorage.getItem(PHONE_KEY).then((saved) => {
-        const next = saved ?? null
-        setPhone(next)
-        if (next) {
-          refreshWelcome(next)
-        } else {
-          clearWelcome()
-        }
-      })
-      if (phone) {
-        refresh()
-      }
-    }, [phone, refresh, refreshWelcome, clearWelcome]),
-  )
-
-  if (initializing) {
+  if (loading && !profile) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={BRAND.color} />
@@ -105,7 +77,7 @@ export default function HomeScreen() {
       <View style={{ marginTop: -CARD_OVERLAP }}>
         <WelcomeDiscountBanner />
         <Animated.View style={styles.overlapWrap} layout={LinearTransition.duration(260)}>
-          {!phone ? (
+          {!signedIn ? (
             <ImageBackground
               source={require('@/assets/images/hero-banner-signed-out.webp')}
               style={styles.signInCard}
@@ -122,14 +94,11 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
             </ImageBackground>
-          ) : loading && !account ? (
-            <ActivityIndicator
-              size="large"
-              color={BRAND.color}
-              style={{ marginTop: 40 }}
-            />
           ) : (
-            <LoyaltyCard account={account ?? EMPTY_LOYALTY} />
+            <LoyaltyCard
+              account={account ?? EMPTY_LOYALTY}
+              starsPerReward={starsPerReward}
+            />
           )}
         </Animated.View>
       </View>

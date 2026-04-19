@@ -15,7 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { Ionicons } from '@expo/vector-icons'
 import { BRAND, LOYALTY } from '@/lib/constants'
-import { useLoyalty } from '@/hooks/use-loyalty'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { apiFetch } from '@/lib/api'
 import { useOrdersStore } from '@/store/orders'
 import type { CartItem, CartModifier } from '@/types/square'
@@ -45,14 +45,11 @@ type FulfillmentState = 'PROPOSED' | 'RESERVED' | 'PREPARED' | 'COMPLETED' | 'CA
 const TERMINAL_STATES: ReadonlySet<FulfillmentState> = new Set(['COMPLETED', 'CANCELED', 'FAILED'])
 const POLL_MS = 5000
 
-const PHONE_KEY = 'mbt:account:phone'
-
 const STORE_LAT = -27.9673
 const STORE_LNG = 153.4145
 const STORE_LABEL = "Mandy's Bubble Tea"
 const STORE_ADDRESS = '34 Davenport St, Southport QLD 4215'
 
-// Compute OSM tile coords for store location at zoom 16
 const MAP_ZOOM = 16
 const n = Math.pow(2, MAP_ZOOM)
 const centerX = Math.floor(((STORE_LNG + 180) / 360) * n)
@@ -92,14 +89,11 @@ export default function OrderConfirmationScreen() {
     total: string
   }>()
 
+  const { loyalty, profile, starsPerReward } = useAuth()
   const [orderItems, setOrderItems] = useState<CartItem[]>([])
-  const [phone, setPhone] = useState<string | null>(null)
   const [fulfillmentState, setFulfillmentState] = useState<FulfillmentState>('PROPOSED')
   const stateRef = useRef<FulfillmentState>('PROPOSED')
-  const { account } = useLoyalty(phone)
 
-  // Use the Supabase-generated order number (e.g. OL800) passed from checkout.
-  // Fall back to last 3 digits of orderId for older orders without referenceId.
   const pickupNumber = pickupNum
     || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
 
@@ -114,15 +108,11 @@ export default function OrderConfirmationScreen() {
       }
     })
 
-    AsyncStorage.getItem(PHONE_KEY).then((p) => {
-      if (p) {
-        setPhone(p)
-        useOrdersStore.getState().refresh(p)
-      }
-    })
-  }, [])
+    if (profile) {
+      useOrdersStore.getState().refresh()
+    }
+  }, [profile])
 
-  // Poll fulfillment status every 5 seconds until terminal state
   useEffect(() => {
     if (!orderId) return
     if (TERMINAL_STATES.has(stateRef.current)) return
@@ -138,11 +128,9 @@ export default function OrderConfirmationScreen() {
         if (data.state !== stateRef.current) {
           stateRef.current = data.state
           setFulfillmentState(data.state)
-          // Haptic feedback on meaningful state changes
           if (data.state === 'PREPARED') {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
           }
-          // Refresh global orders so tab badge + history reflect terminal changes
           if (TERMINAL_STATES.has(data.state)) {
             useOrdersStore.getState().refresh()
           }
@@ -150,11 +138,9 @@ export default function OrderConfirmationScreen() {
       } catch { /* retry next tick */ }
     }
 
-    // Initial fetch + interval
     tick()
     const id = setInterval(tick, POLL_MS)
 
-    // Also poll on app foregrounding (user may have backgrounded the app)
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && !TERMINAL_STATES.has(stateRef.current)) {
         tick()
@@ -168,10 +154,11 @@ export default function OrderConfirmationScreen() {
     }
   }, [orderId, fulfillmentState])
 
+  const perReward = starsPerReward || LOYALTY.starsForReward
   const starsEarned = loyaltyAccrued === '1' ? orderItems.reduce((sum, i) => sum + i.quantity, 0) : 0
-  const currentBalance = account?.balance ?? 0
-  const starsToGo = Math.max(0, LOYALTY.starsForReward - currentBalance)
-  const progressRatio = Math.min(currentBalance / LOYALTY.starsForReward, 1)
+  const currentBalance = loyalty?.balance ?? 0
+  const starsToGo = Math.max(0, perReward - currentBalance)
+  const progressRatio = perReward > 0 ? Math.min(currentBalance / perReward, 1) : 0
 
   const statusUi = getStatusUi(fulfillmentState)
 
@@ -180,7 +167,6 @@ export default function OrderConfirmationScreen() {
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
     >
-      {/* Status icon — changes with fulfillment state */}
       <View style={[styles.iconCircle, { backgroundColor: statusUi.iconBg }]}>
         <Ionicons name={statusUi.icon} size={36} color="#fff" />
       </View>
@@ -188,13 +174,11 @@ export default function OrderConfirmationScreen() {
       <Text style={[styles.title, { color: statusUi.headingColor }]}>{statusUi.heading}</Text>
       <Text style={styles.subtitle}>{statusUi.body}</Text>
 
-      {/* Pickup number card */}
       <View style={styles.pickupCard}>
         <Text style={styles.pickupLabel}>YOUR PICKUP NUMBER</Text>
         <Text style={styles.pickupNumber}>{pickupNumber}</Text>
       </View>
 
-      {/* Info row: date + estimated pickup time */}
       <View style={styles.infoRow}>
         <View style={styles.infoBox}>
           <Text style={styles.infoLabel}>DATE</Text>
@@ -206,7 +190,6 @@ export default function OrderConfirmationScreen() {
         </View>
       </View>
 
-      {/* Map card */}
       <TouchableOpacity
         style={styles.mapCard}
         onPress={openMapsNavigation}
@@ -238,7 +221,6 @@ export default function OrderConfirmationScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* Loyalty stars banner */}
       {starsEarned > 0 && (
         <View style={styles.starsBanner}>
           <View style={styles.starsHeader}>
@@ -246,7 +228,7 @@ export default function OrderConfirmationScreen() {
             <Text style={styles.starsTitle}>Stars Earned: +{starsEarned}</Text>
           </View>
           <Text style={styles.starsProgress}>
-            Current Progress: {currentBalance}/{LOYALTY.starsForReward} Stars
+            Current Progress: {currentBalance}/{perReward} Stars
           </Text>
           <View style={styles.progressBarRow}>
             <View style={styles.progressBarBg}>
@@ -261,7 +243,6 @@ export default function OrderConfirmationScreen() {
         </View>
       )}
 
-      {/* Order Summary */}
       {orderItems.length > 0 && (
         <View style={styles.summarySection}>
           <Text style={styles.summaryHeading}>Order Summary</Text>
@@ -294,7 +275,6 @@ export default function OrderConfirmationScreen() {
         </View>
       )}
 
-      {/* Back to Home */}
       <TouchableOpacity
         style={styles.homeButton}
         onPress={() => router.replace('/(tabs)')}
@@ -439,7 +419,6 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
-  // Map
   mapCard: {
     marginTop: 16,
     width: '100%',
@@ -491,7 +470,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // Loyalty stars banner
   starsBanner: {
     marginTop: 16,
     width: '100%',
@@ -540,7 +518,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Order summary
   summarySection: {
     marginTop: 20,
     width: '100%',
@@ -581,7 +558,6 @@ const styles = StyleSheet.create({
     color: BRAND.color,
   },
 
-  // Back to Home
   homeButton: {
     marginTop: 20,
     width: '100%',

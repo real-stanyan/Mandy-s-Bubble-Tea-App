@@ -1,20 +1,21 @@
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { BRAND, STORAGE_KEYS } from '@/lib/constants';
+import { BRAND } from '@/lib/constants';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useOrdersStore } from '@/store/orders';
 
 export default function TabLayout() {
+  const { profile } = useAuth();
   const refreshOrders = useOrdersStore((s) => s.refresh);
+  const clearOrders = useOrdersStore((s) => s.clear);
   const unfinishedCount = useOrdersStore((s) => s.activeOrderCount);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEYS.phone).then((saved) => {
-      refreshOrders(saved ?? null);
-    });
-  }, [refreshOrders]);
+    if (profile) refreshOrders();
+    else clearOrders();
+  }, [profile, refreshOrders, clearOrders]);
 
   return (
     <Tabs

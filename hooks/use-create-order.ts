@@ -4,14 +4,11 @@ import type { CartItem, Order } from '@/types/square'
 
 interface CreateOrderParams {
   items: CartItem[]
-  name: string
-  phone: string
   applyWelcomeDiscount?: boolean
 }
 
 interface CreateOrderResult {
   orderId: string
-  customerId: string
   order: Order
 }
 
@@ -21,39 +18,37 @@ interface CreateOrderHook {
   error: string | null
 }
 
+// Customer identity (customerId / phone / name) is derived server-side
+// from the Supabase session. The client only sends the cart.
 export function useCreateOrder(): CreateOrderHook {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const createOrder = async ({
     items,
-    name,
-    phone,
     applyWelcomeDiscount,
   }: CreateOrderParams): Promise<CreateOrderResult> => {
     setLoading(true)
     setError(null)
     try {
-      // 1) Lookup/create customer to get customerId
-      const customerRes = await apiFetch<{
-        ok: boolean
-        customerId: string
-      }>('/api/customer', {
-        method: 'POST',
-        body: JSON.stringify({ name, phone }),
+      const lines = items.map((item) => {
+        const modifierTotal = (item.modifiers ?? []).reduce(
+          (sum, m) => sum + (m.priceCents ?? 0),
+          0,
+        )
+        return {
+          itemName: item.name,
+          variationId: item.variationId,
+          variationName: item.variationName,
+          variationPriceCents: Math.max(0, item.price - modifierTotal),
+          modifiers: (item.modifiers ?? []).map((m) => ({
+            id: m.id,
+            name: m.name,
+            priceCents: m.priceCents ?? 0,
+          })),
+          quantity: item.quantity,
+        }
       })
-
-      // 2) Create order with proper format
-      const lines = items.map((item) => ({
-        itemName: item.name,
-        variationId: item.variationId,
-        variationName: item.variationName,
-        modifiers: (item.modifiers ?? []).map((m) => ({
-          id: m.id,
-          name: m.name,
-        })),
-        quantity: item.quantity,
-      }))
 
       const orderRes = await apiFetch<{
         ok: boolean
@@ -62,15 +57,12 @@ export function useCreateOrder(): CreateOrderHook {
       }>('/api/orders', {
         method: 'POST',
         body: JSON.stringify({
-          customerId: customerRes.customerId,
-          recipientName: name.trim(),
-          recipientPhone: phone.trim(),
           lines,
           applyWelcomeDiscount: !!applyWelcomeDiscount,
         }),
       })
 
-      return { orderId: orderRes.orderId, customerId: customerRes.customerId, order: orderRes.order }
+      return { orderId: orderRes.orderId, order: orderRes.order }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to create order'
       setError(msg)

@@ -1,16 +1,15 @@
+import { useState } from 'react'
 import { Text, TouchableOpacity, View, StyleSheet } from 'react-native'
 import Animated, { FadeOutUp } from 'react-native-reanimated'
 import { Ionicons } from '@expo/vector-icons'
 import { BRAND } from '@/lib/constants'
-import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 export function WelcomeDiscountBanner() {
-  const available = useWelcomeDiscountStore((s) => s.available)
-  const percentage = useWelcomeDiscountStore((s) => s.percentage)
-  const dismissed = useWelcomeDiscountStore((s) => s.dismissed)
-  const dismiss = useWelcomeDiscountStore((s) => s.dismiss)
+  const { welcomeDiscount } = useAuth()
+  const [dismissed, setDismissed] = useState(false)
 
-  if (!available || dismissed) return null
+  if (!welcomeDiscount.available || dismissed) return null
 
   return (
     <Animated.View style={styles.wrap} exiting={FadeOutUp.duration(260)}>
@@ -19,10 +18,13 @@ export function WelcomeDiscountBanner() {
         <View style={styles.textWrap}>
           <Text style={styles.title}>Your Welcome Gift</Text>
           <Text style={styles.subtitle}>
-            {percentage}% off your first order — auto-applied at checkout
+            {welcomeDiscount.percentage}% off your first 2 drinks
+            {welcomeDiscount.drinksRemaining < 2
+              ? ` — ${welcomeDiscount.drinksRemaining} drink${welcomeDiscount.drinksRemaining === 1 ? '' : 's'} left, auto-applied at checkout`
+              : ' — auto-applied at checkout'}
           </Text>
         </View>
-        <TouchableOpacity onPress={dismiss} hitSlop={8} style={styles.close}>
+        <TouchableOpacity onPress={() => setDismissed(true)} hitSlop={8} style={styles.close}>
           <Ionicons name="close" size={18} color="#fff" />
         </TouchableOpacity>
       </View>

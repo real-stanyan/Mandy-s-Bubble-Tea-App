@@ -1,26 +1,14 @@
-import { useEffect, useState } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useLoyalty } from '@/hooks/use-loyalty'
-import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { WelcomeDiscountCard } from '@/components/account/WelcomeDiscountCard'
-import { BRAND, LOYALTY, STORAGE_KEYS } from '@/lib/constants'
+import { BRAND, LOYALTY } from '@/lib/constants'
 
 export default function PromotionsScreen() {
-  const [phone, setPhone] = useState<string | null>(null)
-  const refreshWelcome = useWelcomeDiscountStore((s) => s.refresh)
-  const welcomeAvailable = useWelcomeDiscountStore((s) => s.available)
-  const { account } = useLoyalty(phone)
-  const rewards = account?.availableRewards ?? []
-
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEYS.phone).then((p) => {
-      setPhone(p)
-      if (p) refreshWelcome(p)
-    })
-  }, [refreshWelcome])
-
-  const hasAny = welcomeAvailable || rewards.length > 0
+  const { loyalty, welcomeDiscount, starsPerReward } = useAuth()
+  const stars = loyalty?.balance ?? 0
+  const perReward = starsPerReward || LOYALTY.starsForReward
+  const rewardsCount = perReward > 0 ? Math.floor(stars / perReward) : 0
+  const hasAny = welcomeDiscount.available || rewardsCount > 0
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -28,10 +16,10 @@ export default function PromotionsScreen() {
 
       <WelcomeDiscountCard />
 
-      {rewards.length > 0 && (
+      {rewardsCount > 0 && (
         <View style={styles.rewardCard}>
           <Text style={styles.rewardBadge}>
-            🎉 {rewards.length} Free Drink{rewards.length > 1 ? 's' : ''}
+            🎉 {rewardsCount} Free Drink{rewardsCount > 1 ? 's' : ''}
           </Text>
           <Text style={styles.rewardTitle}>Loyalty Reward</Text>
           <Text style={styles.rewardHint}>
@@ -44,7 +32,7 @@ export default function PromotionsScreen() {
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No active promotions</Text>
           <Text style={styles.emptyHint}>
-            Earn {LOYALTY.starsForReward} stars and unlock a free drink of your choice.
+            Earn {perReward} stars and unlock a free drink of your choice.
           </Text>
         </View>
       )}
@@ -53,7 +41,7 @@ export default function PromotionsScreen() {
         <Text style={styles.howTitle}>How it works</Text>
         <Text style={styles.howBullet}>☕ Buy any drink = earn 1 star</Text>
         <Text style={styles.howBullet}>
-          ⭐ {LOYALTY.starsForReward} stars = 1 free drink of your choice
+          ⭐ {perReward} stars = 1 free drink of your choice
         </Text>
         <Text style={styles.howBullet}>📱 Show this screen at the counter to redeem</Text>
       </View>

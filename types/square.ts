@@ -63,7 +63,6 @@ export interface LoyaltyAccount {
   balance: number
   lifetimePoints: number
   enrolledAt?: string
-  availableRewards?: Array<{ id: string; status: string }>
 }
 
 export interface LoyaltyEvent {

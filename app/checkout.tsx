@@ -3,26 +3,23 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as SecureStore from 'expo-secure-store'
 import { useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 import { useCartStore } from '@/store/cart'
 import { useCreateOrder } from '@/hooks/use-create-order'
 import { usePayment } from '@/hooks/use-payment'
-import { formatAUPhone } from '@/lib/utils'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { OrderSummary } from '@/components/checkout/OrderSummary'
-import { OtpInput } from '@/components/checkout/OtpInput'
 import { LoyaltyCard } from '@/components/account/LoyaltyCard'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
-import { BRAND, LOYALTY, STORAGE_KEYS } from '@/lib/constants'
+import { SignInCard } from '@/components/auth/SignInCard'
+import { BRAND, LOYALTY } from '@/lib/constants'
 import { apiFetch } from '@/lib/api'
-import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
-import { Ionicons } from '@expo/vector-icons'
 import {
   initSquarePayments,
   canUseApplePay,
@@ -31,10 +28,37 @@ import {
   startApplePayPayment,
   startGooglePayPayment,
 } from '@/lib/square-payment'
+import type { LoyaltyAccount } from '@/types/square'
 
-const DEVICE_TOKEN_KEY = STORAGE_KEYS.deviceToken
-const PHONE_KEY = STORAGE_KEYS.phone
-const NAME_KEY = STORAGE_KEYS.name
+type PayMethod = 'card' | 'apple' | 'google'
+
+/**
+ * Mirrors the server-side cheapest-K algorithm in /api/orders for the
+ * web repo. Keep in sync with src/app/api/orders/route.ts.
+ */
+function computeWelcomeDiscount(
+  items: { price: number; quantity: number; modifiers?: Array<{ priceCents?: number }> }[],
+  drinksRemaining: number,
+  percentage: number,
+): { coveredCount: number; discountCents: number } {
+  if (drinksRemaining <= 0 || items.length === 0 || percentage <= 0) {
+    return { coveredCount: 0, discountCents: 0 }
+  }
+  const unitPrices: number[] = []
+  for (const item of items) {
+    // item.price is the stored per-unit line price — matches the server's
+    // (variationPriceCents + modifierPriceCentsSum) expansion.
+    for (let i = 0; i < item.quantity; i++) unitPrices.push(item.price)
+  }
+  unitPrices.sort((a, b) => a - b)
+  const K = Math.min(drinksRemaining, unitPrices.length)
+  if (K === 0) return { coveredCount: 0, discountCents: 0 }
+  const coveredSum = unitPrices.slice(0, K).reduce((s, p) => s + p, 0)
+  return {
+    coveredCount: K,
+    discountCents: Math.floor((coveredSum * percentage) / 100),
+  }
+}
 
 export default function CheckoutScreen() {
   const router = useRouter()
@@ -42,72 +66,33 @@ export default function CheckoutScreen() {
   const total = useCartStore((s) => s.total())
   const clearCart = useCartStore((s) => s.clearCart)
 
+  const {
+    profile,
+    loyalty,
+    welcomeDiscount,
+    starsPerReward,
+    loading: authLoading,
+    refresh: refreshAuth,
+  } = useAuth()
   const { createOrder, loading: orderLoading, error: orderError } = useCreateOrder()
   const { pay, loading: payLoading, error: payError } = usePayment()
 
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [customerId, setCustomerId] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
-  const [showFieldErrors, setShowFieldErrors] = useState(false)
 
-  // Welcome discount (new-user 30% off)
-  const welcomeAvailable = useWelcomeDiscountStore((s) => s.available)
-  const welcomePercentage = useWelcomeDiscountStore((s) => s.percentage)
-  const refreshWelcome = useWelcomeDiscountStore((s) => s.refresh)
-  const markWelcomeConsumed = useWelcomeDiscountStore((s) => s.markConsumed)
-
-  // Payment method state
-  type PayMethod = 'card' | 'apple' | 'google'
   const [payMethod, setPayMethod] = useState<PayMethod>('card')
   const [applePayAvailable, setApplePayAvailable] = useState(false)
   const [googlePayAvailable, setGooglePayAvailable] = useState(false)
-
-  // Loyalty state (for signed-in users)
-  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null)
-  const [starsPerReward, setStarsPerReward] = useState<number | null>(null)
   const [useReward, setUseReward] = useState(false)
 
-  // OTP state
-  const [phoneVerified, setPhoneVerified] = useState(false)
-  const [otpPhone, setOtpPhone] = useState<string | null>(null)
-  const [otpCode, setOtpCode] = useState('')
-  const [otpError, setOtpError] = useState(false)
-  const [otpLoading, setOtpLoading] = useState(false)
-  const [resendTimer, setResendTimer] = useState(0)
+  const loyaltyBalance = loyalty?.balance ?? 0
+  const perReward = starsPerReward || LOYALTY.starsForReward
+  const canRedeem = perReward > 0 && loyaltyBalance >= perReward
+  const welcomeAvailable = welcomeDiscount.available
+  const welcomePercentage = welcomeDiscount.percentage
 
-  // Skip OTP if user is already "signed in" on this device (device token or saved phone).
-  // On mobile the app runs on the user's personal device — a phone saved via
-  // Account tab / prior checkout is treated as a soft-login.
   useEffect(() => {
-    async function checkToken() {
-      let hasToken = false
-      try {
-        const token = await SecureStore.getItemAsync(DEVICE_TOKEN_KEY)
-        if (token) hasToken = true
-      } catch { /* noop */ }
-      let hasPhone = false
-      try {
-        const savedPhone = await AsyncStorage.getItem(PHONE_KEY)
-        if (savedPhone) {
-          setPhone(savedPhone)
-          hasPhone = true
-          lookupCustomer(savedPhone)
-          fetchLoyalty(savedPhone)
-          refreshWelcome(savedPhone)
-        }
-      } catch { /* noop */ }
-      try {
-        const savedName = await AsyncStorage.getItem(NAME_KEY)
-        if (savedName) setName(savedName)
-      } catch { /* noop */ }
-      if (hasToken || hasPhone) setPhoneVerified(true)
-    }
-    checkToken()
-
-    // Initialize Square SDK and check wallet availability
     try {
       initSquarePayments()
       canUseApplePay().then((ok) => {
@@ -121,158 +106,11 @@ export default function CheckoutScreen() {
     } catch (e) {
       console.warn('Square SDK init failed:', e)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Resend timer countdown
-  useEffect(() => {
-    if (resendTimer <= 0) return
-    const id = setTimeout(() => setResendTimer((t) => t - 1), 1000)
-    return () => clearTimeout(id)
-  }, [resendTimer])
-
-  async function lookupCustomer(phoneVal: string) {
-    try {
-      const res = await apiFetch<{
-        ok: boolean
-        found: boolean
-        customerId?: string
-        givenName?: string
-        familyName?: string
-      }>('/api/customer/lookup', {
-        method: 'POST',
-        body: JSON.stringify({ phone: phoneVal }),
-      })
-      if (res.found) {
-        if (res.customerId) setCustomerId(res.customerId)
-        const fullName = [res.givenName, res.familyName].filter(Boolean).join(' ')
-        if (fullName) {
-          setName((cur) => (cur.trim() === '' ? fullName : cur))
-          await AsyncStorage.setItem(NAME_KEY, fullName)
-        }
-      }
-    } catch { /* noop */ }
-  }
-
-  async function fetchLoyalty(phoneVal: string) {
-    try {
-      const res = await apiFetch<{
-        ok: boolean
-        account: { id: string; balance: number } | null
-        starsPerReward?: number
-      }>(`/api/loyalty/account?phone=${encodeURIComponent(phoneVal)}`)
-      setLoyaltyBalance(res.account ? res.account.balance : 0)
-      setStarsPerReward(res.starsPerReward ?? LOYALTY.starsForReward)
-    } catch { /* noop */ }
-  }
-
-  async function sendOtp(phoneVal?: string) {
-    const p = formatAUPhone((phoneVal ?? phone).trim())
-    if (!p) return
-    setOtpLoading(true)
-    setError(null)
-    try {
-      await apiFetch<{ ok: boolean }>('/api/auth/send-code', {
-        method: 'POST',
-        body: JSON.stringify({ phone: p }),
-      })
-      setOtpPhone(p)
-      setOtpCode('')
-      setOtpError(false)
-      setResendTimer(60)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setOtpLoading(false)
-    }
-  }
-
-  async function verifyOtp() {
-    if (!otpPhone) return
-    // New-user registration needs a name — enforce before verifying
-    // so we can auto-register after the code check.
-    if (!name.trim()) {
-      setShowFieldErrors(true)
-      setError('Please enter your name to create an account')
-      return
-    }
-    setOtpLoading(true)
-    setError(null)
-    setOtpError(false)
-    try {
-      const res = await apiFetch<{
-        ok: boolean
-        deviceToken: string
-        found: boolean
-        givenName?: string
-        familyName?: string
-      }>('/api/auth/verify-code', {
-        method: 'POST',
-        body: JSON.stringify({ phone: otpPhone, code: otpCode }),
-      })
-
-      // If the phone has no Square customer yet, register one with the
-      // user-entered name before treating them as logged in.
-      if (!res.found) {
-        const parts = name.trim().split(/\s+/)
-        const firstName = parts[0]
-        const lastName = parts.slice(1).join(' ') || undefined
-        await apiFetch<{ ok: boolean; customerId: string }>('/api/customer', {
-          method: 'POST',
-          body: JSON.stringify({ firstName, lastName, phone: otpPhone }),
-        })
-      }
-
-      // Store device token securely
-      await SecureStore.setItemAsync(DEVICE_TOKEN_KEY, res.deviceToken)
-      await AsyncStorage.setItem(PHONE_KEY, otpPhone)
-      if (res.found && (res.givenName || res.familyName)) {
-        const fullName = [res.givenName, res.familyName].filter(Boolean).join(' ')
-        setName((cur) => (cur.trim() === '' ? fullName : cur))
-        await AsyncStorage.setItem(NAME_KEY, fullName)
-      } else {
-        await AsyncStorage.setItem(NAME_KEY, name.trim())
-      }
-      const verifiedPhone = otpPhone
-      setPhoneVerified(true)
-      setOtpPhone(null)
-      setOtpCode('')
-      void lookupCustomer(verifiedPhone)
-      void fetchLoyalty(verifiedPhone)
-      void refreshWelcome(verifiedPhone)
-    } catch (err) {
-      // 401 = wrong code
-      if (err instanceof Error && err.message.includes('401')) {
-        setOtpError(true)
-      } else {
-        setError(err instanceof Error ? err.message : String(err))
-      }
-    } finally {
-      setOtpLoading(false)
-    }
-  }
 
   const handlePay = async () => {
     if (items.length === 0) return
-
-    // Signed-in users skip the name/phone fields entirely — they're pulled from storage.
-    if (!isLoggedIn) {
-      const missingName = !name.trim()
-      const missingPhone = !phone.trim()
-      if (missingName || missingPhone) {
-        setShowFieldErrors(true)
-        const parts: string[] = []
-        if (missingName) parts.push('your name')
-        if (missingPhone) parts.push('your phone')
-        setError(`Please enter ${parts.join(' and ')}`)
-        return
-      }
-
-      if (!phoneVerified) {
-        setError('Please verify your phone number first')
-        return
-      }
-    }
+    if (!profile) return
 
     setProcessing(true)
     setError(null)
@@ -284,36 +122,28 @@ export default function CheckoutScreen() {
     const useWelcome = welcomeAvailable && !(useReward && canRedeem)
 
     try {
-      const formattedPhone = formatAUPhone(phone.trim())
-      const { orderId, customerId: orderCustomerId, order: createdOrder } = await createOrder({
+      const { orderId, order: createdOrder } = await createOrder({
         items,
-        name: name.trim() || 'Customer',
-        phone: formattedPhone,
         applyWelcomeDiscount: useWelcome,
       })
 
-      // Optionally redeem a loyalty reward before charging. Square
-      // discounts the order server-side and returns the new total so
-      // the payment nonce matches the post-discount amount.
       let amountCents = total
       if (useWelcome) {
-        amountCents = Math.max(
-          total - Math.round((total * welcomePercentage) / 100),
-          0,
+        const { discountCents } = computeWelcomeDiscount(
+          items,
+          welcomeDiscount.drinksRemaining,
+          welcomePercentage,
         )
+        amountCents = Math.max(total - discountCents, 0)
       }
-      if (useReward && canRedeem && orderCustomerId) {
+      if (useReward && canRedeem) {
         const redeemRes = await apiFetch<{
           ok: boolean
           updatedAmountCents?: string
           error?: string
         }>('/api/loyalty/redeem', {
           method: 'POST',
-          body: JSON.stringify({
-            customerId: orderCustomerId,
-            phone: formattedPhone,
-            orderId,
-          }),
+          body: JSON.stringify({ orderId }),
         })
         if (!redeemRes.ok) {
           throw new Error(redeemRes.error ?? 'Could not redeem reward')
@@ -325,7 +155,6 @@ export default function CheckoutScreen() {
 
       const isFreeOrder = amountCents <= 0
 
-      // Get payment nonce from Square SDK — skip entirely for a free order.
       let nonce: string | undefined
       if (!isFreeOrder) {
         const priceDollars = (amountCents / 100).toFixed(2)
@@ -352,23 +181,15 @@ export default function CheckoutScreen() {
         }
       }
 
-      await AsyncStorage.setItem(PHONE_KEY, formattedPhone)
-
-      const result = await pay({
-        sourceId: nonce,
-        orderId,
-        customerId: orderCustomerId,
-        phone: formattedPhone,
-      })
-
-      if (result.welcomeDiscountConsumed) {
-        markWelcomeConsumed()
-      }
+      const result = await pay({ sourceId: nonce, orderId })
 
       // Save order items for confirmation page before clearing cart
       await AsyncStorage.setItem('mbt:lastOrder:items', JSON.stringify(items))
 
       clearCart()
+      // Re-hydrate profile/loyalty/welcomeDiscount so the confirmation
+      // screen and home tab show the updated stars + consumed welcome.
+      refreshAuth()
       router.replace({
         pathname: '/order-confirmation',
         params: {
@@ -388,20 +209,44 @@ export default function CheckoutScreen() {
   }
 
   const isLoading = orderLoading || payLoading || processing
-  const isLoggedIn = phoneVerified
-  const canRedeem =
-    loyaltyBalance != null &&
-    starsPerReward != null &&
-    starsPerReward > 0 &&
-    loyaltyBalance >= starsPerReward
   const willBeFreeOrder = useReward && canRedeem && total - cheapestItemPrice(items) <= 0
   const showWelcomeLine = welcomeAvailable && !(useReward && canRedeem)
-  const welcomeDiscountForSummary = showWelcomeLine
+  const welcomeCoverage = showWelcomeLine
+    ? computeWelcomeDiscount(items, welcomeDiscount.drinksRemaining, welcomePercentage)
+    : { coveredCount: 0, discountCents: 0 }
+  const welcomeDiscountForSummary = showWelcomeLine && welcomeCoverage.coveredCount > 0
     ? {
-        amountCents: Math.round((total * welcomePercentage) / 100),
+        amountCents: welcomeCoverage.discountCents,
         percentage: welcomePercentage,
+        coveredCount: welcomeCoverage.coveredCount,
       }
     : null
+
+  if (authLoading && !profile) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={BRAND.color} />
+      </View>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        <OrderSummary items={items} total={total} />
+        <SignInCard
+          heading="Sign in to continue"
+          subheading="We need your name + phone to place an order. Sign in with Apple, Google, or your mobile number."
+        />
+      </ScrollView>
+    )
+  }
+
+  const account: LoyaltyAccount = loyalty
+    ? { id: loyalty.accountId, balance: loyalty.balance, lifetimePoints: loyalty.lifetimePoints }
+    : { id: '', balance: 0, lifetimePoints: 0 }
+
+  const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
 
   return (
     <View style={styles.container}>
@@ -421,105 +266,23 @@ export default function CheckoutScreen() {
           welcomeDiscount={welcomeDiscountForSummary}
         />
 
-        {isLoggedIn && (
-          <View style={styles.signedInBadge}>
-            <Ionicons name="person-circle" size={18} color="#15803d" />
-            <Text style={styles.signedInText} numberOfLines={1}>
-              Signed in as {name || phone}
-            </Text>
-          </View>
-        )}
+        <View style={styles.signedInBadge}>
+          <Ionicons name="person-circle" size={18} color="#15803d" />
+          <Text style={styles.signedInText} numberOfLines={1}>
+            Signed in as {fullName || profile.phone_e164}
+          </Text>
+        </View>
 
-        {isLoggedIn && loyaltyBalance != null && starsPerReward != null && starsPerReward > 0 && (
-          <View style={styles.loyaltyWrap}>
-            <LoyaltyCard
-              account={{
-                id: '',
-                balance: loyaltyBalance,
-                lifetimePoints: 0,
-                availableRewards: canRedeem
-                  ? [{ id: 'reward', status: 'AVAILABLE' }]
-                  : [],
-              }}
+        <View style={styles.loyaltyWrap}>
+          <LoyaltyCard account={account} starsPerReward={perReward} />
+          {canRedeem && (
+            <RedeemToggle
+              useReward={useReward}
+              onToggle={() => setUseReward((v) => !v)}
+              rewardDiscountCents={cheapestItemPrice(items)}
             />
-            {canRedeem && (
-              <RedeemToggle
-                useReward={useReward}
-                onToggle={() => setUseReward((v) => !v)}
-                rewardDiscountCents={cheapestItemPrice(items)}
-              />
-            )}
-          </View>
-        )}
-
-        {!isLoggedIn && (
-        <>
-        {/* Name input */}
-        <View style={styles.fieldSection}>
-          <View style={styles.labelRow}>
-            <Text style={styles.fieldLabel}>Name</Text>
-            {showFieldErrors && !name.trim() && (
-              <Text style={styles.requiredStar}> *</Text>
-            )}
-          </View>
-          <TextInput
-            style={[
-              styles.fieldInput,
-              showFieldErrors && !name.trim() && styles.fieldInputError,
-            ]}
-            placeholder="Your name"
-            value={name}
-            onChangeText={(t) => {
-              setName(t)
-              setShowFieldErrors(false)
-            }}
-            autoComplete="name"
-          />
+          )}
         </View>
-
-        {/* Phone input — always visible so user can see/edit their number.
-            Verification status is shown by the OTP section below. */}
-        <View style={styles.fieldSection}>
-          <View style={styles.labelRow}>
-            <Text style={styles.fieldLabel}>Phone</Text>
-            {showFieldErrors && !phone.trim() && (
-              <Text style={styles.requiredStar}> *</Text>
-            )}
-          </View>
-          <TextInput
-            style={[
-              styles.fieldInput,
-              showFieldErrors && !phone.trim() && styles.fieldInputError,
-            ]}
-            placeholder="04xx xxx xxx"
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={(t) => {
-              setPhone(t)
-              setPhoneVerified(false)
-              setOtpPhone(null)
-              setShowFieldErrors(false)
-            }}
-            autoComplete="tel"
-          />
-        </View>
-
-        {/* OTP Section */}
-        <CheckoutOtpSection
-          phone={phone}
-          phoneVerified={phoneVerified}
-          otpPhone={otpPhone}
-          otpCode={otpCode}
-          otpError={otpError}
-          otpLoading={otpLoading}
-          resendTimer={resendTimer}
-          onSend={() => sendOtp()}
-          onVerify={verifyOtp}
-          onCodeChange={setOtpCode}
-          onResend={() => sendOtp()}
-        />
-        </>
-        )}
 
         {/* Payment Method Selector */}
         <View style={styles.fieldSection}>
@@ -642,10 +405,6 @@ export default function CheckoutScreen() {
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Loyalty reward card                                               */
-/* ------------------------------------------------------------------ */
-
 function cheapestItemPrice(items: { price: number }[]): number {
   if (items.length === 0) return 0
   return items.reduce((min, it) => (it.price < min ? it.price : min), items[0].price)
@@ -680,119 +439,11 @@ function RedeemToggle({
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Checkout OTP verification section (3 states)                      */
-/* ------------------------------------------------------------------ */
-
-function CheckoutOtpSection({
-  phone,
-  phoneVerified,
-  otpPhone,
-  otpCode,
-  otpError,
-  otpLoading,
-  resendTimer,
-  onSend,
-  onVerify,
-  onCodeChange,
-  onResend,
-}: {
-  phone: string
-  phoneVerified: boolean
-  otpPhone: string | null
-  otpCode: string
-  otpError: boolean
-  otpLoading: boolean
-  resendTimer: number
-  onSend: () => void
-  onVerify: () => void
-  onCodeChange: (code: string) => void
-  onResend: () => void
-}) {
-  const phoneDigits = phone.replace(/\D/g, '')
-  if (phoneDigits.length < 10) return null
-
-  // Already verified — green badge
-  if (phoneVerified) {
-    return (
-      <View style={styles.verifiedBadge}>
-        <Ionicons name="checkmark-circle" size={16} color="#15803d" />
-        <Text style={styles.verifiedText}>Phone verified</Text>
-      </View>
-    )
-  }
-
-  // OTP sent — show code input
-  if (otpPhone) {
-    return (
-      <View style={styles.otpSection}>
-        <Text style={styles.otpHint}>
-          Enter the 6-digit code sent to {otpPhone}
-        </Text>
-        <OtpInput value={otpCode} onChange={onCodeChange} error={otpError} />
-        {otpError && (
-          <Text style={styles.otpErrorText}>Invalid code. Please try again.</Text>
-        )}
-        <View style={styles.otpActions}>
-          {resendTimer > 0 ? (
-            <Text style={styles.resendTimer}>Resend in {resendTimer}s</Text>
-          ) : (
-            <TouchableOpacity onPress={onResend} disabled={otpLoading}>
-              <Text style={styles.resendLink}>Resend code</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={onVerify}
-            disabled={otpLoading || otpCode.length < 6}
-            style={[
-              styles.verifyBtn,
-              (otpLoading || otpCode.length < 6) && styles.verifyBtnDisabled,
-            ]}
-          >
-            <Text style={styles.verifyBtnText}>
-              {otpLoading ? 'Verifying...' : 'Verify'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    )
-  }
-
-  // Phone entered but no OTP sent yet — show verify button
-  return (
-    <View style={styles.otpSection}>
-      <TouchableOpacity
-        onPress={onSend}
-        disabled={otpLoading}
-        style={[styles.sendOtpBtn, otpLoading && styles.sendOtpBtnDisabled]}
-      >
-        <Text style={styles.sendOtpBtnText}>
-          {otpLoading ? 'Sending...' : 'Verify Phone'}
-        </Text>
-      </TouchableOpacity>
-      <Text style={styles.otpExplain}>
-        {"We'll send a verification code to confirm your number"}
-      </Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   fieldSection: { paddingHorizontal: 16, marginBottom: 12 },
-  labelRow: { flexDirection: 'row', marginBottom: 6 },
   fieldLabel: { fontSize: 16, fontWeight: '600' },
-  requiredStar: { color: '#ef4444', fontWeight: '700' },
-  fieldInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 16,
-  },
-  fieldInputError: {
-    borderColor: '#f87171',
-  },
   signedInBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -809,7 +460,6 @@ const styles = StyleSheet.create({
   loyaltyWrap: {
     marginBottom: 24,
   },
-  // Redeem toggle (sits below the LoyaltyCard when a reward is available)
   rewardToggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -843,47 +493,6 @@ const styles = StyleSheet.create({
   },
   rewardToggleTitle: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
   rewardToggleSub: { fontSize: 12, color: BRAND.color, marginTop: 2, fontWeight: '600' },
-  // OTP verified badge
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: '#f0fdf4',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  verifiedText: { fontSize: 14, fontWeight: '600', color: '#15803d' },
-  // OTP section
-  otpSection: { paddingHorizontal: 16, marginBottom: 12, gap: 10 },
-  otpHint: { fontSize: 13, color: '#666' },
-  otpErrorText: { fontSize: 13, color: '#ef4444' },
-  otpActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  verifyBtn: {
-    backgroundColor: BRAND.color,
-    width: '50%',
-    paddingVertical: 10,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  verifyBtnDisabled: { opacity: 0.5 },
-  verifyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  resendTimer: { fontSize: 13, color: '#888' },
-  resendLink: { fontSize: 13, color: BRAND.color, fontWeight: '500' },
-  // Send OTP button (before code sent)
-  sendOtpBtn: {
-    borderWidth: 1,
-    borderColor: BRAND.color,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  sendOtpBtnDisabled: { opacity: 0.5 },
-  sendOtpBtnText: { color: BRAND.color, fontSize: 15, fontWeight: '600' },
-  otpExplain: { fontSize: 12, color: '#888', textAlign: 'center' },
-  // Payment method selector
   payMethodRow: {
     flexDirection: 'row',
     gap: 8,
@@ -913,7 +522,6 @@ const styles = StyleSheet.create({
   payMethodTextActive: {
     color: '#fff',
   },
-  // Error & bottom bar
   errorText: {
     color: '#ef4444',
     fontSize: 14,

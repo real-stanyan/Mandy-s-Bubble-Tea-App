@@ -46,11 +46,9 @@ interface OrdersState {
   // live on state so subscribers (tab badge, etc.) don't have to filter
   // on every render — zustand skips re-render when the scalar is stable.
   activeOrderCount: number
-  phone: string | null
-  customerId: string | null
   loading: boolean
   error: string | null
-  refresh: (phone?: string | null) => Promise<void>
+  refresh: () => Promise<void>
   clear: () => void
 }
 
@@ -64,50 +62,32 @@ function withActiveCount(orders: OrderHistoryItem[]) {
 // popping back. Tracked outside state to avoid re-render on assign.
 let inFlight: Promise<void> | null = null
 
-export const useOrdersStore = create<OrdersState>((set, get) => ({
+export const useOrdersStore = create<OrdersState>((set) => ({
   orders: [],
   activeOrderCount: 0,
-  phone: null,
-  customerId: null,
   loading: false,
   error: null,
 
-  refresh: (phoneArg) => {
-    const nextPhone = phoneArg === undefined ? get().phone : phoneArg
-    if (phoneArg !== undefined && phoneArg !== get().phone) {
-      set({ phone: phoneArg, customerId: null })
-    }
-    if (!nextPhone) {
-      set({ ...withActiveCount([]), customerId: null, error: null })
-      return Promise.resolve()
-    }
+  refresh: () => {
     if (inFlight) return inFlight
     set({ loading: true, error: null })
     inFlight = (async () => {
       try {
-        const customerRes = await apiFetch<{
-          ok: boolean
-          found: boolean
-          customerId?: string
-        }>('/api/customer/lookup', {
-          method: 'POST',
-          body: JSON.stringify({ phone: nextPhone }),
-        })
-        if (!customerRes.found || !customerRes.customerId) {
-          set({ ...withActiveCount([]), customerId: null })
-          return
-        }
-        set({ customerId: customerRes.customerId })
         const historyRes = await apiFetch<{
           ok: boolean
           orders: OrderHistoryItem[]
-        }>('/api/orders/history', {
-          method: 'POST',
-          body: JSON.stringify({ customerId: customerRes.customerId }),
-        })
+        }>('/api/orders/history')
         set(withActiveCount(historyRes.orders ?? []))
       } catch (e) {
-        set({ error: e instanceof Error ? e.message : 'Failed to load orders' })
+        const msg = e instanceof Error ? e.message : 'Failed to load orders'
+        // A signed-out caller hitting /api/orders/history gets a 401 —
+        // that's not a user-facing error, it's expected. Only surface
+        // real failures.
+        if (msg.includes('401')) {
+          set({ ...withActiveCount([]), error: null })
+        } else {
+          set({ error: msg })
+        }
       } finally {
         set({ loading: false })
         inFlight = null
@@ -119,8 +99,6 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
   clear: () =>
     set({
       ...withActiveCount([]),
-      phone: null,
-      customerId: null,
       error: null,
     }),
 }))

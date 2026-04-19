@@ -2,28 +2,32 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { BRAND } from '@/lib/constants'
-import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 interface Props {
   rewardsCount: number
 }
 
 export function PromotionsCard({ rewardsCount }: Props) {
-  const welcomeAvailable = useWelcomeDiscountStore((s) => s.available)
-  const welcomePct = useWelcomeDiscountStore((s) => s.percentage)
+  const { welcomeDiscount } = useAuth()
+  const welcomeAvailable = welcomeDiscount.available
+  const welcomePct = welcomeDiscount.percentage
 
   const badgeCount =
     (welcomeAvailable ? 1 : 0) + (rewardsCount > 0 ? rewardsCount : 0)
 
+  const remaining = welcomeDiscount.drinksRemaining
+  const remainingLabel = `${remaining} drink${remaining === 1 ? '' : 's'} left`
+
   const subtitle = (() => {
     if (rewardsCount > 0 && welcomeAvailable) {
-      return `${rewardsCount} free drink${rewardsCount > 1 ? 's' : ''} + ${welcomePct}% off welcome gift`
+      return `${rewardsCount} free drink${rewardsCount > 1 ? 's' : ''} + ${welcomePct}% off welcome (${remainingLabel})`
     }
     if (rewardsCount > 0) {
       return `${rewardsCount} free drink${rewardsCount > 1 ? 's' : ''} ready to redeem`
     }
     if (welcomeAvailable) {
-      return `${welcomePct}% off your first order`
+      return `${welcomePct}% off your first 2 drinks — ${remainingLabel}`
     }
     return 'Earn stars to unlock free drinks'
   })()

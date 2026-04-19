@@ -17,8 +17,10 @@
       "entitlements": {
         "com.apple.developer.in-app-payments": [
           "merchant.com.mandysbubbletea.app"
-        ]
-      }
+        ],
+        "com.apple.developer.applesignin": ["Default"]
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.mandysbubbletea.app",
@@ -51,7 +53,13 @@
       ],
       "expo-secure-store",
       "react-native-square-in-app-payments",
-      "./plugins/embed-square-frameworks"
+      "./plugins/embed-square-frameworks",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.744591425203-g5oh2tirvk6nafjus77s2bl3mg3admbe"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

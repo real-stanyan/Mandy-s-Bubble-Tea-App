@@ -1,12 +1,10 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { BRAND } from '@/lib/constants'
-import { useWelcomeDiscountStore } from '@/store/welcomeDiscount'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 export function WelcomeDiscountCard() {
-  const available = useWelcomeDiscountStore((s) => s.available)
-  const percentage = useWelcomeDiscountStore((s) => s.percentage)
-
-  if (!available) return null
+  const { welcomeDiscount } = useAuth()
+  if (!welcomeDiscount.available) return null
 
   return (
     <View style={styles.card}>
@@ -16,9 +14,11 @@ export function WelcomeDiscountCard() {
         <View style={[styles.dot, styles.dotTertiary]} />
       </View>
       <Text style={styles.label}>Welcome Gift</Text>
-      <Text style={styles.badge}>{percentage}% OFF</Text>
+      <Text style={styles.badge}>{welcomeDiscount.percentage}% OFF</Text>
       <Text style={styles.hint}>
-        Your first order — auto-applied at checkout
+        {welcomeDiscount.drinksRemaining === 1
+          ? '1 drink left — auto-applied at checkout'
+          : `${welcomeDiscount.drinksRemaining} drinks left — auto-applied at checkout`}
       </Text>
     </View>
   )

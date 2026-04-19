@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   View,
   Text,
@@ -10,19 +10,16 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect, useRouter } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { OrderHistory } from '@/components/account/OrderHistory'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { isUnfinished } from '@/store/orders'
-import { BRAND, STORAGE_KEYS } from '@/lib/constants'
-
-const PHONE_KEY = STORAGE_KEYS.phone
+import { useAuth } from '@/components/auth/AuthProvider'
+import { BRAND } from '@/lib/constants'
 
 export default function OrderScreen() {
   const router = useRouter()
-  const [phone, setPhone] = useState<string | null>(null)
-  const [initializing, setInitializing] = useState(true)
-  const { orders, loading, refresh } = useOrderHistory(phone)
+  const { profile, loading: authLoading } = useAuth()
+  const { orders, loading, refresh } = useOrderHistory()
   const [refreshing, setRefreshing] = useState(false)
 
   const { activeOrders, pastOrders } = useMemo(() => {
@@ -31,20 +28,10 @@ export default function OrderScreen() {
     return { activeOrders: active, pastOrders: past }
   }, [orders])
 
-  useEffect(() => {
-    AsyncStorage.getItem(PHONE_KEY).then((saved) => {
-      if (saved) setPhone(saved)
-      setInitializing(false)
-    })
-  }, [])
-
   const hasActiveOrder = activeOrders.length > 0
   useFocusEffect(
     useCallback(() => {
-      AsyncStorage.getItem(PHONE_KEY).then((saved) => {
-        setPhone(saved ?? null)
-      })
-      if (!phone) return
+      if (!profile) return
       refresh()
       // Poll while there's an active order so staff dashboard updates
       // (OPEN → PREPARED → COMPLETED) flow through without the user
@@ -55,7 +42,7 @@ export default function OrderScreen() {
         refresh()
       }, 10_000)
       return () => clearInterval(id)
-    }, [phone, refresh, hasActiveOrder]),
+    }, [profile, refresh, hasActiveOrder]),
   )
 
   const onPullRefresh = async () => {
@@ -67,7 +54,7 @@ export default function OrderScreen() {
     }
   }
 
-  if (initializing) {
+  if (authLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={BRAND.color} />
@@ -75,7 +62,7 @@ export default function OrderScreen() {
     )
   }
 
-  if (!phone) {
+  if (!profile) {
     return (
       <View style={styles.center}>
         <Text style={styles.muted}>Sign in to view your orders</Text>

@@ -5,7 +5,11 @@ import type { CartItem } from '@/types/square'
 interface Props {
   items: CartItem[]
   total: number
-  welcomeDiscount?: { amountCents: number; percentage: number } | null
+  welcomeDiscount?: {
+    amountCents: number
+    percentage: number
+    coveredCount: number
+  } | null
 }
 
 export function OrderSummary({ items, total, welcomeDiscount }: Props) {
@@ -51,7 +55,8 @@ export function OrderSummary({ items, total, welcomeDiscount }: Props) {
           </View>
           <View style={styles.subRow}>
             <Text style={styles.discountLabel}>
-              Welcome {welcomeDiscount.percentage}% Off
+              Welcome {welcomeDiscount.percentage}% Off ({welcomeDiscount.coveredCount}{' '}
+              drink{welcomeDiscount.coveredCount === 1 ? '' : 's'})
             </Text>
             <Text style={styles.discountValue}>
               −{formatPrice(discountAmount)}

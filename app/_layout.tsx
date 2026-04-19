@@ -8,6 +8,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import 'react-native-reanimated';
 import { ItemDetailSheet } from '@/components/menu/ItemDetailSheet';
 import { CartSheet } from '@/components/cart/CartSheet';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 import { useReadyVibration } from '@/hooks/use-ready-vibration';
 
 const LightTheme = {
@@ -26,8 +27,9 @@ export default function RootLayout() {
   useReadyVibration();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <ThemeProvider value={LightTheme}>
+      <AuthProvider>
+        <BottomSheetModalProvider>
+          <ThemeProvider value={LightTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Menu' }} />
             <Stack.Screen name="menu/[id]" options={{ headerShown: true, title: '' }} />
@@ -103,7 +105,8 @@ export default function RootLayout() {
           <CartSheet />
           <StatusBar style="dark" />
         </ThemeProvider>
-      </BottomSheetModalProvider>
+        </BottomSheetModalProvider>
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }
