@@ -149,7 +149,7 @@ Vertical stack:
 - `borderRadius: RADIUS.tile` (12)
 - If `item.imageUrl`: `<Image>` from `expo-image`, `source={{ uri: item.imageUrl }}`, `contentFit="cover"`, `contentPosition="center"`, `backgroundColor: T.sage`
 - If no `imageUrl`: `<View>` 76×76, `backgroundColor: T.sage`, `borderRadius: RADIUS.tile`, `alignItems: 'center'`, `justifyContent: 'center'`, containing `<CupArt fill={hashColor(item.id)} size={60} />`
-  - `hashColor(id)` = deterministic color picker from `[T.peach, T.cream, T.star, T.brand, T.sage]` by hashing `id` string — already exists in Phase 2 `components/home/CategoriesStrip.tsx` helper; lift to a `components/brand/color.ts` if not shared, or inline
+  - `hashColor(id)` is imported from `components/brand/color.ts` — a new utility module added by Phase 3's pre-flight task (see §13). Definition: pick one of `[T.peach, T.cream, T.star, T.brand, T.sage]` by djb2 hash of the id string mod 5. Deterministic — same item always gets the same color.
 
 ### Info block (middle, `flex: 1`, `justifyContent: 'center'`, `gap: 4`)
 
@@ -451,8 +451,9 @@ Optical alignment not critical — this icon is used once in the sheet header an
 | `components/menu/ItemDetailContent.tsx` | modify | Fixed 1:1 hero, Fraunces display name, unified Size section, token-based chips, sticky CTA with total price, skeleton loading, error with retry. Drop `BRAND` import. |
 | `components/menu/SkeletonCard.tsx` | modify | Replace hardcoded colors with tokens. Keep structure. |
 | `components/brand/Icon.tsx` | modify | Add `case 'share':` returning share-arrow SVG. |
+| `components/brand/color.ts` | **create** | New: export `hashColor(id: string): string` — djb2 mod 5 pick from palette. |
 
-No file deletions, no new files.
+No file deletions.
 
 ---
 
@@ -518,7 +519,7 @@ All design decisions confirmed during brainstorm (A/A/A/A/A/OK/OK/OK). No TBDs.
 | Risk | Mitigation |
 |---|---|
 | Fraunces 28 on some Android devices fell back to serif during Phase 2 | `useFonts` gate in `_layout.tsx` already loads 500/400/700; verify `Fraunces_500Medium` is in the loaded weights list (it is, per Phase 1). No change needed. |
-| `CupArt` `hashColor` lives in one Phase 2 file — lifting it creates a tiny util file | Phase 3 Task adds `components/brand/color.ts` exporting `hashColor(id: string): string` (5 of the T.* palette colors by djb2 hash) and updates Phase 2's `CategoriesStrip` to import from it in the same commit. |
+| `CupArt` fallback needs a color picker; no shared util exists yet | Phase 3 Task 0 (pre-flight) creates `components/brand/color.ts` exporting `hashColor(id: string): string` — picks one of `[T.peach, T.cream, T.star, T.brand, T.sage]` by djb2 hash mod 5. No Phase 2 file currently imports such a helper, so no cross-phase migration needed. |
 | Sheet `backgroundStyle` not applying on older gorhom versions | Current dep is `@gorhom/bottom-sheet` — verify in package.json during Task 0. If absent, use a wrapping `<View>` inside the sheet with the bg instead. |
 | Icon `share` SVG differs visually from Ionicons current one | Acceptable — rest of app now uses `<Icon>` exclusively. Single-use icon; drift is fine. |
 | Phase 3d WIP drift (auth/legal files) | Every task's commit stages specific files; `git add -A` is prohibited. Final `git status` check enforces byte-identical WIP. |
