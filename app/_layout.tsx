@@ -10,6 +10,7 @@ import { ItemDetailSheet } from '@/components/menu/ItemDetailSheet';
 import { CartSheet } from '@/components/cart/CartSheet';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { useReadyVibration } from '@/hooks/use-ready-vibration';
+import { T } from '@/constants/theme';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -39,11 +40,11 @@ const LightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#8D5524',
-    background: '#fff',
-    card: '#fff',
-    text: '#11181C',
-    border: '#e0e0e0',
+    primary: T.brand,
+    background: T.bg,
+    card: T.card,
+    text: T.ink,
+    border: T.line,
   },
 };
 
@@ -71,7 +72,7 @@ export default function RootLayout() {
     return null;
   }
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: T.bg }}>
       <AuthProvider>
         <BottomSheetModalProvider>
           <ThemeProvider value={LightTheme}>
