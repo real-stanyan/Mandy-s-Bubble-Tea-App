@@ -8,7 +8,8 @@ export type IconName =
   | 'search' | 'close'
   | 'home' | 'cafe' | 'receipt' | 'user'
   | 'qr' | 'clock'
-  | 'chevR' | 'logout' | 'gift' | 'cup' | 'settings' | 'share';
+  | 'chevR' | 'logout' | 'gift' | 'cup' | 'settings' | 'share'
+  | 'apple' | 'google' | 'card' | 'wallet';
 
 export type IconProps = {
   name: IconName;
@@ -247,6 +248,45 @@ export function Icon({ name, color, size, filled }: IconProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+        </Svg>
+      );
+    }
+    case 'apple': {
+      const c = color ?? T.ink;
+      const s = size ?? 20;
+      return (
+        <Svg width={s} height={s} viewBox="0 0 24 24" fill={c}>
+          <Path d="M17.5 12c-.1-2.2 1.8-3.3 1.9-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7 1.4 0 1.8.7 3 .7 1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.4-.9-2.7-3.4z" />
+        </Svg>
+      );
+    }
+    case 'google': {
+      const c = color ?? T.ink;
+      const s = size ?? 20;
+      return (
+        <Svg width={s} height={s} viewBox="0 0 24 24">
+          <Path d="M21.35 11.1h-9.17v2.9h5.27c-.23 1.45-1.69 4.26-5.27 4.26-3.17 0-5.75-2.62-5.75-5.86 0-3.23 2.58-5.86 5.75-5.86 1.8 0 3.02.77 3.71 1.43l2.53-2.44C16.82 3.93 14.68 3 12.18 3 7.52 3 3.73 6.79 3.73 11.4s3.79 8.4 8.45 8.4c4.88 0 8.11-3.43 8.11-8.26 0-.55-.06-.98-.14-1.44z" fill={c} />
+        </Svg>
+      );
+    }
+    case 'card': {
+      const c = color ?? T.ink;
+      const s = size ?? 20;
+      return (
+        <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+          <Path d="M3 6.5C3 5.12 4.12 4 5.5 4h13C19.88 4 21 5.12 21 6.5v11c0 1.38-1.12 2.5-2.5 2.5h-13C4.12 20 3 18.88 3 17.5v-11Z" stroke={c} strokeWidth={1.7} />
+          <Path d="M3 9.5h18" stroke={c} strokeWidth={1.7} />
+          <Path d="M6.5 15.5h3" stroke={c} strokeWidth={1.7} strokeLinecap="round" />
+        </Svg>
+      );
+    }
+    case 'wallet': {
+      const c = color ?? T.ink;
+      const s = size ?? 20;
+      return (
+        <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+          <Path d="M3 8.5C3 7.12 4.12 6 5.5 6h13C19.88 6 21 7.12 21 8.5v9c0 1.38-1.12 2.5-2.5 2.5h-13C4.12 20 3 18.88 3 17.5v-9Z" stroke={c} strokeWidth={1.7} />
+          <Path d="M16 13.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Z" fill={c} />
         </Svg>
       );
     }
