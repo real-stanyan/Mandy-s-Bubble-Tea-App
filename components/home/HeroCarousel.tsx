@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused } from '@react-navigation/native';
 import { useItemSheetStore } from '@/store/itemSheet';
 import { useMenu } from '@/hooks/use-menu';
 import { T, TYPE, SHADOW } from '@/constants/theme';
@@ -43,6 +44,7 @@ export function HeroCarousel() {
   const listRef = useRef<FlatList>(null);
   const [index, setIndex] = useState(0);
   const { items } = useMenu();
+  const isFocused = useIsFocused();
 
   const nameToId = useMemo(() => {
     const map = new Map<string, string>();
@@ -54,6 +56,7 @@ export function HeroCarousel() {
   }, [items]);
 
   useEffect(() => {
+    if (!isFocused) return;
     const id = setInterval(() => {
       setIndex((prev) => {
         const next = (prev + 1) % SLIDES.length;
@@ -62,7 +65,7 @@ export function HeroCarousel() {
       });
     }, AUTOPLAY_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [isFocused]);
 
   const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / snapInterval);
