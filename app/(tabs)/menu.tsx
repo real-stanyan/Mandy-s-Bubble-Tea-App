@@ -14,6 +14,10 @@ import {
 } from 'react-native'
 import { Image } from 'expo-image'
 import * as Haptics from 'expo-haptics'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useFocusEffect } from 'expo-router'
+import { getStoreStatus, normalizeSlug } from '@/components/home/helpers'
+import { useMenuJumpStore } from '@/store/menuJump'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -36,6 +40,37 @@ import type { CatalogItem, CatalogCategory } from '@/types/square'
 type SectionMeta = { category: CatalogCategory; index: number }
 type MenuSection = SectionListData<CatalogItem, SectionMeta>
 
+// Estimated native heights, used to synthesize getItemLayout so SectionList
+// can seek to any section directly by pixel offset instead of virtualizing
+// forward and firing onScrollToIndexFailed on far jumps.
+// SectionHeader: marginTop(24) + padding(14) + title(22) + marginBottom(10)
+//                + banner(96) + padding(14) + marginBottom(8) ≈ 188
+// Row:           paddingV(10) + image(76) + paddingV(10) = 96
+const ROW_H = 96
+const HEADER_H = 188
+const FOOTER_H = 0
+
+function buildGetItemLayout(sections: MenuSection[]) {
+  return (_data: unknown, flatIndex: number) => {
+    let offset = 0
+    let counter = 0
+    for (const s of sections) {
+      if (counter === flatIndex) return { length: HEADER_H, offset, index: flatIndex }
+      counter++
+      offset += HEADER_H
+      for (let i = 0; i < s.data.length; i++) {
+        if (counter === flatIndex) return { length: ROW_H, offset, index: flatIndex }
+        counter++
+        offset += ROW_H
+      }
+      if (counter === flatIndex) return { length: FOOTER_H, offset, index: flatIndex }
+      counter++
+      offset += FOOTER_H
+    }
+    return { length: 0, offset, index: flatIndex }
+  }
+}
+
 const CATEGORY_BANNERS: Record<string, ReturnType<typeof require>> = {
   milky: require('@/assets/images/categories/milky.webp'),
   fruity: require('@/assets/images/categories/fruity.webp'),
@@ -52,12 +87,17 @@ function categoryBanner(name: string) {
 }
 
 export default function MenuScreen() {
+  const insets = useSafeAreaInsets()
   const { items, categories, loading, error } = useMenu()
   const sectionListRef = useRef<SectionList<CatalogItem, SectionMeta>>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const scrollingToRef = useRef<string | null>(null)
   const [query, setQuery] = useState('')
   const searching = query.trim().length > 0
+  const storeStatus = getStoreStatus()
+  const statusLabel = storeStatus.open
+    ? `Open · closes ${storeStatus.nextLabel.replace(/^until\s+/, '')}`
+    : `Closed · opens ${storeStatus.nextLabel}`
 
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -83,34 +123,112 @@ export default function MenuScreen() {
   const firstId = sections[0]?.category.id ?? null
   const currentActive = activeId ?? firstId
 
+  const pendingScrollRef = useRef<{
+    idx: number
+    animated: boolean
+    attempt: number
+    seq: number
+  } | null>(null)
+  // Monotonic token. Each tab press bumps it; in-flight retries from earlier
+  // taps check the token and no-op if superseded, so a slow retry for section
+  // B can't hijack a newer scroll to section C.
+  const scrollSeqRef = useRef(0)
+
+  // Defer scroll into a microtask chain with retry. On first mount the target
+  // section's native cells may not be laid out yet; calling scrollToLocation
+  // straight away can hand a NaN offset to the native ScrollView command,
+  // which iOS 26 Fabric turns into an uncaught NSException → SIGABRT.
+  const safeScrollToSection = useCallback(
+    (idx: number, animated: boolean, seq: number, attempt = 0) => {
+      if (seq !== scrollSeqRef.current) return
+      const list = sectionListRef.current
+      if (!list) return
+      pendingScrollRef.current = { idx, animated, attempt, seq }
+      try {
+        list.scrollToLocation({
+          sectionIndex: idx,
+          itemIndex: 0,
+          animated,
+          viewPosition: 0,
+        })
+      } catch {
+        if (attempt < 4) {
+          setTimeout(() => safeScrollToSection(idx, animated, seq, attempt + 1), 120)
+        } else {
+          pendingScrollRef.current = null
+        }
+      }
+    },
+    [],
+  )
+
+  const handleScrollToIndexFailed = useCallback(() => {
+    const pending = pendingScrollRef.current
+    if (!pending) return
+    if (pending.seq !== scrollSeqRef.current || pending.attempt >= 4) {
+      pendingScrollRef.current = null
+      return
+    }
+    setTimeout(
+      () =>
+        safeScrollToSection(
+          pending.idx,
+          pending.animated,
+          pending.seq,
+          pending.attempt + 1,
+        ),
+      120,
+    )
+  }, [safeScrollToSection])
+
   const handleTabPress = useCallback(
     (id: string) => {
       Keyboard.dismiss()
       const sectionIndex = sections.findIndex((s) => s.category.id === id)
       if (sectionIndex < 0) return
+      const seq = ++scrollSeqRef.current
       scrollingToRef.current = id
       setActiveId(id)
-      sectionListRef.current?.scrollToLocation({
-        sectionIndex,
-        itemIndex: 0,
-        animated: true,
-        viewPosition: 0,
-      })
+      safeScrollToSection(sectionIndex, true, seq)
     },
-    [sections],
+    [sections, safeScrollToSection],
   )
 
-  const handleMomentumEnd = useCallback(() => {
-    scrollingToRef.current = null
-  }, [])
+  useFocusEffect(
+    useCallback(() => {
+      const pending = useMenuJumpStore.getState().pendingSlug
+      if (!pending || sections.length === 0) return
+      const idx = sections.findIndex(
+        (s) => normalizeSlug(s.category.name) === pending,
+      )
+      useMenuJumpStore.getState().setPending(null)
+      if (idx < 0) return
+      const target = sections[idx].category.id
+      const seq = ++scrollSeqRef.current
+      scrollingToRef.current = target
+      setActiveId(target)
+      requestAnimationFrame(() => safeScrollToSection(idx, false, seq))
+    }, [sections, safeScrollToSection]),
+  )
 
+  // We used to clear `scrollingToRef` on momentum/drag end, but with rapid
+  // successive taps the FIRST tap's momentum-end fires mid-way through the
+  // SECOND tap's scroll, which lets onViewableChanged snap `activeId` back to
+  // whatever intermediate section is passing through. Instead, keep the ref
+  // set to the latest target and only clear it once that target actually
+  // becomes the first viewable section.
   const onViewableChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (scrollingToRef.current) return
       const first = viewableItems[0]
       const section = first?.section as { category?: CatalogCategory } | undefined
-      const id = section?.category?.id
-      if (id) setActiveId((prev) => (prev === id ? prev : id))
+      const visibleId = section?.category?.id
+      if (!visibleId) return
+      const target = scrollingToRef.current
+      if (target) {
+        if (visibleId === target) scrollingToRef.current = null
+        return
+      }
+      setActiveId((prev) => (prev === visibleId ? prev : visibleId))
     },
   ).current
 
@@ -123,12 +241,14 @@ export default function MenuScreen() {
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: MenuSection }) => (
-      <SectionHeader category={section.category} index={section.index} />
+      <SectionHeader category={section.category} />
     ),
     [],
   )
 
   const keyExtractor = useCallback((item: CatalogItem) => item.id, [])
+
+  const getItemLayout = useMemo(() => buildGetItemLayout(sections), [sections])
 
   if (loading && items.length === 0) {
     return <SkeletonSection />
@@ -136,7 +256,7 @@ export default function MenuScreen() {
 
   if (error && items.length === 0) {
     return (
-      <View style={styles.root}>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.center}>
           <Text style={styles.errorText}>Menu unavailable. Try again later.</Text>
         </View>
@@ -145,7 +265,30 @@ export default function MenuScreen() {
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>MANDY&apos;S · SOUTHPORT</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Menu</Text>
+          <View style={[styles.statusPill, !storeStatus.open && styles.statusPillClosed]}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: storeStatus.open ? T.green : T.ink4 },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                { color: storeStatus.open ? T.greenDark : T.ink2 },
+              ]}
+              numberOfLines={1}
+            >
+              {statusLabel}
+            </Text>
+          </View>
+        </View>
+      </View>
       <View style={styles.searchBar}>
         <Icon name="search" color={T.ink3} size={18} />
         <TextInput
@@ -231,12 +374,11 @@ export default function MenuScreen() {
               initialNumToRender={12}
               maxToRenderPerBatch={8}
               windowSize={5}
-              removeClippedSubviews
-              onMomentumScrollEnd={handleMomentumEnd}
-              onScrollEndDrag={handleMomentumEnd}
+              getItemLayout={getItemLayout}
               onScrollBeginDrag={Keyboard.dismiss}
               onViewableItemsChanged={onViewableChanged}
               viewabilityConfig={viewabilityConfig}
+              onScrollToIndexFailed={handleScrollToIndexFailed}
             />
           </View>
         </View>
@@ -247,16 +389,12 @@ export default function MenuScreen() {
 
 const SectionHeader = memo(function SectionHeader({
   category,
-  index,
 }: {
   category: CatalogCategory
-  index: number
 }) {
   const banner = categoryBanner(category.name)
-  const indexLabel = String(index + 1).padStart(2, '0')
   return (
     <View style={styles.sectionHeader}>
-      <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{`CATEGORY ${indexLabel}`}</Text>
       <Text style={styles.sectionTitle} numberOfLines={1}>
         {category.name}
       </Text>
@@ -383,6 +521,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'row',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  eyebrow: {
+    ...TYPE.eyebrow,
+    color: T.brand,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 4,
+  },
+  title: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 34,
+    lineHeight: 38,
+    color: T.ink,
+    letterSpacing: -0.5,
+    flexShrink: 0,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(46,127,82,0.12)',
+    flexShrink: 1,
+  },
+  statusPillClosed: {
+    backgroundColor: 'rgba(42,30,20,0.08)',
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+  },
+  statusText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
   },
   searchBar: {
     flexDirection: 'row',

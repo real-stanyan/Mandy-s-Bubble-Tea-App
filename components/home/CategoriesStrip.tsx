@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMenu } from '@/hooks/use-menu';
+import { useMenuJumpStore } from '@/store/menuJump';
 import { T, TYPE, RADIUS } from '@/constants/theme';
 import { SectionHead } from './SectionHead';
 import { normalizeSlug } from './helpers';
@@ -26,6 +27,12 @@ const HOME_CATEGORIES: readonly HomeCategory[] = [
 export function CategoriesStrip() {
   const router = useRouter();
   const { items, categories } = useMenu();
+  const setPending = useMenuJumpStore((s) => s.setPending);
+
+  const jumpToMenu = (slug: string | null) => {
+    setPending(slug);
+    router.push('/(tabs)/menu');
+  };
 
   const countsBySlug = useMemo(() => {
     const map = new Map<string, number>();
@@ -44,7 +51,7 @@ export function CategoriesStrip() {
       <SectionHead
         label="Browse the menu"
         actionLabel="See all"
-        onAction={() => router.push('/(tabs)/menu')}
+        onAction={() => jumpToMenu(null)}
       />
       <ScrollView
         horizontal
@@ -58,7 +65,7 @@ export function CategoriesStrip() {
           return (
             <Pressable
               key={c.slug}
-              onPress={() => router.push('/(tabs)/menu')}
+              onPress={() => jumpToMenu(c.slug)}
               style={({ pressed }) => ({
                 width: 130,
                 height: 84,
