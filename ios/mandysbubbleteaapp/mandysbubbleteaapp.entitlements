@@ -15,5 +15,7 @@
 	<array>
 		<string>merchant.com.mandysbubbletea.app</string>
 	</array>
+	<key>aps-environment</key>
+	<string>production</string>
 </dict>
 </plist>

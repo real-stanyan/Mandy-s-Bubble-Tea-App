@@ -18,7 +18,8 @@
         "com.apple.developer.in-app-payments": [
           "merchant.com.mandysbubbletea.app"
         ],
-        "com.apple.developer.applesignin": ["Default"]
+        "com.apple.developer.applesignin": ["Default"],
+      "aps-environment": "production"
       },
       "usesAppleSignIn": true
     },
@@ -39,6 +40,15 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#C43A10",
+          "sounds": [],
+          "iosDisplayInForeground": true
+        }
+      ],
       [
         "expo-splash-screen",
         {
