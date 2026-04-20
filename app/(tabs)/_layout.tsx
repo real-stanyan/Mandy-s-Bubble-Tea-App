@@ -65,6 +65,7 @@ export default function TabLayout() {
           name="menu"
           options={{
             title: 'Menu',
+            headerShown: false,
             tabBarIcon: ({ color }) => <TabIcon name="cafe" color={color} />,
           }}
         />
@@ -81,6 +82,7 @@ export default function TabLayout() {
           name="account"
           options={{
             title: 'Account',
+            headerShown: false,
             tabBarIcon: ({ color }) => <TabIcon name="user" color={color} />,
           }}
         />

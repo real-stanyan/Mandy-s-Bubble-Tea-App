@@ -1,104 +1,93 @@
 import { memo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { Icon } from '@/components/brand/Icon'
-import { useAuth } from '@/components/auth/AuthProvider'
-import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
+import { T, RADIUS, SPACING } from '@/constants/theme'
 
 interface Props {
   rewardsCount: number
 }
 
 export const PromotionsCard = memo(function PromotionsCard({ rewardsCount }: Props) {
-  const { welcomeDiscount } = useAuth()
-  const welcomeAvailable = welcomeDiscount.available
-  const welcomePct = welcomeDiscount.percentage
+  if (rewardsCount <= 0) return null
 
-  const badgeCount =
-    (welcomeAvailable ? 1 : 0) + (rewardsCount > 0 ? rewardsCount : 0)
-
-  const remaining = welcomeDiscount.drinksRemaining
-  const remainingLabel = `${remaining} drink${remaining === 1 ? '' : 's'} left`
-
-  const subtitle = (() => {
-    if (rewardsCount > 0 && welcomeAvailable) {
-      return `${rewardsCount} free drink${rewardsCount > 1 ? 's' : ''} + ${welcomePct}% off welcome (${remainingLabel})`
-    }
-    if (rewardsCount > 0) {
-      return `${rewardsCount} free drink${rewardsCount > 1 ? 's' : ''} ready to redeem`
-    }
-    if (welcomeAvailable) {
-      return `${welcomePct}% off your first 2 drinks — ${remainingLabel}`
-    }
-    return 'Earn stars to unlock free drinks'
-  })()
+  const label = `${rewardsCount} free drink${rewardsCount === 1 ? '' : 's'} ready`
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push('/promotions')}
-      activeOpacity={0.8}
-    >
-      <View style={styles.left}>
-        <Text style={styles.title}>PROMOTIONS</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
-      <View style={styles.right}>
-        {badgeCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badgeCount}</Text>
-          </View>
-        )}
-        <Icon name="chevR" color={T.ink4} size={18} />
-      </View>
-    </TouchableOpacity>
+    <View style={styles.wrap}>
+      <LinearGradient
+        colors={[T.peach, T.cream]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        <View style={styles.iconTile}>
+          <Icon name="gift" color={T.cream} size={22} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>{label}</Text>
+          <Text style={styles.sub}>Redeem at pickup — any size, any flavor.</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.useBtn}
+          onPress={() => router.push('/promotions')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.useText}>Use</Text>
+          <Icon name="chevR" color={T.cream} size={12} />
+        </TouchableOpacity>
+      </LinearGradient>
+    </View>
   )
 })
 
 const styles = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+  },
   card: {
-    backgroundColor: T.paper,
     borderRadius: RADIUS.card,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderWidth: 1,
-    borderColor: T.line,
-    marginHorizontal: 16,
-    marginTop: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...SHADOW.card,
+    borderColor: 'rgba(141,85,36,0.12)',
   },
-  left: { flex: 1, paddingRight: 12 },
-  title: {
-    ...TYPE.eyebrow,
-    color: T.ink3,
-    marginBottom: 4,
-  },
-  subtitle: {
-    ...TYPE.bodyStrong,
-    color: T.ink,
-    fontSize: 14,
-  },
-  right: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  badge: {
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: T.brand,
+  iconTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: T.ink,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
   },
-  badgeText: {
-    color: '#fff',
+  title: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 17,
+    letterSpacing: -0.3,
+    color: T.ink,
+  },
+  sub: {
+    fontFamily: 'Inter_400Regular',
     fontSize: 12,
-    fontWeight: '700',
+    color: T.ink2,
+    marginTop: 1,
+  },
+  useBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADIUS.pill,
+    backgroundColor: T.ink,
+  },
+  useText: {
+    color: T.cream,
+    fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
   },
 })

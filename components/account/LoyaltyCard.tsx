@@ -1,7 +1,9 @@
 import { memo } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
-import { StarsProgress } from './StarsProgress'
-import { BRAND, LOYALTY } from '@/lib/constants'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Icon } from '@/components/brand/Icon'
+import { T, TYPE, RADIUS, SPACING } from '@/constants/theme'
+import { LOYALTY } from '@/lib/constants'
 import type { LoyaltyAccount } from '@/types/square'
 
 interface Props {
@@ -9,95 +11,125 @@ interface Props {
   starsPerReward?: number
 }
 
-export const LoyaltyCard = memo(function LoyaltyCard({ account, starsPerReward = LOYALTY.starsForReward }: Props) {
-  const currentStars = account.balance % starsPerReward
-  const hasReward = starsPerReward > 0 && account.balance >= starsPerReward
+export const LoyaltyCard = memo(function LoyaltyCard({
+  account,
+  starsPerReward = LOYALTY.starsForReward,
+}: Props) {
+  const goal = starsPerReward > 0 ? starsPerReward : 1
+  const currentStars = account.balance % goal
+  const remaining = Math.max(0, goal - currentStars)
+  const pct = Math.min(1, currentStars / goal)
+  const lifetime = account.lifetimePoints ?? account.balance
 
   return (
-    <View style={styles.card}>
-      <View style={styles.badgeStack}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>
-            ⭐ {starsPerReward} STARS = 1 FREE DRINK
-          </Text>
+    <View style={styles.wrap}>
+      <LinearGradient
+        colors={[T.brand, T.brandDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        <View style={styles.topRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.eyebrow}>YOUR STARS</Text>
+            <View style={styles.starsRow}>
+              <Text style={styles.starsBig}>{currentStars}</Text>
+              <Text style={styles.starsSep}> / {goal}</Text>
+            </View>
+          </View>
+          <View style={styles.lifetimePill}>
+            <Icon name="star" color={T.peach} size={11} />
+            <Text style={styles.lifetimeText}>{lifetime} drinks</Text>
+          </View>
         </View>
-        <View style={[styles.badge, styles.badgeHint]}>
-          <Text style={styles.badgeText}>☕ BUY ANY DRINK = EARN 1 STAR</Text>
+        <View style={styles.progressTrack}>
+          <LinearGradient
+            colors={[T.peach, '#FFD9A3']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={[styles.progressFill, { width: `${pct * 100}%` }]}
+          />
         </View>
-      </View>
-      <Text style={styles.starsLabel}>Your Stars</Text>
-      <Text style={styles.starsCount}>{account.balance}</Text>
-      <StarsProgress current={currentStars} />
-      {hasReward ? (
-        <View style={styles.rewardBadge}>
-          <Text style={styles.rewardText}>
-            🎉 You have a free drink reward!
-          </Text>
-        </View>
-      ) : (
-        <Text style={styles.nextReward}>
-          {starsPerReward - currentStars} more star
-          {starsPerReward - currentStars !== 1 ? 's' : ''} until your
-          free drink
+        <Text style={styles.caption}>
+          {remaining === 0
+            ? 'Free drink unlocked — redeem at pickup'
+            : `${remaining} star${remaining === 1 ? '' : 's'} until your next free drink`}
         </Text>
-      )}
+      </LinearGradient>
     </View>
   )
 })
 
 const styles = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+  },
   card: {
-    backgroundColor: BRAND.color,
-    borderRadius: 16,
-    padding: 24,
-    marginHorizontal: 16,
-    marginTop: 16,
-    position: 'relative',
+    borderRadius: RADIUS.card,
+    padding: 18,
+    shadowColor: '#6B3E15',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  badgeStack: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  eyebrow: {
+    ...TYPE.eyebrow,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  starsRow: {
+    flexDirection: 'row',
     alignItems: 'flex-end',
+    marginTop: 4,
   },
-  badge: {
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: 999,
+  starsBig: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 34,
+    lineHeight: 36,
+    letterSpacing: -0.8,
+    color: '#fff',
+  },
+  starsSep: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 22,
+    color: 'rgba(255,255,255,0.5)',
+    lineHeight: 30,
+  },
+  lifetimePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
-  badgeHint: {
-    marginTop: 6,
-  },
-  badgeText: {
+  lifetimeText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter_600SemiBold',
     letterSpacing: 0.3,
   },
-  starsLabel: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-    fontWeight: '500',
+  progressTrack: {
+    marginTop: 16,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
   },
-  starsCount: {
-    color: '#fff',
-    fontSize: 48,
-    fontWeight: '800',
+  progressFill: {
+    height: '100%',
   },
-  nextReward: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
-  },
-  rewardBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    padding: 10,
-  },
-  rewardText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
+  caption: {
+    marginTop: 8,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: 'Inter_400Regular',
   },
 })

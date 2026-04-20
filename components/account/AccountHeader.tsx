@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { View, Text } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { T, TYPE, RADIUS, SPACING } from '@/constants/theme'
 import type { AuthProfile } from '@/components/auth/AuthProvider'
 
@@ -7,11 +8,6 @@ interface Props {
   profile: AuthProfile
 }
 
-// Header block at the top of the Account tab: round avatar with initials
-// (brand-filled), member name in Fraunces, E.164 phone rendered as the
-// familiar "0412 345 678" AU format. When both names are missing we
-// fall back to a cup glyph and "Member" — keeps the card from reading
-// blank for edge-case profiles.
 export const AccountHeader = memo(function AccountHeader({ profile }: Props) {
   const fullName =
     [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Member'
@@ -24,37 +20,49 @@ export const AccountHeader = memo(function AccountHeader({ profile }: Props) {
         alignItems: 'center',
         gap: 14,
         paddingHorizontal: SPACING.lg,
-        paddingTop: SPACING.xl,
+        paddingTop: SPACING.sm,
         paddingBottom: SPACING.md,
       }}
     >
-      <View
+      <LinearGradient
+        colors={[T.peach, T.brand]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={{
-          width: 64,
-          height: 64,
-          borderRadius: RADIUS.pill,
-          backgroundColor: T.brand,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
           alignItems: 'center',
           justifyContent: 'center',
+          shadowColor: '#8D5524',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.45,
+          shadowRadius: 14,
+          elevation: 6,
         }}
       >
         <Text
           style={{
             fontFamily: 'Fraunces_500Medium',
-            fontSize: 24,
+            fontSize: 22,
             letterSpacing: -0.5,
             color: '#fff',
           }}
         >
           {initials}
         </Text>
-      </View>
+      </LinearGradient>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[TYPE.screenTitleSm, { color: T.ink }]} numberOfLines={1}>
           {fullName}
         </Text>
         <Text
-          style={[TYPE.body, { color: T.ink3, marginTop: 2 }]}
+          style={{
+            fontFamily: 'JetBrainsMono_700Bold',
+            fontSize: 12,
+            color: T.ink3,
+            marginTop: 2,
+          }}
           numberOfLines={1}
         >
           {formatPhone(profile.phone_e164)}

@@ -8,24 +8,27 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native'
-import { useFocusEffect } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useLoyalty } from '@/hooks/use-loyalty'
-import { BRAND, LOYALTY } from '@/lib/constants'
+import { LOYALTY } from '@/lib/constants'
 import { SignInCard } from '@/components/auth/SignInCard'
+import { AccountHeader } from '@/components/account/AccountHeader'
 import { LoyaltyCard } from '@/components/account/LoyaltyCard'
+import { MiniStats } from '@/components/account/MiniStats'
 import { MemberQrCard } from '@/components/account/MemberQrCard'
 import { PromotionsCard } from '@/components/account/PromotionsCard'
 import { ActivityHistory } from '@/components/account/ActivityHistory'
 import { OrderHistory } from '@/components/account/OrderHistory'
 import { WelcomeDiscountCard } from '@/components/account/WelcomeDiscountCard'
+import { StoreInfo } from '@/components/account/StoreInfo'
+import { LegalFooter } from '@/components/account/LegalFooter'
+import { SignOutBtn } from '@/components/account/SignOutBtn'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { isUnfinished } from '@/store/orders'
+import { T } from '@/constants/theme'
 import type { LoyaltyAccount } from '@/types/square'
 
-// Zero-balance fallback used right after signup, before the loyalty account
-// materialises on first purchase — keeps the dashboard from dead-ending on
-// "No loyalty account found" for a freshly registered customer.
 const EMPTY_LOYALTY: LoyaltyAccount = {
   id: '',
   balance: 0,
@@ -46,10 +49,6 @@ export default function AccountScreen() {
   }, [orders])
 
   const hasActiveOrder = activeOrders.length > 0
-  // Intentionally omit refreshAuth: it replaces the AuthProvider's profile
-  // object each call, which churns useLoyalty's fetchLoyalty identity and
-  // re-runs this focus effect in a loop. Welcome-discount/profile freshness
-  // is handled at checkout (app/checkout.tsx) where it actually changes.
   useFocusEffect(
     useCallback(() => {
       refreshLoyalty()
@@ -72,30 +71,37 @@ export default function AccountScreen() {
   }
 
   const perReward = starsPerReward || LOYALTY.starsForReward
-  const rewardsCount = perReward > 0 ? Math.floor((account?.balance ?? 0) / perReward) : 0
+  const balance = account?.balance ?? 0
+  const lifetime = account?.lifetimePoints ?? balance
+  const rewardsCount = perReward > 0 ? Math.floor(balance / perReward) : 0
+  const currentStars = perReward > 0 ? balance % perReward : 0
 
   if (authLoading && !profile) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={BRAND.color} />
+        <ActivityIndicator size="large" color={T.brand} />
       </View>
     )
   }
 
   if (!profile) {
     return (
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <SignInCard />
-        <HowItWorks />
-        <StoreInfo />
-      </ScrollView>
+      <View style={styles.screen}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingTop: 56 }]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <SignInCard />
+          <HowItWorks />
+        </ScrollView>
+      </View>
     )
   }
 
   if (loyaltyLoading && !account) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={BRAND.color} />
+        <ActivityIndicator size="large" color={T.brand} />
       </View>
     )
   }
@@ -112,36 +118,45 @@ export default function AccountScreen() {
   }
 
   return (
-    <ScrollView
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={BRAND.color} />
-      }
-    >
-      <WelcomeDiscountCard />
-      <LoyaltyCard
-        account={account ?? EMPTY_LOYALTY}
-        starsPerReward={perReward}
-      />
-      <MemberQrCard
-        customerId={profile.square_customer_id}
-        phoneE164={profile.phone_e164}
-      />
-      <PromotionsCard rewardsCount={rewardsCount} />
-      {orders.length === 0 ? (
-        <OrderHistory orders={orders} />
-      ) : (
-        <>
-          <OrderHistory orders={activeOrders} title="In Progress" hideIfEmpty />
-          <OrderHistory orders={pastOrders} title="Past Orders" hideIfEmpty />
-        </>
-      )}
-      <ActivityHistory events={events} />
-      <StoreInfo />
-      <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
-        <Text style={styles.signOutText}>Sign out</Text>
-      </TouchableOpacity>
-      <View style={{ height: 40 }} />
-    </ScrollView>
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={{ paddingTop: 56, paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={T.brand} />
+        }
+      >
+        <AccountHeader profile={profile} />
+        <WelcomeDiscountCard />
+        <LoyaltyCard
+          account={account ?? EMPTY_LOYALTY}
+          starsPerReward={perReward}
+        />
+        <MiniStats
+          drinks={lifetime}
+          rewards={rewardsCount}
+          stars={currentStars}
+          onPressDrinks={() => router.push('/(tabs)/order')}
+          onPressRewards={() => router.push('/promotions')}
+        />
+        <MemberQrCard
+          customerId={profile.square_customer_id}
+          phoneE164={profile.phone_e164}
+        />
+        <PromotionsCard rewardsCount={rewardsCount} />
+        {orders.length === 0 ? (
+          <OrderHistory orders={orders} />
+        ) : (
+          <>
+            <OrderHistory orders={activeOrders} title="In Progress" hideIfEmpty />
+            <OrderHistory orders={pastOrders} title="Past Orders" hideIfEmpty />
+          </>
+        )}
+        <ActivityHistory events={events} />
+        <StoreInfo />
+        <LegalFooter />
+        <SignOutBtn onPress={signOut} />
+      </ScrollView>
+    </View>
   )
 }
 
@@ -158,58 +173,48 @@ function HowItWorks() {
   )
 }
 
-function StoreInfo() {
-  return (
-    <View style={styles.storeInfo}>
-      <Text style={styles.storeName}>{BRAND.name}</Text>
-      <Text style={styles.storeDetail}>{BRAND.address}</Text>
-      <Text style={styles.storeDetail}>{BRAND.phone}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  screen: {
+    flex: 1,
+    backgroundColor: T.bg,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: T.bg,
+  },
   scrollContent: { paddingBottom: 40 },
-  errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 12 },
+  errorText: { color: '#b91c1c', fontSize: 16, textAlign: 'center', marginBottom: 12 },
   retryBtn: {
-    backgroundColor: BRAND.color,
+    backgroundColor: T.brand,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
   },
   retryText: { color: '#fff', fontWeight: '600' },
-  signOutBtn: {
-    marginHorizontal: 16,
-    marginTop: 24,
-    paddingVertical: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.15)',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-  },
-  signOutText: {
-    color: '#3f3f46',
-    fontSize: 15,
-    fontWeight: '500',
-  },
   howItWorks: {
-    backgroundColor: BRAND.accentColor,
+    backgroundColor: T.paper,
+    borderWidth: 1,
+    borderColor: T.line,
     marginHorizontal: 16,
     marginTop: 20,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     gap: 8,
   },
-  howTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  howBullet: { fontSize: 14, lineHeight: 20 },
-  storeInfo: {
-    alignItems: 'center',
-    marginTop: 24,
-    paddingHorizontal: 16,
-    gap: 4,
+  howTitle: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 17,
+    letterSpacing: -0.3,
+    color: T.ink,
+    marginBottom: 4,
   },
-  storeName: { fontSize: 16, fontWeight: '600' },
-  storeDetail: { fontSize: 14, color: '#888' },
+  howBullet: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    color: T.ink2,
+  },
 })
