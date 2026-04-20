@@ -2,16 +2,34 @@ import { supabase } from '@/lib/supabase'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://mandybubbletea.com'
 
+let cachedToken: string | null = null
+let hydratePromise: Promise<void> | null = null
+
+function hydrateOnce(): Promise<void> {
+  if (hydratePromise) return hydratePromise
+  hydratePromise = supabase.auth.getSession().then(({ data }) => {
+    cachedToken = data.session?.access_token ?? null
+  })
+  return hydratePromise
+}
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  cachedToken = session?.access_token ?? null
+})
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
+  if (cachedToken === null && !hydratePromise) {
+    await hydrateOnce()
+  } else if (hydratePromise) {
+    await hydratePromise
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string> | undefined),
   }
-  if (token && !headers.Authorization) {
-    headers.Authorization = `Bearer ${token}`
+  if (cachedToken && !headers.Authorization) {
+    headers.Authorization = `Bearer ${cachedToken}`
   }
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
