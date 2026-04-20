@@ -37,6 +37,12 @@
           <string>exp+mandysbubbleteaapp</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.googleusercontent.apps.744591425203-g5oh2tirvk6nafjus77s2bl3mg3admbe</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
