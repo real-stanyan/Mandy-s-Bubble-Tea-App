@@ -22,6 +22,8 @@ import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/sq
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 
+const EMPTY_SELECTION: ReadonlySet<string> = new Set()
+
 interface Props {
   itemId: string
   ScrollComponent?: ComponentType<ScrollViewProps> | ComponentType<any>
@@ -269,7 +271,7 @@ export function ItemDetailContent({
           </ModifierSection>
 
           {modifierLists.map((ml) => {
-            const selected = selectedByList[ml.id] ?? new Set()
+            const selected = selectedByList[ml.id] ?? EMPTY_SELECTION
             const isTopping = (ml.name ?? '').toUpperCase().includes('TOPPING')
             if (isTopping) {
               return (
