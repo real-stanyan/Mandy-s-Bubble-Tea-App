@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mandys_bubble_tea_app",
+    "name": "Mandy's Bubble Tea",
     "slug": "mandys_bubble_tea_app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -62,8 +62,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},
