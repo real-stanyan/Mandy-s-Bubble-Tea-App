@@ -1,37 +1,13 @@
-import { memo, useCallback, useEffect, useState } from 'react'
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { memo, useCallback } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { Image } from 'expo-image'
 import { usePathname, useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { BRAND } from '@/lib/constants'
+import { Icon } from '@/components/brand/Icon'
 import { useCartStore } from '@/store/cart'
-import { apiFetch } from '@/lib/api'
-import type { CatalogItem } from '@/types/square'
 import type { OrderHistoryItem } from '@/hooks/use-order-history'
 import { reorder } from '@/components/orders/reorder'
-
-// Module-level single-flight + in-memory cache for the catalog-name ->
-// image-url map. OrderHistory is mounted on two tabs (Account + My
-// Orders) and we don't want each mount to refetch /api/catalog (~1MB).
-let catalogImageMap: Record<string, string> | null = null
-let catalogFetchInFlight: Promise<Record<string, string>> | null = null
-function fetchCatalogImageMap(): Promise<Record<string, string>> {
-  if (catalogImageMap) return Promise.resolve(catalogImageMap)
-  if (catalogFetchInFlight) return catalogFetchInFlight
-  catalogFetchInFlight = apiFetch<{ items: CatalogItem[] }>('/api/catalog')
-    .then((data) => {
-      const map: Record<string, string> = {}
-      for (const item of data.items ?? []) {
-        const name = item.itemData?.name
-        if (name && item.imageUrl) map[name] = item.imageUrl
-      }
-      catalogImageMap = map
-      return map
-    })
-    .finally(() => {
-      catalogFetchInFlight = null
-    })
-  return catalogFetchInFlight
-}
+import { useCatalogImageMap } from '@/hooks/use-catalog-image-map'
+import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 
 const STATE_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   COMPLETED: { label: 'COMPLETED', color: '#6b7260', bg: '#eae7dc' },
@@ -90,22 +66,7 @@ export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = fa
   const pathname = usePathname()
   const replaceCart = useCartStore((s) => s.clearCart)
   const addItem = useCartStore((s) => s.addItem)
-  const [imageByName, setImageByName] = useState<Record<string, string>>(
-    () => catalogImageMap ?? {},
-  )
-
-  useEffect(() => {
-    if (catalogImageMap) return
-    let cancelled = false
-    fetchCatalogImageMap()
-      .then((map) => {
-        if (!cancelled) setImageByName(map)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const imageByName = useCatalogImageMap()
 
   const goToDetail = useCallback(
     (order: OrderHistoryItem) => {
@@ -145,7 +106,7 @@ export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = fa
     if (hideIfEmpty) return null
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="receipt-outline" size={32} color="#ccc" />
+        <Icon name="receipt" color={T.ink4} size={32} />
         <Text style={styles.emptyText}>No orders yet</Text>
       </View>
     )
@@ -201,7 +162,13 @@ const OrderCardRow = memo(function OrderCardRow({
       activeOpacity={0.85}
     >
       {thumb ? (
-        <Image source={{ uri: thumb }} style={styles.thumb} />
+        <Image
+          source={{ uri: thumb }}
+          style={styles.thumb}
+          contentFit="cover"
+          contentPosition="center"
+          transition={120}
+        />
       ) : (
         <View style={[styles.thumb, styles.thumbPlaceholder]}>
           <Text style={{ fontSize: 22 }}>🧋</Text>
@@ -260,28 +227,28 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   heading: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 18,
-    fontWeight: '700',
+    letterSpacing: -0.3,
+    color: T.ink,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: T.paper,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: T.line,
     padding: 12,
     marginBottom: 10,
     gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...SHADOW.card,
   },
   thumb: {
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: '#f5f1ea',
+    backgroundColor: T.bg2,
   },
   thumbPlaceholder: {
     alignItems: 'center',
@@ -297,9 +264,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   name: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 15,
-    fontWeight: '700',
-    color: '#222',
+    color: T.ink,
     flexShrink: 1,
   },
   badge: {
@@ -311,15 +278,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.4,
+    fontFamily: 'Inter_600SemiBold',
   },
   subtitle: {
+    ...TYPE.body,
     fontSize: 12,
-    color: '#7a7266',
+    color: T.ink3,
   },
   price: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: BRAND.color,
+    ...TYPE.priceSm,
+    color: T.ink,
     marginTop: 2,
   },
   actions: {
@@ -327,10 +295,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   primaryBtn: {
-    backgroundColor: BRAND.color,
+    backgroundColor: T.ink,
     paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 999,
+    borderRadius: RADIUS.pill,
     minWidth: 96,
     alignItems: 'center',
   },
@@ -338,21 +306,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
   },
   secondaryBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#d7d2c7',
+    borderColor: T.ink4,
     paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 999,
+    borderRadius: RADIUS.pill,
     minWidth: 96,
     alignItems: 'center',
   },
   secondaryBtnText: {
-    color: '#4a4a4a',
+    color: T.ink,
     fontWeight: '700',
     fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -360,7 +330,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#aaa',
+    ...TYPE.body,
+    color: T.ink3,
   },
 })
