@@ -46,10 +46,12 @@ export default function AccountScreen() {
   }, [orders])
 
   const hasActiveOrder = activeOrders.length > 0
+  // Intentionally omit refreshAuth: it replaces the AuthProvider's profile
+  // object each call, which churns useLoyalty's fetchLoyalty identity and
+  // re-runs this focus effect in a loop. Welcome-discount/profile freshness
+  // is handled at checkout (app/checkout.tsx) where it actually changes.
   useFocusEffect(
     useCallback(() => {
-      if (!profile) return
-      refreshAuth()
       refreshLoyalty()
       refreshOrders()
       if (!hasActiveOrder) return
@@ -57,7 +59,7 @@ export default function AccountScreen() {
         refreshOrders()
       }, 10_000)
       return () => clearInterval(id)
-    }, [profile, refreshAuth, refreshLoyalty, refreshOrders, hasActiveOrder]),
+    }, [refreshLoyalty, refreshOrders, hasActiveOrder]),
   )
 
   const onPullRefresh = async () => {

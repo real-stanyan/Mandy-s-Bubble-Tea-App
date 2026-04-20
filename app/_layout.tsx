@@ -8,6 +8,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import 'react-native-reanimated';
 import { ItemDetailSheet } from '@/components/menu/ItemDetailSheet';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { AuthGate } from '@/components/auth/AuthGate';
 import { useReadyVibration } from '@/hooks/use-ready-vibration';
 import { T } from '@/constants/theme';
 import { useEffect } from 'react';
@@ -75,7 +76,9 @@ export default function RootLayout() {
       <AuthProvider>
         <BottomSheetModalProvider>
           <ThemeProvider value={LightTheme}>
+          <AuthGate>
           <Stack>
+            <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Menu' }} />
             <Stack.Screen name="menu/[id]" options={{ headerShown: true, title: '' }} />
             <Stack.Screen
@@ -148,6 +151,7 @@ export default function RootLayout() {
           </Stack>
           <ItemDetailSheet />
           <StatusBar style="dark" />
+          </AuthGate>
         </ThemeProvider>
         </BottomSheetModalProvider>
       </AuthProvider>
