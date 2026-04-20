@@ -2,14 +2,15 @@ import { memo, useMemo, useRef, useState, useCallback } from 'react'
 import {
   View,
   ScrollView,
+  SectionList,
   Text,
   TextInput,
   Pressable,
   TouchableOpacity,
   StyleSheet,
   Keyboard,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
+  type SectionListData,
+  type ViewToken,
 } from 'react-native'
 import { Image } from 'expo-image'
 import * as Haptics from 'expo-haptics'
@@ -32,7 +33,8 @@ import { hashColor } from '@/components/brand/color'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
-const HIGHLIGHT_OFFSET = 40
+type SectionMeta = { category: CatalogCategory; index: number }
+type MenuSection = SectionListData<CatalogItem, SectionMeta>
 
 const CATEGORY_BANNERS: Record<string, ReturnType<typeof require>> = {
   milky: require('@/assets/images/categories/milky.webp'),
@@ -51,8 +53,7 @@ function categoryBanner(name: string) {
 
 export default function MenuScreen() {
   const { items, categories, loading, error } = useMenu()
-  const scrollRef = useRef<ScrollView>(null)
-  const sectionOffsets = useRef<Record<string, number>>({})
+  const sectionListRef = useRef<SectionList<CatalogItem, SectionMeta>>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const scrollingToRef = useRef<string | null>(null)
   const [query, setQuery] = useState('')
@@ -66,50 +67,68 @@ export default function MenuScreen() {
     )
   }, [items, query])
 
-  const sections = useMemo(() => {
+  const sections = useMemo<MenuSection[]>(() => {
     if (categories.length === 0 || items.length === 0) return []
     return categories
       .map((cat) => ({
         category: cat,
-        items: items.filter((item) =>
+        data: items.filter((item) =>
           item.itemData?.categories?.some((c) => c.id === cat.id),
         ),
       }))
-      .filter((s) => s.items.length > 0)
+      .filter((s) => s.data.length > 0)
+      .map((s, i) => ({ category: s.category, index: i, data: s.data }))
   }, [items, categories])
 
   const firstId = sections[0]?.category.id ?? null
   const currentActive = activeId ?? firstId
 
-  const handleTabPress = useCallback((id: string) => {
-    Keyboard.dismiss()
-    const y = sectionOffsets.current[id]
-    if (y == null) return
-    scrollingToRef.current = id
-    setActiveId(id)
-    scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })
-  }, [])
-
-  const handleScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (scrollingToRef.current) return
-      const y = e.nativeEvent.contentOffset.y + HIGHLIGHT_OFFSET
-      const entries = Object.entries(sectionOffsets.current).sort(
-        (a, b) => a[1] - b[1],
-      )
-      let current = entries[0]?.[0] ?? null
-      for (const [id, offset] of entries) {
-        if (y >= offset) current = id
-        else break
-      }
-      if (current && current !== activeId) setActiveId(current)
+  const handleTabPress = useCallback(
+    (id: string) => {
+      Keyboard.dismiss()
+      const sectionIndex = sections.findIndex((s) => s.category.id === id)
+      if (sectionIndex < 0) return
+      scrollingToRef.current = id
+      setActiveId(id)
+      sectionListRef.current?.scrollToLocation({
+        sectionIndex,
+        itemIndex: 0,
+        animated: true,
+        viewPosition: 0,
+      })
     },
-    [activeId],
+    [sections],
   )
 
   const handleMomentumEnd = useCallback(() => {
     scrollingToRef.current = null
   }, [])
+
+  const onViewableChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (scrollingToRef.current) return
+      const first = viewableItems[0]
+      const section = first?.section as { category?: CatalogCategory } | undefined
+      const id = section?.category?.id
+      if (id) setActiveId((prev) => (prev === id ? prev : id))
+    },
+  ).current
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 20 }).current
+
+  const renderItem = useCallback(
+    ({ item }: { item: CatalogItem }) => <ProductRow item={item} />,
+    [],
+  )
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: MenuSection }) => (
+      <SectionHeader category={section.category} index={section.index} />
+    ),
+    [],
+  )
+
+  const keyExtractor = useCallback((item: CatalogItem) => item.id, [])
 
   if (loading && items.length === 0) {
     return <SkeletonSection />
@@ -197,30 +216,28 @@ export default function MenuScreen() {
           </View>
 
           <View style={styles.mainWrap}>
-            <ScrollView
-              ref={scrollRef}
+            <SectionList<CatalogItem, SectionMeta>
+              ref={sectionListRef}
               style={styles.main}
               contentContainerStyle={styles.mainContent}
+              sections={sections}
+              keyExtractor={keyExtractor}
+              renderItem={renderItem}
+              renderSectionHeader={renderSectionHeader}
+              stickySectionHeadersEnabled={false}
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
               keyboardDismissMode="on-drag"
-              onScroll={handleScroll}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews
               onMomentumScrollEnd={handleMomentumEnd}
               onScrollEndDrag={handleMomentumEnd}
               onScrollBeginDrag={Keyboard.dismiss}
-            >
-              {sections.map((section, i) => (
-                <CategorySection
-                  key={section.category.id}
-                  index={i}
-                  category={section.category}
-                  items={section.items}
-                  onLayoutY={(y) => {
-                    sectionOffsets.current[section.category.id] = y
-                  }}
-                />
-              ))}
-            </ScrollView>
+              onViewableItemsChanged={onViewableChanged}
+              viewabilityConfig={viewabilityConfig}
+            />
           </View>
         </View>
       )}
@@ -228,41 +245,32 @@ export default function MenuScreen() {
   )
 }
 
-const CategorySection = memo(function CategorySection({
-  index,
+const SectionHeader = memo(function SectionHeader({
   category,
-  items,
-  onLayoutY,
+  index,
 }: {
-  index: number
   category: CatalogCategory
-  items: CatalogItem[]
-  onLayoutY: (y: number) => void
+  index: number
 }) {
   const banner = categoryBanner(category.name)
   const indexLabel = String(index + 1).padStart(2, '0')
   return (
-    <View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)}>
-      <View style={styles.sectionHeader}>
-        <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{`CATEGORY ${indexLabel}`}</Text>
-        <Text style={styles.sectionTitle} numberOfLines={1}>
-          {category.name}
-        </Text>
-        {banner ? (
-          <View style={styles.bannerWrap}>
-            <Image
-              source={banner}
-              style={styles.sectionBanner}
-              contentFit="cover"
-              contentPosition="center"
-            />
-            <View style={styles.bannerOverlay} pointerEvents="none" />
-          </View>
-        ) : null}
-      </View>
-      {items.map((item) => (
-        <ProductRow key={item.id} item={item} />
-      ))}
+    <View style={styles.sectionHeader}>
+      <Text style={[TYPE.eyebrow, { color: T.ink3 }]}>{`CATEGORY ${indexLabel}`}</Text>
+      <Text style={styles.sectionTitle} numberOfLines={1}>
+        {category.name}
+      </Text>
+      {banner ? (
+        <View style={styles.bannerWrap}>
+          <Image
+            source={banner}
+            style={styles.sectionBanner}
+            contentFit="cover"
+            contentPosition="center"
+          />
+          <View style={styles.bannerOverlay} pointerEvents="none" />
+        </View>
+      ) : null}
     </View>
   )
 })
