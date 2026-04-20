@@ -405,7 +405,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mandysbubbletea.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mandysbubbletea.app.dev;
 				PRODUCT_NAME = mandysbubbleteaapp;
 				SWIFT_OBJC_BRIDGING_HEADER = "mandysbubbleteaapp/mandysbubbleteaapp-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";

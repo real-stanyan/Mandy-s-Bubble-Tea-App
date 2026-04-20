@@ -45,7 +45,10 @@ const RESEND_COOLDOWN = 30
 
 GoogleSignin.configure({
   webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  iosClientId: __DEV__
+    ? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID_DEV ||
+      process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+    : process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   offlineAccess: false,
 })
 
