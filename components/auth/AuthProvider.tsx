@@ -71,6 +71,18 @@ export function useAuth(): AuthContextValue {
 
 const DEFAULT_WELCOME: WelcomeDiscountInfo = { available: false, percentage: 0, drinksRemaining: 0 }
 
+function shallowEqual<T extends Record<string, unknown> | null>(a: T, b: T): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  const ak = Object.keys(a)
+  const bk = Object.keys(b)
+  if (ak.length !== bk.length) return false
+  for (const k of ak) {
+    if (a[k] !== b[k]) return false
+  }
+  return true
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<AuthProfile | null>(null)
@@ -87,9 +99,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const json = await apiFetch<MeResponse>('/api/me')
         if (!json.ok) return
-        setProfile(json.profile)
-        setLoyalty(json.loyalty)
-        setWelcomeDiscount(json.welcomeDiscount)
+        // Server told us we're not authed (e.g. Square Dashboard deleted
+        // the customer, or our token is stale) but we may still hold a
+        // valid-looking Supabase session locally. Sign out so the UI
+        // lands on /login's landing stage instead of limping into 'name'.
+        if (!json.authed) {
+          const { data } = await supabase.auth.getSession()
+          if (data.session) {
+            await supabase.auth.signOut()
+          }
+          setProfile(null)
+          setLoyalty(null)
+          setWelcomeDiscount(DEFAULT_WELCOME)
+          setStarsPerReward(json.starsPerReward)
+          return
+        }
+        // Preserve prior references when server data matches — downstream
+        // hooks (useLoyalty, useFocusEffect) key their deps on these, so
+        // replacing the ref on every /api/me poll re-fires their effects
+        // and can produce visible loading flashes on the Account tab.
+        setProfile((prev) => (shallowEqual(prev, json.profile) ? prev : json.profile))
+        setLoyalty((prev) => (shallowEqual(prev, json.loyalty) ? prev : json.loyalty))
+        setWelcomeDiscount((prev) =>
+          shallowEqual(prev, json.welcomeDiscount) ? prev : json.welcomeDiscount,
+        )
         setStarsPerReward(json.starsPerReward)
       } catch {
         // Non-fatal — leave state untouched.
@@ -111,7 +144,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session)
     })
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // Flip loading synchronously on token-changing events so downstream
+      // screens don't observe a stale (session=new, profile=old,
+      // loading=false) tuple during the brief window before fetchMe's
+      // useEffect schedules its own setLoading(true). Without this, a
+      // returning SSO user's login screen promotes to the 'name' stage
+      // for one render before profile hydration redirects them.
+      //
+      // USER_UPDATED is intentionally excluded: supabase.auth.updateUser
+      // (e.g. staging a phone change via OTP) fires USER_UPDATED without
+      // changing access_token, so the token-keyed useEffect below never
+      // re-runs and loading would stick at true forever.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        setLoading(true)
+      }
       setSession(nextSession)
     })
 
@@ -122,12 +169,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Keyed on user.id (not access_token) so Supabase's periodic token
+    // refreshes don't spuriously re-hydrate /api/me and flash AuthGate's
+    // splash over whatever screen the user is on. apiFetch reads the
+    // latest token from supabase.auth.getSession() on every call, so
+    // subsequent API requests still use the fresh access_token.
     ;(async () => {
       setLoading(true)
       await fetchMe()
       setLoading(false)
     })()
-  }, [session?.access_token, fetchMe])
+  }, [session?.user?.id, fetchMe])
 
   const signInWithPhone = useCallback(
     async (phoneE164: string) => {
