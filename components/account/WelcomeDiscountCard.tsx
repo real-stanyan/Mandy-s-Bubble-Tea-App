@@ -1,8 +1,9 @@
+import { memo } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
-import { BRAND } from '@/lib/constants'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 
-export function WelcomeDiscountCard() {
+export const WelcomeDiscountCard = memo(function WelcomeDiscountCard() {
   const { welcomeDiscount } = useAuth()
   if (!welcomeDiscount.available) return null
 
@@ -13,7 +14,7 @@ export function WelcomeDiscountCard() {
         <View style={[styles.dot, styles.dotSecondary]} />
         <View style={[styles.dot, styles.dotTertiary]} />
       </View>
-      <Text style={styles.label}>Welcome Gift</Text>
+      <Text style={styles.label}>WELCOME GIFT</Text>
       <Text style={styles.badge}>{welcomeDiscount.percentage}% OFF</Text>
       <Text style={styles.hint}>
         {welcomeDiscount.drinksRemaining === 1
@@ -22,23 +23,21 @@ export function WelcomeDiscountCard() {
       </Text>
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
     marginHorizontal: 16,
     marginBottom: 12,
-    borderRadius: 16,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: T.line,
     padding: 18,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
     gap: 6,
     position: 'relative',
+    ...SHADOW.card,
   },
   dots: {
     position: 'absolute',
@@ -48,15 +47,22 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  dotPrimary: { backgroundColor: BRAND.color },
-  dotSecondary: { backgroundColor: BRAND.secondaryColor },
-  dotTertiary: { backgroundColor: BRAND.tertiaryColor },
-  label: { fontSize: 13, color: '#8a8076', fontWeight: '600', letterSpacing: 0.5 },
-  badge: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: BRAND.color,
-    letterSpacing: 0.5,
+  dotPrimary: { backgroundColor: T.brand },
+  dotSecondary: { backgroundColor: T.sage },
+  dotTertiary: { backgroundColor: T.peach },
+  label: {
+    ...TYPE.eyebrow,
+    color: T.ink3,
   },
-  hint: { fontSize: 13, color: '#555', textAlign: 'center' },
+  badge: {
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 32,
+    letterSpacing: -0.5,
+    color: T.brand,
+  },
+  hint: {
+    ...TYPE.body,
+    color: T.ink2,
+    textAlign: 'center',
+  },
 })

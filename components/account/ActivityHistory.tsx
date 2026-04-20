@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { View, Text, FlatList, StyleSheet } from 'react-native'
 import type { LoyaltyEvent } from '@/types/square'
 
@@ -5,7 +6,7 @@ interface Props {
   events: LoyaltyEvent[]
 }
 
-export function ActivityHistory({ events }: Props) {
+export const ActivityHistory = memo(function ActivityHistory({ events }: Props) {
   if (events.length === 0) return null
 
   return (
@@ -42,7 +43,7 @@ export function ActivityHistory({ events }: Props) {
       />
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   container: { marginTop: 24, paddingHorizontal: 16 },

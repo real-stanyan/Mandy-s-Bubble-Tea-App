@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import QRCode from 'react-native-qrcode-svg'
 import { BRAND } from '@/lib/constants'
@@ -7,7 +8,7 @@ interface Props {
   phoneE164: string
 }
 
-export function MemberQrCard({ customerId, phoneE164 }: Props) {
+export const MemberQrCard = memo(function MemberQrCard({ customerId, phoneE164 }: Props) {
   if (!customerId || !phoneE164) return null
 
   const shortId = customerId.slice(-6).toUpperCase()
@@ -22,7 +23,7 @@ export function MemberQrCard({ customerId, phoneE164 }: Props) {
       <Text style={styles.subtitle}>📱 Show this screen at the counter to redeem</Text>
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   card: {

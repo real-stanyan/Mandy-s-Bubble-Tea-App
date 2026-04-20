@@ -1,14 +1,15 @@
+import { memo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { router } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { BRAND } from '@/lib/constants'
+import { Icon } from '@/components/brand/Icon'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 
 interface Props {
   rewardsCount: number
 }
 
-export function PromotionsCard({ rewardsCount }: Props) {
+export const PromotionsCard = memo(function PromotionsCard({ rewardsCount }: Props) {
   const { welcomeDiscount } = useAuth()
   const welcomeAvailable = welcomeDiscount.available
   const welcomePct = welcomeDiscount.percentage
@@ -48,18 +49,18 @@ export function PromotionsCard({ rewardsCount }: Props) {
             <Text style={styles.badgeText}>{badgeCount}</Text>
           </View>
         )}
-        <Ionicons name="chevron-forward" size={22} color="#a1a1aa" />
+        <Icon name="chevR" color={T.ink4} size={18} />
       </View>
     </TouchableOpacity>
   )
-}
+})
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: T.paper,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: T.line,
     marginHorizontal: 16,
     marginTop: 16,
     paddingVertical: 18,
@@ -67,24 +68,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    ...SHADOW.card,
   },
   left: { flex: 1, paddingRight: 12 },
   title: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    color: BRAND.color,
+    ...TYPE.eyebrow,
+    color: T.ink3,
     marginBottom: 4,
   },
   subtitle: {
+    ...TYPE.bodyStrong,
+    color: T.ink,
     fontSize: 14,
-    color: '#3f3f46',
-    fontWeight: '500',
   },
   right: {
     flexDirection: 'row',
@@ -95,7 +90,7 @@ const styles = StyleSheet.create({
     minWidth: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: BRAND.color,
+    backgroundColor: T.brand,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
@@ -104,5 +99,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'Inter_600SemiBold',
   },
 })

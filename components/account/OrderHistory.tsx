@@ -61,7 +61,7 @@ interface Props {
   hideIfEmpty?: boolean
 }
 
-export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = false }: Props) {
+export const OrderHistory = memo(function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = false }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const replaceCart = useCartStore((s) => s.clearCart)
@@ -129,7 +129,7 @@ export function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = fa
       ))}
     </View>
   )
-}
+})
 
 interface OrderCardProps {
   order: OrderHistoryItem

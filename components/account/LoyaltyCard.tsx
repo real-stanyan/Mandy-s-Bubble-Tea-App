@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { StarsProgress } from './StarsProgress'
 import { BRAND, LOYALTY } from '@/lib/constants'
@@ -8,7 +9,7 @@ interface Props {
   starsPerReward?: number
 }
 
-export function LoyaltyCard({ account, starsPerReward = LOYALTY.starsForReward }: Props) {
+export const LoyaltyCard = memo(function LoyaltyCard({ account, starsPerReward = LOYALTY.starsForReward }: Props) {
   const currentStars = account.balance % starsPerReward
   const hasReward = starsPerReward > 0 && account.balance >= starsPerReward
 
@@ -42,7 +43,7 @@ export function LoyaltyCard({ account, starsPerReward = LOYALTY.starsForReward }
       )}
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   card: {
