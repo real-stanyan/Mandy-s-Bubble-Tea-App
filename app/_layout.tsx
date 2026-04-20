@@ -2,7 +2,7 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/brand/Icon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import 'react-native-reanimated';
@@ -75,7 +75,7 @@ export default function RootLayout() {
                     hitSlop={12}
                     style={{ paddingHorizontal: 4 }}
                   >
-                    <Ionicons name="chevron-back" size={26} color="#11181C" />
+                    <Icon name="arrowL" size={24} color={T.ink} />
                   </TouchableOpacity>
                 ),
               }}
@@ -103,8 +103,8 @@ export default function RootLayout() {
                         gap: 2,
                       }}
                     >
-                      <Ionicons name="chevron-back" size={26} color="#11181C" />
-                      <Text style={{ fontSize: 17, color: '#11181C' }}>{label}</Text>
+                      <Icon name="arrowL" size={24} color={T.ink} />
+                      <Text style={{ fontSize: 17, color: T.ink }}>{label}</Text>
                     </TouchableOpacity>
                   ),
                 }
@@ -126,7 +126,7 @@ export default function RootLayout() {
                     hitSlop={12}
                     style={{ paddingHorizontal: 4 }}
                   >
-                    <Ionicons name="home-outline" size={24} color="#11181C" />
+                    <Icon name="home" size={24} color={T.ink} />
                   </TouchableOpacity>
                 ),
               }}
