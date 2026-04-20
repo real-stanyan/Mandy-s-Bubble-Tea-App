@@ -19,7 +19,7 @@
           "merchant.com.mandysbubbletea.app"
         ],
         "com.apple.developer.applesignin": ["Default"],
-      "aps-environment": "production"
+        "aps-environment": "production"
       },
       "usesAppleSignIn": true
     },

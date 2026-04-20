@@ -63,7 +63,6 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: T.bg }}>
       <AuthProvider>
-        <PushMount />
         <BottomSheetModalProvider>
           <ThemeProvider value={LightTheme}>
           <AuthGate>
@@ -141,6 +140,7 @@ export default function RootLayout() {
           </Stack>
           <ItemDetailSheet />
           <StatusBar style="dark" />
+          <PushMount />
           </AuthGate>
         </ThemeProvider>
         </BottomSheetModalProvider>
