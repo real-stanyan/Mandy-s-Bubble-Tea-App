@@ -464,7 +464,7 @@ function PhoneStage({
     <View style={{ gap: 20 }}>
       <View>
         <Text style={styles.stageTitle}>Enter your number</Text>
-        <Text style={styles.stageSub}>We'll text you a 6-digit code.</Text>
+        <Text style={styles.stageSub}>We’ll text you a 6-digit code.</Text>
       </View>
 
       <View style={styles.phoneRow}>
