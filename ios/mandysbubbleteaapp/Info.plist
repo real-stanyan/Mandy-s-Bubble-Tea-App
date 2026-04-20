@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>mandys_bubble_tea_app</string>
+    <string>Mandy's Bubble Tea</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.0.4</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -41,6 +41,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>com.googleusercontent.apps.744591425203-g5oh2tirvk6nafjus77s2bl3mg3admbe</string>
+          <string>com.googleusercontent.apps.744591425203-mv53v6ceothme1qo7th84lopg00vhpun</string>
         </array>
       </dict>
     </array>
