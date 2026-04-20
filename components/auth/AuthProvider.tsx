@@ -10,6 +10,7 @@ import {
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { apiFetch } from '@/lib/api'
+import { revokeCurrentPushToken } from '@/lib/push-registration'
 
 // RN counterpart of the web AuthProvider. Persists the Supabase session
 // in AsyncStorage (via lib/supabase.ts) and hydrates profile/loyalty/
@@ -235,6 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
+    await revokeCurrentPushToken()
     await supabase.auth.signOut()
     setProfile(null)
     setLoyalty(null)
