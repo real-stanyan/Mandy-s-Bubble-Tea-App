@@ -132,6 +132,7 @@ export default function CheckoutScreen() {
   const welcomePercentage = welcomeDiscount.percentage
 
   useEffect(() => {
+    if (!profile) return
     try {
       initSquarePayments()
       canUseApplePay()
@@ -149,7 +150,7 @@ export default function CheckoutScreen() {
     } catch (e) {
       console.warn('Square SDK init failed:', e)
     }
-  }, [])
+  }, [profile])
 
   const showWelcomeLine = welcomeAvailable && !(useReward && canRedeem)
   const welcomeCoverage = showWelcomeLine
