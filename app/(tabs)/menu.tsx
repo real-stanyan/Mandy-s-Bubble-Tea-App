@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     color: T.ink3,
   },
   tabTextActive: {
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'Inter_600SemiBold',
     color: T.brand,
   },
   mainWrap: {

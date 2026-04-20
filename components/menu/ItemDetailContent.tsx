@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bestsellerText: {
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 10,
     letterSpacing: 1.4,
     color: T.ink,
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(196,58,16,0.12)',
   },
   requiredPillText: {
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 10,
     letterSpacing: 1.2,
     color: T.brand,

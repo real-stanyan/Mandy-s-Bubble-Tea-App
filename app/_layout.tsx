@@ -13,24 +13,13 @@ import { useReadyVibration } from '@/hooks/use-ready-vibration';
 import { T } from '@/constants/theme';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import {
-  useFonts,
-  Fraunces_400Regular,
-  Fraunces_500Medium,
-  Fraunces_600SemiBold,
-  Fraunces_700Bold,
-} from '@expo-google-fonts/fraunces';
+import { useFonts, Fraunces_500Medium } from '@expo-google-fonts/fraunces';
 import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
-  Inter_700Bold,
 } from '@expo-google-fonts/inter';
-import {
-  JetBrainsMono_400Regular,
-  JetBrainsMono_500Medium,
-  JetBrainsMono_700Bold,
-} from '@expo-google-fonts/jetbrains-mono';
+import { JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // ignore — splash may already be auto-hidden in some dev contexts
@@ -50,16 +39,10 @@ const LightTheme = {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Fraunces_400Regular,
     Fraunces_500Medium,
-    Fraunces_600SemiBold,
-    Fraunces_700Bold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
-    Inter_700Bold,
-    JetBrainsMono_400Regular,
-    JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
   });
   useEffect(() => {
