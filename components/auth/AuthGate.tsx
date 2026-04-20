@@ -29,7 +29,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      {loading && (
+      {loading && needsAuth && !onLogin && (
         <View style={styles.splash} pointerEvents="auto">
           <ActivityIndicator size="large" color={BRAND.color} />
         </View>

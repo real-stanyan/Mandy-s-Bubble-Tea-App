@@ -174,11 +174,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // splash over whatever screen the user is on. apiFetch reads the
     // latest token from supabase.auth.getSession() on every call, so
     // subsequent API requests still use the fresh access_token.
-    ;(async () => {
-      setLoading(true)
-      await fetchMe()
-      setLoading(false)
-    })()
+    //
+    // A local `cancelled` flag guards against races: if this effect is
+    // torn down (StrictMode double-invoke, rapid user.id change) before
+    // fetchMe resolves, we must not flip loading=false from the stale
+    // run or AuthGate will see loading=false with no profile yet.
+    let cancelled = false
+    setLoading(true)
+    fetchMe()
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [session?.user?.id, fetchMe])
 
   const signInWithPhone = useCallback(
