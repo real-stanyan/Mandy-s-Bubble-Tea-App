@@ -14,9 +14,20 @@ Notifications.setNotificationHandler({
   }),
 })
 
+function handleResponse(response: Notifications.NotificationResponse | null) {
+  if (!response) return
+  const data = response.notification.request.content.data as
+    | { orderId?: string; kind?: string }
+    | undefined
+  if (data?.kind === 'ready' && data.orderId) {
+    router.push(`/order-detail?id=${data.orderId}`)
+  }
+}
+
 export function usePushNotifications() {
   const { profile } = useAuth()
   const hasRegistered = useRef(false)
+  const cameFromColdStart = useRef(false)
 
   useEffect(() => {
     if (!profile || hasRegistered.current) return
@@ -27,14 +38,16 @@ export function usePushNotifications() {
   }, [profile])
 
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as
-        | { orderId?: string; kind?: string }
-        | undefined
-      if (data?.kind === 'ready' && data.orderId) {
-        router.push(`/order-detail?id=${data.orderId}`)
-      }
-    })
+    // Cold-start tap: the initial response was fired before this listener
+    // attached, so query it explicitly once. Use a ref so we don't reprocess
+    // it on hot reloads / fast refresh.
+    if (!cameFromColdStart.current) {
+      cameFromColdStart.current = true
+      Notifications.getLastNotificationResponseAsync()
+        .then(handleResponse)
+        .catch(() => {})
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(handleResponse)
     return () => sub.remove()
   }, [])
 }
