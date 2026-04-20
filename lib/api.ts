@@ -31,6 +31,10 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   if (cachedToken && !headers.Authorization) {
     headers.Authorization = `Bearer ${cachedToken}`
   }
+  const appKey = process.env.EXPO_PUBLIC_SITE_ACCESS_APP_KEY
+  if (appKey && !headers['x-mbt-app-key']) {
+    headers['x-mbt-app-key'] = appKey
+  }
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
