@@ -10,6 +10,7 @@ import { ItemDetailSheet } from '@/components/menu/ItemDetailSheet';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useReadyVibration } from '@/hooks/use-ready-vibration';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { T } from '@/constants/theme';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
@@ -37,6 +38,11 @@ const LightTheme = {
   },
 };
 
+function PushMount() {
+  usePushNotifications()
+  return null
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Fraunces_500Medium,
@@ -57,6 +63,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: T.bg }}>
       <AuthProvider>
+        <PushMount />
         <BottomSheetModalProvider>
           <ThemeProvider value={LightTheme}>
           <AuthGate>
