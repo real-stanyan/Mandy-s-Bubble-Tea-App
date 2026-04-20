@@ -11,13 +11,13 @@ import {
   StyleSheet,
 } from 'react-native'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { BRAND } from '@/lib/constants'
+import { Icon, type IconName } from '@/components/brand/Icon'
+import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import { useOrdersStore, type OrderHistoryLineModifier } from '@/store/orders'
 
 function groupModifiers(
   mods: OrderHistoryLineModifier[],
-): Array<{ listName: string; names: string[] }> {
+): { listName: string; names: string[] }[] {
   const byList = new Map<string, string[]>()
   for (const m of mods) {
     const key = m.listName || 'OTHER'
@@ -42,7 +42,6 @@ const STORE_LNG = 153.4145
 const STORE_LABEL = "Mandy's Bubble Tea"
 const STORE_ADDRESS = '34 Davenport St, Southport QLD 4215'
 
-// Compute OSM tile coords for store location at zoom 16
 const MAP_ZOOM = 16
 const n = Math.pow(2, MAP_ZOOM)
 const centerX = Math.floor(((STORE_LNG + 180) / 360) * n)
@@ -50,7 +49,6 @@ const latRad = (STORE_LAT * Math.PI) / 180
 const centerY = Math.floor(
   ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
 )
-// Carto CDN tiles (no API key, permissive CORS/UA)
 const tileUrl = (x: number, y: number) =>
   `https://basemaps.cartocdn.com/rastertiles/voyager/${MAP_ZOOM}/${x}/${y}@2x.png`
 
@@ -63,23 +61,31 @@ function openMapsNavigation() {
   Linking.openURL(url)
 }
 
-const STATE_CONFIG: Record<string, { icon: string; color: string; bgColor: string; title: string; subtitle: string }> = {
+interface StateInfo {
+  icon: IconName
+  color: string
+  bgColor: string
+  title: string
+  subtitle: string
+}
+
+const STATE_CONFIG: Record<string, StateInfo> = {
   COMPLETED: {
-    icon: 'checkmark',
+    icon: 'check',
     color: '#2e5e2e',
     bgColor: '#6b9e6f',
     title: 'Order Completed',
     subtitle: 'This order has been picked up. Enjoy your tea!',
   },
   READY: {
-    icon: 'cafe-outline',
+    icon: 'cafe',
     color: '#14532d',
     bgColor: '#16a34a',
     title: 'Ready for Pickup',
     subtitle: 'Your order is ready. Come grab it at the counter!',
   },
   OPEN: {
-    icon: 'time-outline',
+    icon: 'clock',
     color: '#92400e',
     bgColor: '#d97706',
     title: 'Order In Progress',
@@ -171,8 +177,6 @@ export default function OrderDetailScreen() {
     }
   }, [refreshOrders])
 
-  // Prefer fresh store data; fall back to route params if the order
-  // hasn't re-hydrated yet (e.g. cold entry via deep link).
   const referenceId = storeOrder?.referenceId ?? params.referenceId ?? ''
   const createdAt = storeOrder?.createdAt ?? params.createdAt ?? ''
   const state = storeOrder?.state ?? params.state ?? ''
@@ -184,9 +188,6 @@ export default function OrderDetailScreen() {
   const pickupNumber = referenceId
     || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
 
-  // Prefer the store's lineItems (each already carries imageUrl from the
-  // history endpoint). Fall back to parsing the summary string when the
-  // order isn't in the store (cold deep-link entry).
   const items = storeOrder
     ? storeOrder.lineItems.map((l) => ({
         quantity: l.quantity,
@@ -217,119 +218,111 @@ export default function OrderDetailScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor={BRAND.color}
+          tintColor={T.brand}
         />
       }
     >
-        {/* Status icon */}
-        <View style={[styles.iconCircle, { backgroundColor: stateInfo.bgColor }]}>
-          <Ionicons name={stateInfo.icon as any} size={36} color="#fff" />
+      <View style={[styles.iconCircle, { backgroundColor: stateInfo.bgColor }]}>
+        <Icon name={stateInfo.icon} size={36} color="#fff" />
+      </View>
+
+      <Text style={[styles.title, { color: stateInfo.color }]}>{stateInfo.title}</Text>
+      <Text style={styles.subtitle}>{stateInfo.subtitle}</Text>
+
+      <View style={styles.pickupCard}>
+        <Text style={styles.pickupLabel}>PICKUP NUMBER</Text>
+        <Text style={styles.pickupNumber}>{pickupNumber}</Text>
+      </View>
+
+      <View style={styles.infoRow}>
+        <View style={styles.infoBox}>
+          <Text style={styles.infoLabel}>DATE</Text>
+          <Text style={styles.infoValue}>{formatDate(createdAt)}</Text>
         </View>
-
-        <Text style={[styles.title, { color: stateInfo.color }]}>{stateInfo.title}</Text>
-        <Text style={styles.subtitle}>{stateInfo.subtitle}</Text>
-
-        {/* Pickup number */}
-        <View style={styles.pickupCard}>
-          <Text style={styles.pickupLabel}>PICKUP NUMBER</Text>
-          <Text style={styles.pickupNumber}>{pickupNumber}</Text>
+        <View style={styles.infoBox}>
+          <Text style={styles.infoLabel}>TOTAL</Text>
+          <Text style={styles.infoValueLarge}>{formatCents(totalCents)}</Text>
         </View>
+      </View>
 
-        {/* Info row */}
-        <View style={styles.infoRow}>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>DATE</Text>
-            <Text style={styles.infoValue}>{formatDate(createdAt)}</Text>
+      <TouchableOpacity
+        style={styles.mapCard}
+        onPress={openMapsNavigation}
+        activeOpacity={0.8}
+      >
+        <View style={styles.mapImageWrap}>
+          {[0, 1].map((row) => (
+            <View key={row} style={styles.tileRow}>
+              {[-1, 0, 1].map((col) => (
+                <Image
+                  key={col}
+                  source={{ uri: tileUrl(centerX + col, centerY + row) }}
+                  style={styles.tile}
+                />
+              ))}
+            </View>
+          ))}
+          <View style={styles.mapPinOverlay}>
+            <Icon name="pin" size={30} color={T.brand} />
           </View>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>TOTAL</Text>
-            <Text style={styles.infoValueLarge}>{formatCents(totalCents)}</Text>
-          </View>
         </View>
+        <View style={styles.mapOverlay}>
+          <Icon name="pin" size={20} color={T.brand} />
+          <View style={styles.mapTextWrap}>
+            <Text style={styles.mapStoreName}>{STORE_LABEL}</Text>
+            <Text style={styles.mapAddress}>{STORE_ADDRESS}</Text>
+          </View>
+          <Icon name="arrow" size={20} color={T.brand} />
+        </View>
+      </TouchableOpacity>
 
-        {/* Map card */}
-        <TouchableOpacity
-          style={styles.mapCard}
-          onPress={openMapsNavigation}
-          activeOpacity={0.8}
-        >
-          <View style={styles.mapImageWrap}>
-            {/* 3x2 tile grid centered on store */}
-            {[0, 1].map((row) => (
-              <View key={row} style={styles.tileRow}>
-                {[-1, 0, 1].map((col) => (
-                  <Image
-                    key={col}
-                    source={{ uri: tileUrl(centerX + col, centerY + row) }}
-                    style={styles.tile}
-                  />
+      {items.length > 0 && (
+        <View style={styles.summarySection}>
+          <Text style={styles.summaryHeading}>Order Summary</Text>
+          {items.map((item, i) => (
+            <View key={i} style={styles.summaryRow}>
+              {item.imageUrl ? (
+                <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+              ) : (
+                <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
+                  <Text style={{ fontSize: 20 }}>🧋</Text>
+                </View>
+              )}
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.itemVariation} numberOfLines={1}>
+                  <Text style={styles.itemVariationLabel}>Size:</Text> Large 700ml
+                </Text>
+                {groupModifiers(item.modifiers ?? []).map((g) => (
+                  <Text key={g.listName} style={styles.itemVariation} numberOfLines={2}>
+                    <Text style={styles.itemVariationLabel}>{titleCase(g.listName)}:</Text>{' '}
+                    {g.names.join(', ')}
+                  </Text>
                 ))}
               </View>
-            ))}
-            {/* Red pin overlay at center */}
-            <View style={styles.mapPinOverlay}>
-              <Ionicons name="location" size={30} color={BRAND.color} />
+              <Text style={styles.itemQty}>{item.quantity}x</Text>
             </View>
-          </View>
-          <View style={styles.mapOverlay}>
-            <Ionicons name="location" size={20} color={BRAND.color} />
-            <View style={styles.mapTextWrap}>
-              <Text style={styles.mapStoreName}>{STORE_LABEL}</Text>
-              <Text style={styles.mapAddress}>{STORE_ADDRESS}</Text>
-            </View>
-            <Ionicons name="navigate-outline" size={20} color={BRAND.color} />
-          </View>
-        </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
-        {/* Order items */}
-        {items.length > 0 && (
-          <View style={styles.summarySection}>
-            <Text style={styles.summaryHeading}>Order Summary</Text>
-            {items.map((item, i) => (
-              <View key={i} style={styles.summaryRow}>
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-                ) : (
-                  <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
-                    <Text style={{ fontSize: 20 }}>🧋</Text>
-                  </View>
-                )}
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.itemVariation} numberOfLines={1}>
-                    <Text style={styles.itemVariationLabel}>Size:</Text> Large 700ml
-                  </Text>
-                  {groupModifiers(item.modifiers ?? []).map((g) => (
-                    <Text key={g.listName} style={styles.itemVariation} numberOfLines={2}>
-                      <Text style={styles.itemVariationLabel}>{titleCase(g.listName)}:</Text>{' '}
-                      {g.names.join(', ')}
-                    </Text>
-                  ))}
-                </View>
-                <Text style={styles.itemQty}>{item.quantity}x</Text>
-              </View>
-            ))}
-          </View>
-        )}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.back()}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.backButtonText}>Back to {backLabel}</Text>
+      </TouchableOpacity>
 
-        {/* Back button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.backButtonText}>Back to {backLabel}</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      <View style={{ height: 40 }} />
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#faf8f5' },
+  scroll: { flex: 1, backgroundColor: T.bg },
   scrollContent: { alignItems: 'center', padding: 24, paddingTop: 60 },
 
   iconCircle: {
@@ -341,13 +334,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 24,
-    fontWeight: '700',
+    letterSpacing: -0.5,
     textAlign: 'center',
   },
   subtitle: {
+    ...TYPE.body,
     fontSize: 14,
-    color: '#888',
+    color: T.ink3,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
@@ -358,23 +353,23 @@ const styles = StyleSheet.create({
     marginTop: 24,
     width: '100%',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
+    borderColor: T.line,
+    borderRadius: RADIUS.card,
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
+    ...SHADOW.card,
   },
   pickupLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#888',
-    letterSpacing: 1,
+    ...TYPE.eyebrow,
+    color: T.ink3,
     marginBottom: 4,
   },
   pickupNumber: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 48,
-    fontWeight: '800',
-    color: BRAND.color,
+    letterSpacing: -1,
+    color: T.brand,
   },
 
   infoRow: {
@@ -386,45 +381,43 @@ const styles = StyleSheet.create({
   infoBox: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
+    borderColor: T.line,
+    borderRadius: RADIUS.card,
     padding: 14,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
+    ...SHADOW.card,
   },
   infoLabel: {
+    ...TYPE.eyebrow,
     fontSize: 10,
-    fontWeight: '600',
-    color: '#888',
     letterSpacing: 0.8,
+    color: T.ink3,
     marginBottom: 6,
   },
   infoValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
+    ...TYPE.bodyStrong,
+    color: T.ink,
     textAlign: 'center',
   },
   infoValueLarge: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
+    ...TYPE.priceLg,
+    color: T.ink,
   },
 
-  // Map
   mapCard: {
     marginTop: 16,
     width: '100%',
-    borderRadius: 12,
+    borderRadius: RADIUS.card,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
+    borderColor: T.line,
+    backgroundColor: T.paper,
   },
   mapImageWrap: {
     width: '100%',
     height: 150,
-    backgroundColor: '#e8f0e8',
+    backgroundColor: T.sage,
     overflow: 'hidden',
     flexDirection: 'column',
   },
@@ -453,13 +446,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapStoreName: {
+    ...TYPE.bodyStrong,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    color: T.ink,
   },
   mapAddress: {
+    ...TYPE.body,
     fontSize: 12,
-    color: '#888',
+    color: T.ink3,
     marginTop: 1,
   },
 
@@ -468,26 +462,29 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   summaryHeading: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 17,
+    letterSpacing: -0.3,
+    color: T.ink,
     marginBottom: 12,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
     borderWidth: 1,
-    borderColor: '#e8e8e8',
-    borderRadius: 12,
+    borderColor: T.line,
+    borderRadius: RADIUS.card,
     padding: 12,
     marginBottom: 8,
     gap: 12,
+    ...SHADOW.card,
   },
   itemImage: {
     width: 44,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: T.bg2,
   },
   itemImagePlaceholder: {
     alignItems: 'center',
@@ -495,30 +492,39 @@ const styles = StyleSheet.create({
   },
   itemInfo: { flex: 1, gap: 2 },
   itemName: {
+    ...TYPE.bodyStrong,
     fontSize: 15,
-    fontWeight: '500',
+    color: T.ink,
   },
-  itemVariation: { fontSize: 13, color: '#888', lineHeight: 17 },
-  itemVariationLabel: { color: '#aaa', fontWeight: '600' },
+  itemVariation: {
+    ...TYPE.body,
+    fontSize: 13,
+    color: T.ink3,
+    lineHeight: 17,
+  },
+  itemVariationLabel: {
+    color: T.ink4,
+    fontFamily: 'Inter_600SemiBold',
+  },
   itemQty: {
+    ...TYPE.priceSm,
     fontSize: 15,
-    fontWeight: '600',
-    color: BRAND.color,
+    color: T.brand,
   },
 
   backButton: {
     marginTop: 20,
     width: '100%',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
+    borderColor: T.ink4,
+    borderRadius: RADIUS.pill,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    color: T.ink,
   },
 })

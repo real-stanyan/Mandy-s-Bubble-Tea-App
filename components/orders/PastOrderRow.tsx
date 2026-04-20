@@ -1,9 +1,10 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Image } from 'react-native'
 import { CupArt } from '@/components/brand/CupArt'
 import { Icon } from '@/components/brand/Icon'
 import { hashColor } from '@/components/brand/color'
 import { T, FONT } from '@/constants/theme'
 import { placedRelative } from '@/components/orders/time'
+import { useCatalogImageMap } from '@/hooks/use-catalog-image-map'
 import type { OrderHistoryItem } from '@/store/orders'
 
 function formatCents(cents: string): string {
@@ -31,15 +32,22 @@ interface Props {
 
 export function PastOrderRow({ order, onOpen, onReorder }: Props) {
   const thumbColor = hashColor(order.firstItemName || order.id)
+  const imageByName = useCatalogImageMap()
+  const thumbUri =
+    order.firstItemImageUrl ?? imageByName[order.firstItemName] ?? null
 
   return (
     <Pressable
       onPress={() => onOpen(order)}
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}
     >
-      <View style={styles.thumb}>
-        <CupArt fill={thumbColor} stroke={T.ink} size={28} />
-      </View>
+      {thumbUri ? (
+        <Image source={{ uri: thumbUri }} style={styles.thumb} />
+      ) : (
+        <View style={styles.thumb}>
+          <CupArt fill={thumbColor} stroke={T.ink} size={28} />
+        </View>
+      )}
 
       <View style={styles.middle}>
         <View style={styles.metaRow}>

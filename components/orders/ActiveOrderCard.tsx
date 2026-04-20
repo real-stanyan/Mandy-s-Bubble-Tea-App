@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Platform, Image } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { CupArt } from '@/components/brand/CupArt'
 import { Icon } from '@/components/brand/Icon'
@@ -6,6 +6,7 @@ import { hashColor } from '@/components/brand/color'
 import { T, FONT, SHADOW } from '@/constants/theme'
 import { placedRelative } from '@/components/orders/time'
 import { StatusTimeline, type TimelineStatus } from '@/components/orders/StatusTimeline'
+import { useCatalogImageMap } from '@/hooks/use-catalog-image-map'
 import type { OrderHistoryItem, OrderHistoryLine, OrderHistoryLineModifier } from '@/store/orders'
 
 function formatCents(cents: string | number): string {
@@ -61,6 +62,7 @@ interface Props {
 
 export function ActiveOrderCard({ order, status, onTrack }: Props) {
   const ready = status === 'READY'
+  const imageByName = useCatalogImageMap()
 
   const eyebrowColor = ready ? 'rgba(255,255,255,0.75)' : T.brand
   const textColor = ready ? '#fff' : T.ink
@@ -80,7 +82,7 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
             {ready ? 'READY FOR PICKUP' : 'IN PROGRESS'}
           </Text>
           <Text style={[styles.title, { color: textColor }]}>
-            Order {referenceLabel(order)}
+            Order <Text style={styles.titleRef}>{referenceLabel(order)}</Text>
           </Text>
           <Text style={[styles.meta, { color: subTextColor }]}>
             Placed {placedRelative(order.createdAt)} · {order.lineCount}
@@ -100,15 +102,21 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
       {!ready ? <StatusTimeline status={status} /> : null}
 
       <View style={[styles.items, { borderTopColor: dashedColor }]}>
-        {order.lineItems.map((line, i) => (
+        {order.lineItems.map((line, i) => {
+          const uri = line.imageUrl ?? imageByName[line.name] ?? null
+          return (
           <View key={`${line.variationId}-${i}`} style={styles.itemRow}>
-            <View style={[styles.itemTile, { backgroundColor: tileBg }]}>
-              <CupArt
-                fill={hashColor(line.name)}
-                stroke={ready ? '#fff' : T.ink}
-                size={22}
-              />
-            </View>
+            {uri ? (
+              <Image source={{ uri }} style={styles.itemTile} />
+            ) : (
+              <View style={[styles.itemTile, { backgroundColor: tileBg }]}>
+                <CupArt
+                  fill={hashColor(line.name)}
+                  stroke={ready ? '#fff' : T.ink}
+                  size={22}
+                />
+              </View>
+            )}
             <View style={styles.itemMain}>
               <Text style={[styles.itemName, { color: textColor }]} numberOfLines={1}>
                 {lineQtyLabel(line)}
@@ -126,7 +134,8 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
               {formatCents(lineUnitPrice(line))}
             </Text>
           </View>
-        ))}
+          )
+        })}
       </View>
 
       <View style={[styles.footer, { borderTopColor: footerBorderColor }]}>
@@ -235,6 +244,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     letterSpacing: -0.5,
     lineHeight: 26,
+  },
+  titleRef: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 20,
+    letterSpacing: 0,
   },
   meta: {
     marginTop: 2,

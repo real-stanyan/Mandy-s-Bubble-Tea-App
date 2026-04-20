@@ -13,14 +13,15 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { Ionicons } from '@expo/vector-icons'
-import { BRAND, LOYALTY } from '@/lib/constants'
+import { Icon, type IconName } from '@/components/brand/Icon'
+import { LOYALTY } from '@/lib/constants'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { apiFetch } from '@/lib/api'
 import { useOrdersStore } from '@/store/orders'
 import type { CartItem, CartModifier } from '@/types/square'
+import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 
-function groupModifiers(mods: CartModifier[]): Array<{ listName: string; names: string[] }> {
+function groupModifiers(mods: CartModifier[]): { listName: string; names: string[] }[] {
   const byList = new Map<string, string[]>()
   for (const m of mods) {
     const key = m.listName || 'OTHER'
@@ -168,7 +169,7 @@ export default function OrderConfirmationScreen() {
       contentContainerStyle={styles.scrollContent}
     >
       <View style={[styles.iconCircle, { backgroundColor: statusUi.iconBg }]}>
-        <Ionicons name={statusUi.icon} size={36} color="#fff" />
+        <Icon name={statusUi.icon} size={32} color="#fff" />
       </View>
 
       <Text style={[styles.title, { color: statusUi.headingColor }]}>{statusUi.heading}</Text>
@@ -208,16 +209,16 @@ export default function OrderConfirmationScreen() {
             </View>
           ))}
           <View style={styles.mapPinOverlay}>
-            <Ionicons name="location" size={30} color={BRAND.color} />
+            <Icon name="pin" size={30} color={T.brand} />
           </View>
         </View>
         <View style={styles.mapOverlay}>
-          <Ionicons name="location" size={20} color={BRAND.color} />
+          <Icon name="pin" size={20} color={T.brand} />
           <View style={styles.mapTextWrap}>
             <Text style={styles.mapStoreName}>{STORE_LABEL}</Text>
             <Text style={styles.mapAddress}>{STORE_ADDRESS}</Text>
           </View>
-          <Ionicons name="navigate-outline" size={20} color={BRAND.color} />
+          <Icon name="arrow" size={20} color={T.brand} />
         </View>
       </TouchableOpacity>
 
@@ -293,7 +294,7 @@ type StatusUi = {
   body: string
   headingColor: string
   iconBg: string
-  icon: keyof typeof Ionicons.glyphMap
+  icon: IconName
 }
 
 function getStatusUi(state: FulfillmentState): StatusUi {
@@ -302,9 +303,9 @@ function getStatusUi(state: FulfillmentState): StatusUi {
       return {
         heading: 'Ready for Pickup!',
         body: 'Your order is ready at the counter. Show your pickup number to our team.',
-        headingColor: BRAND.color,
-        iconBg: '#FDE5DD',
-        icon: 'bag-check',
+        headingColor: T.brand,
+        iconBg: T.brand,
+        icon: 'cafe',
       }
     case 'COMPLETED':
       return {
@@ -312,7 +313,7 @@ function getStatusUi(state: FulfillmentState): StatusUi {
         body: "Enjoy your drink! Thanks for visiting Mandy's Bubble Tea.",
         headingColor: '#5B7A52',
         iconBg: '#6b9e6f',
-        icon: 'checkmark',
+        icon: 'check',
       }
     case 'CANCELED':
     case 'FAILED':
@@ -331,13 +332,13 @@ function getStatusUi(state: FulfillmentState): StatusUi {
         body: "Our tea masters are crafting your order. We'll have it ready for you at the counter shortly.",
         headingColor: '#2e5e2e',
         iconBg: '#6b9e6f',
-        icon: 'checkmark',
+        icon: 'check',
       }
   }
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#faf8f5' },
+  scroll: { flex: 1, backgroundColor: T.bg },
   scrollContent: { alignItems: 'center', padding: 24, paddingTop: 60 },
 
   iconCircle: {
@@ -349,16 +350,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 24,
-    fontWeight: '700',
+    letterSpacing: -0.5,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: '#888',
+    ...TYPE.body,
+    color: T.ink3,
     textAlign: 'center',
     marginTop: 8,
-    lineHeight: 20,
     paddingHorizontal: 16,
   },
 
@@ -366,23 +367,23 @@ const styles = StyleSheet.create({
     marginTop: 24,
     width: '100%',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
+    borderColor: T.line,
+    borderRadius: RADIUS.card,
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
+    ...SHADOW.card,
   },
   pickupLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#888',
-    letterSpacing: 1,
+    ...TYPE.eyebrow,
+    color: T.ink3,
     marginBottom: 4,
   },
   pickupNumber: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 48,
-    fontWeight: '800',
-    color: BRAND.color,
+    letterSpacing: -1,
+    color: T.brand,
   },
 
   infoRow: {
@@ -394,44 +395,45 @@ const styles = StyleSheet.create({
   infoBox: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
+    borderColor: T.line,
+    borderRadius: RADIUS.card,
     padding: 14,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
+    ...SHADOW.card,
   },
   infoLabel: {
+    ...TYPE.eyebrow,
     fontSize: 10,
-    fontWeight: '600',
-    color: '#888',
-    letterSpacing: 0.8,
+    color: T.ink3,
     marginBottom: 6,
   },
   infoValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
+    ...TYPE.bodyStrong,
+    color: T.ink,
     textAlign: 'center',
   },
   infoValueLarge: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
+    letterSpacing: -0.3,
+    color: T.ink,
   },
 
   mapCard: {
     marginTop: 16,
     width: '100%',
-    borderRadius: 12,
+    borderRadius: RADIUS.card,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
+    borderColor: T.line,
+    backgroundColor: T.paper,
+    ...SHADOW.card,
   },
   mapImageWrap: {
     width: '100%',
     height: 150,
-    backgroundColor: '#e8f0e8',
+    backgroundColor: T.bg2,
     overflow: 'hidden',
     flexDirection: 'column',
   },
@@ -460,13 +462,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapStoreName: {
+    ...TYPE.bodyStrong,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    color: T.ink,
   },
   mapAddress: {
+    ...TYPE.body,
     fontSize: 12,
-    color: '#888',
+    color: T.ink3,
     marginTop: 1,
   },
 
@@ -474,7 +477,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     width: '100%',
     backgroundColor: '#a07840',
-    borderRadius: 12,
+    borderRadius: RADIUS.card,
     padding: 16,
   },
   starsHeader: {
@@ -485,12 +488,13 @@ const styles = StyleSheet.create({
   },
   starsIcon: { fontSize: 18 },
   starsTitle: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 16,
-    fontWeight: '700',
+    letterSpacing: -0.3,
     color: '#fff',
   },
   starsProgress: {
-    fontSize: 13,
+    ...TYPE.body,
     color: 'rgba(255,255,255,0.85)',
     marginBottom: 8,
   },
@@ -512,10 +516,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   starsToGo: {
+    ...TYPE.eyebrow,
     fontSize: 11,
-    fontWeight: '700',
     color: '#fff',
-    letterSpacing: 0.5,
   },
 
   summarySection: {
@@ -523,54 +526,68 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   summaryHeading: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Fraunces_500Medium',
+    fontSize: 18,
+    letterSpacing: -0.3,
+    color: T.ink,
     marginBottom: 12,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
     borderWidth: 1,
-    borderColor: '#e8e8e8',
-    borderRadius: 12,
+    borderColor: T.line,
+    borderRadius: RADIUS.card,
     padding: 12,
     marginBottom: 8,
     gap: 12,
+    ...SHADOW.card,
   },
   itemImage: {
     width: 44,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: T.bg2,
   },
   itemImagePlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   itemInfo: { flex: 1, gap: 2 },
-  itemName: { fontSize: 15, fontWeight: '500' },
-  itemVariation: { fontSize: 13, color: '#888', lineHeight: 17 },
-  itemVariationLabel: { color: '#aaa', fontWeight: '600' },
-  itemQty: {
+  itemName: {
+    fontFamily: 'Fraunces_500Medium',
     fontSize: 15,
-    fontWeight: '600',
-    color: BRAND.color,
+    color: T.ink,
+  },
+  itemVariation: {
+    ...TYPE.body,
+    fontSize: 13,
+    lineHeight: 17,
+    color: T.ink3,
+  },
+  itemVariationLabel: {
+    color: T.ink4,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  itemQty: {
+    ...TYPE.priceSm,
+    color: T.brand,
   },
 
   homeButton: {
     marginTop: 20,
     width: '100%',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
+    borderColor: T.ink4,
+    borderRadius: RADIUS.pill,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   homeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    color: T.ink,
   },
 })

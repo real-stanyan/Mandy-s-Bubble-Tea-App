@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Image } from 'expo-image'
 import { Stack, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCartStore } from '@/store/cart'
@@ -469,7 +470,16 @@ function OrderItemsBlock({ items }: { items: CartItem[] }) {
             style={[styles.itemRow, idx === 0 && styles.itemRowFirst]}
           >
             <View style={styles.itemThumb}>
-              <CupArt fill={hashColor(it.variationId)} stroke={T.ink} size={26} />
+              {it.imageUrl ? (
+                <Image
+                  source={{ uri: it.imageUrl }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  transition={120}
+                />
+              ) : (
+                <CupArt fill={hashColor(it.variationId)} stroke={T.ink} size={26} />
+              )}
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.itemName} numberOfLines={1}>

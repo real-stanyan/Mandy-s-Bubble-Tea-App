@@ -32,7 +32,10 @@ export function StatusTimeline({ status }: Props) {
         const done = idx >= i
         const nextDone = idx >= i + 1
         return (
-          <View key={step.key} style={styles.stepGroup}>
+          <View
+            key={step.key}
+            style={i < STEPS.length - 1 ? styles.segment : styles.segmentLast}
+          >
             <View style={styles.stepCol}>
               <View
                 style={[
@@ -78,11 +81,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 12,
+    paddingHorizontal: 12,
   },
-  stepGroup: {
+  segment: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  segmentLast: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   stepCol: {
     alignItems: 'center',
