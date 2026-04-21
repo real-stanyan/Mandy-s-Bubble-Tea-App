@@ -5,11 +5,15 @@ import { useCartSheetStore } from '@/store/cartSheet';
 import { Icon } from '@/components/brand/Icon';
 import { T, TYPE } from '@/constants/theme';
 import { timeGreeting, getStoreStatus } from './helpers';
+import { useRouter } from 'expo-router';
+import { useMessageEvents } from '@/hooks/use-message-events';
 
 export function HomeHeader() {
   const { profile } = useAuth();
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
   const showCart = useCartSheetStore((s) => s.show);
+  const router = useRouter();
+  const { hasTodayEvent } = useMessageEvents();
 
   const greeting = timeGreeting();
   const firstName = profile?.first_name?.trim() || (profile ? 'Friend' : 'Welcome');
@@ -41,7 +45,7 @@ export function HomeHeader() {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable
             hitSlop={6}
-            onPress={() => { /* notifications out of scope */ }}
+            onPress={() => router.push({ pathname: '/messages', params: { from: 'home' } })}
             style={({ pressed }) => ({
               width: 40,
               height: 40,
@@ -53,19 +57,21 @@ export function HomeHeader() {
             })}
           >
             <Icon name="bell" color={T.ink} size={20} />
-            <View
-              style={{
-                position: 'absolute',
-                top: 9,
-                right: 10,
-                width: 7,
-                height: 7,
-                borderRadius: 999,
-                backgroundColor: T.peach,
-                borderWidth: 1.5,
-                borderColor: T.paper,
-              }}
-            />
+            {hasTodayEvent ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 9,
+                  right: 10,
+                  width: 7,
+                  height: 7,
+                  borderRadius: 999,
+                  backgroundColor: T.peach,
+                  borderWidth: 1.5,
+                  borderColor: T.paper,
+                }}
+              />
+            ) : null}
           </Pressable>
 
           <Pressable
