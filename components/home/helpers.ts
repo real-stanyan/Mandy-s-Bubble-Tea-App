@@ -102,6 +102,15 @@ function buildSubtitle(mods: YourUsualItem['modifiers'], size?: string): string 
 
 // ---------------------------------------------------------------------
 
+// Brisbane is UTC+10 year-round (no DST). Shift UTC timestamp by +10h then
+// read with getUTC* to get the Brisbane wall-clock date/time regardless of
+// the device's local timezone.
+export function brisbaneDate(date: Date): Date {
+  return new Date(date.getTime() + 10 * 60 * 60 * 1000);
+}
+
+// ---------------------------------------------------------------------
+
 export type StoreStatus = { open: boolean; nextLabel: string };
 
 // Store runs 10:30–22:30 Australia/Brisbane (UTC+10, no DST) every day.
@@ -114,10 +123,7 @@ const CLOSE_MIN = 22 * 60 + 30; // 22:30
 // getStoreStatus(new Date('2026-04-19T13:00:00Z')) // 23:00 Brisbane → closed, "10:30am tomorrow"
 // getStoreStatus(new Date('2026-04-18T22:00:00Z')) // 08:00 Brisbane Sat → closed, "10:30am"
 export function getStoreStatus(now: Date = new Date()): StoreStatus {
-  // Brisbane is UTC+10 year-round (no DST). Shift UTC timestamp by +10h then
-  // read with getUTCHours()/getUTCMinutes() to get the Brisbane wall clock
-  // regardless of the device's local timezone.
-  const brisbane = new Date(now.getTime() + 10 * 60 * 60 * 1000);
+  const brisbane = brisbaneDate(now);
   const minutes = brisbane.getUTCHours() * 60 + brisbane.getUTCMinutes();
   const isOpen = minutes >= OPEN_MIN && minutes < CLOSE_MIN;
   if (isOpen) {

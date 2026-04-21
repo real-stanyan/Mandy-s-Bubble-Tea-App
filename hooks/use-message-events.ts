@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useOrdersStore, type OrderHistoryItem } from '@/store/orders'
+import { brisbaneDate } from '@/components/home/helpers'
 
 export type OrderEventState = 'PLACED' | 'READY' | 'COMPLETED'
 
@@ -31,12 +32,13 @@ function deriveOrderState(o: OrderHistoryItem): OrderEventState | null {
 
 function isToday(iso: string | null | undefined): boolean {
   if (!iso) return false
-  const d = new Date(iso)
-  const now = new Date()
+  // Use Brisbane wall-clock date (UTC+10, no DST) to match getStoreStatus.
+  const d = brisbaneDate(new Date(iso))
+  const now = brisbaneDate(new Date())
   return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
   )
 }
 
