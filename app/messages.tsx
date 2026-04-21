@@ -6,26 +6,18 @@ import { useMessageEvents, type InboxEntry } from '@/hooks/use-message-events'
 import { MessageRow } from '@/components/messages/MessageRow'
 import { PromoCard } from '@/components/messages/PromoCard'
 import { T, TYPE } from '@/constants/theme'
+import { brisbaneYMD } from '@/components/home/helpers'
 
 type OrderEntry = Extract<InboxEntry, { kind: 'order' }>
 
 function bucketLabel(iso: string): 'Today' | 'Yesterday' | 'Earlier' {
-  const d = new Date(iso)
-  const now = new Date()
-  const sameYMD =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  if (sameYMD) return 'Today'
-  const y = new Date(now)
-  y.setDate(y.getDate() - 1)
-  if (
-    d.getFullYear() === y.getFullYear() &&
-    d.getMonth() === y.getMonth() &&
-    d.getDate() === y.getDate()
-  ) {
-    return 'Yesterday'
-  }
+  const dYMD = brisbaneYMD(new Date(iso))
+  const nowDate = new Date()
+  const nowYMD = brisbaneYMD(nowDate)
+  if (dYMD.y === nowYMD.y && dYMD.m === nowYMD.m && dYMD.d === nowYMD.d) return 'Today'
+  const yesterdayDate = new Date(nowDate.getTime() - 24 * 60 * 60 * 1000)
+  const yYMD = brisbaneYMD(yesterdayDate)
+  if (dYMD.y === yYMD.y && dYMD.m === yYMD.m && dYMD.d === yYMD.d) return 'Yesterday'
   return 'Earlier'
 }
 

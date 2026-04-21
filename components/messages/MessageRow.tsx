@@ -1,6 +1,7 @@
 import { Pressable, Text, View, StyleSheet } from 'react-native'
 import { Icon, type IconName } from '@/components/brand/Icon'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
+import { brisbaneYMD } from '@/components/home/helpers'
 import type { InboxEntry } from '@/hooks/use-message-events'
 
 type OrderEntry = Extract<InboxEntry, { kind: 'order' }>
@@ -39,23 +40,17 @@ function formatCents(cents: string): string {
 
 function formatRelative(iso: string): string {
   const d = new Date(iso)
-  const now = new Date()
-  const sameYMD =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
+  const nowDate = new Date()
+  const dYMD = brisbaneYMD(d)
+  const nowYMD = brisbaneYMD(nowDate)
   const time = d.toLocaleTimeString('en-AU', {
     hour: 'numeric',
     minute: '2-digit',
   })
-  if (sameYMD) return time
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const isYesterday =
-    d.getFullYear() === yesterday.getFullYear() &&
-    d.getMonth() === yesterday.getMonth() &&
-    d.getDate() === yesterday.getDate()
-  if (isYesterday) return `Yesterday ${time}`
+  if (dYMD.y === nowYMD.y && dYMD.m === nowYMD.m && dYMD.d === nowYMD.d) return time
+  const yesterdayDate = new Date(nowDate.getTime() - 24 * 60 * 60 * 1000)
+  const yYMD = brisbaneYMD(yesterdayDate)
+  if (dYMD.y === yYMD.y && dYMD.m === yYMD.m && dYMD.d === yYMD.d) return `Yesterday ${time}`
   return d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 

@@ -109,6 +109,12 @@ export function brisbaneDate(date: Date): Date {
   return new Date(date.getTime() + 10 * 60 * 60 * 1000);
 }
 
+// Returns the Brisbane wall-clock year/month/date for bucketing comparisons.
+export function brisbaneYMD(date: Date): { y: number; m: number; d: number } {
+  const b = brisbaneDate(date);
+  return { y: b.getUTCFullYear(), m: b.getUTCMonth(), d: b.getUTCDate() };
+}
+
 // ---------------------------------------------------------------------
 
 export type StoreStatus = { open: boolean; nextLabel: string };
