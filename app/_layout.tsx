@@ -117,6 +117,18 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="messages"
+              options={({ route }) => {
+                const from = (route.params as { from?: string } | undefined)?.from
+                const label = from === 'home' ? 'Home' : 'Back'
+                return {
+                  title: 'Messages',
+                  headerBackTitle: label,
+                  headerShown: true,
+                }
+              }}
+            />
+            <Stack.Screen
               name="promotions"
               options={{ headerShown: true, title: 'Promotions', headerBackTitle: 'Account' }}
             />
