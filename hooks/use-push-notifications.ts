@@ -20,7 +20,7 @@ function handleResponse(response: Notifications.NotificationResponse | null) {
     | { orderId?: string; kind?: string }
     | undefined
   if (data?.kind === 'ready' && data.orderId) {
-    router.push(`/order-detail?id=${data.orderId}`)
+    router.push(`/order-detail?orderId=${data.orderId}`)
   }
 }
 
