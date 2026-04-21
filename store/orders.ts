@@ -23,6 +23,7 @@ export interface OrderHistoryItem {
   id: string
   referenceId: string | null
   createdAt: string | null
+  updatedAt: string | null
   state: string | null
   fulfillmentState: string | null
   totalCents: string
