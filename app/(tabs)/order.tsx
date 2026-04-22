@@ -167,9 +167,6 @@ export default function OrderScreen() {
             <Text style={styles.title}>My Orders</Text>
             {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           </View>
-          <View style={styles.headerRight}>
-            <Icon name="clock" color={T.ink} size={18} />
-          </View>
         </View>
 
         <OrdersFilterPills
@@ -298,14 +295,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT.sans,
     fontSize: 13,
     color: T.ink3,
-  },
-  headerRight: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(42,30,20,0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   sectionHead: {
     flexDirection: 'row',
