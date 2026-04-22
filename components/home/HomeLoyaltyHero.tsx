@@ -1,10 +1,10 @@
 import { Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Icon } from '@/components/brand/Icon';
+import { StarCupsRow } from '@/components/brand/StarCupsRow';
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -19,7 +19,11 @@ export function HomeLoyaltyHero() {
 
   const balance = loyalty?.balance ?? 0;
   const goal = starsPerReward ?? 9;
-  const toGo = Math.max(0, goal - balance);
+  // Show progress within the current cycle (balance mod goal) so the cup row
+  // reflects "stars until next free drink" — even when the user already has
+  // one or more unredeemed rewards (balance >= goal).
+  const currentStars = goal > 0 ? balance % goal : 0;
+  const toGo = Math.max(0, goal - currentStars);
   const reached = balance >= goal;
 
   return (
@@ -88,8 +92,7 @@ export function HomeLoyaltyHero() {
             </View>
           </View>
 
-          {/* Cups */}
-          <CupProgressRow value={balance} total={goal} />
+          <StarCupsRow value={currentStars} total={goal} />
 
           {/* Bottom row */}
           <View
@@ -139,51 +142,3 @@ export function HomeLoyaltyHero() {
   );
 }
 
-// Inline sub-component — not reused; Account's LoyaltyCard variant lives in Phase 6.
-function CupProgressRow({ value, total }: { value: number; total: number }) {
-  const cups = Array.from({ length: total }, (_, i) => i < value);
-  return (
-    <View
-      style={{
-        marginTop: 22,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-      }}
-    >
-      {cups.map((filled, i) => (
-        <View
-          key={i}
-          style={{
-            width: 22,
-            height: 28,
-            transform: filled ? [] : [{ translateY: 2 }],
-            opacity: filled ? 1 : 0.35,
-          }}
-        >
-          <Svg width={22} height={28} viewBox="0 0 22 28">
-            {/* lid */}
-            <Rect
-              x={2}
-              y={5}
-              width={18}
-              height={2.6}
-              rx={1}
-              fill={filled ? T.peach : 'none'}
-              stroke="#fff"
-              strokeWidth={1.2}
-            />
-            {/* body (trapezoid) */}
-            <Path
-              d="M3.4 8 L18.6 8 L17 24 Q17 26 15 26 L7 26 Q5 26 5 24 Z"
-              fill={filled ? T.peach : 'none'}
-              stroke="#fff"
-              strokeWidth={1.2}
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>
-      ))}
-    </View>
-  );
-}
