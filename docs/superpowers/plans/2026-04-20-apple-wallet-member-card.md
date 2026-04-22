@@ -134,6 +134,7 @@
 
 - [ ] **Step 3: Add QStash vars** (after task 0.6)
 
+  | `QSTASH_URL` | `https://qstash-us-east-1.upstash.io` (or EU endpoint per your region) |
   | `QSTASH_TOKEN` | from Upstash |
   | `QSTASH_CURRENT_SIGNING_KEY` | from Upstash |
   | `QSTASH_NEXT_SIGNING_KEY` | from Upstash |
@@ -149,6 +150,7 @@
 - [ ] **Step 2: Copy tokens**
 
   From QStash dashboard → Request Builder tab, copy:
+  - `QSTASH_URL` (set to `https://qstash-us-east-1.upstash.io` for US, or `https://qstash.upstash.io` for EU)
   - `QSTASH_TOKEN`
   - `QSTASH_CURRENT_SIGNING_KEY`
   - `QSTASH_NEXT_SIGNING_KEY`
@@ -361,6 +363,7 @@
       apnsKeyId: req('APNS_KEY_ID'),
       apnsHost: process.env.APNS_HOST ?? 'api.push.apple.com',
       webServiceUrl: req('WALLET_WEBSERVICE_URL'),
+      qstashUrl: req('QSTASH_URL'),
       qstashToken: req('QSTASH_TOKEN'),
       qstashCurrentSigningKey: req('QSTASH_CURRENT_SIGNING_KEY'),
       qstashNextSigningKey: req('QSTASH_NEXT_SIGNING_KEY'),
@@ -1001,6 +1004,7 @@
   APNS_AUTH_KEY_P8="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
   APNS_KEY_ID=TESTKEY123
   WALLET_WEBSERVICE_URL=http://localhost:3000/api/wallet
+  QSTASH_URL=https://qstash-us-east-1.upstash.io
   QSTASH_TOKEN=qstash_test
   QSTASH_CURRENT_SIGNING_KEY=sig_test_current
   QSTASH_NEXT_SIGNING_KEY=sig_test_next
@@ -1472,7 +1476,7 @@
         const { Client: QStashClient } = await import('@upstash/qstash')
         const { walletEnv } = await import("@/lib/wallet/env")
         const env = walletEnv()
-        const qstash = new QStashClient({ token: env.qstashToken })
+        const qstash = new QStashClient({ token: env.qstashToken, baseUrl: env.qstashUrl })
         const workerUrl = env.webServiceUrl.replace(/\/api\/wallet$/, '/api/wallet/worker/push')
         await qstash.publishJSON({
           url: workerUrl,
