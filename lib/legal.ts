@@ -21,7 +21,7 @@ export const LEGAL_CONTENT: Record<LegalKind, LegalDoc> = {
   privacy: {
     title: 'Privacy Policy',
     company: "MANDY'S BEVERAGE CO PTY LTD",
-    lastUpdated: 'Last Updated: April 2026',
+    lastUpdated: 'Last Updated: 22 April 2026',
     sections: [
       {
         heading: '1. Introduction',
@@ -36,6 +36,7 @@ export const LEGAL_CONTENT: Record<LegalKind, LegalDoc> = {
           'Personal information: name, phone number, email address, delivery address, and payment details processed via third-party providers.',
           'Order information: items purchased, preferences, transaction amounts, and promotion usage.',
           'Technical information: IP address, browser type, device information, cookies and usage data.',
+          'Mobile app data: push notification token (via Apple APNs or Google FCM), app version and platform, and anonymous sign-in identifiers when you choose Sign in with Apple or Google. We do not collect precise location, contacts, photos, or any data beyond what is listed here, and the app does not use third-party advertising or analytics SDKs.',
         ],
       },
       {
@@ -53,7 +54,15 @@ export const LEGAL_CONTENT: Record<LegalKind, LegalDoc> = {
       {
         heading: '5. Sharing of Information',
         paragraphs: [
-          "We do not sell your personal information. Information may be shared with payment providers, delivery partners, and IT service providers — all required to comply with privacy obligations.",
+          'We do not sell your personal information. We share only the minimum data required with the following trusted service providers:',
+        ],
+        bullets: [
+          'Square, Inc. (payments, catalog, order management, loyalty) — receives your name, phone number, order details, and payment information.',
+          'Supabase, Inc. (authentication, account database) — stores your phone number, name, and account metadata.',
+          'Expo / Apple APNs / Google FCM (push notification delivery) — receives your device push token and the notification payload.',
+          'Apple Inc. and Google LLC — if you use Sign in with Apple or Google, they provide us with an anonymous user identifier and, if you consent, your name.',
+          'Twilio Inc. (SMS delivery for one-time login codes, via Supabase) — receives your phone number and the OTP message body.',
+          'Vercel Inc. (web hosting) — processes incoming web requests.',
         ],
       },
       {
@@ -78,7 +87,15 @@ export const LEGAL_CONTENT: Record<LegalKind, LegalDoc> = {
         ],
       },
       {
-        heading: '9. Contact Us',
+        heading: '9. Account Deletion',
+        paragraphs: [
+          'You may delete your Mandy\'s account at any time. This permanently removes your phone number, name, login credentials, device push tokens, and linked Square customer record (including loyalty stars and promotion eligibility).',
+          'To delete in the mobile app: open the Account tab, scroll to the bottom, and tap "Delete Account". Confirm the prompt — your account is deleted immediately. Alternatively, contact us using the details below and we will delete your account within 7 days.',
+          'Past order records (amounts and items) are retained in anonymised form for up to 7 years to comply with Australian tax and accounting law. These records no longer contain your name, phone number, or any information that can identify you.',
+        ],
+      },
+      {
+        heading: '10. Contact Us',
         paragraphs: [
           "MANDY'S BEVERAGE CO PTY LTD",
           'Address: 34 Davenport St, Southport QLD 4215',
@@ -90,7 +107,7 @@ export const LEGAL_CONTENT: Record<LegalKind, LegalDoc> = {
   terms: {
     title: 'Terms of Service',
     company: "MANDY'S BEVERAGE CO PTY LTD",
-    lastUpdated: 'Last Updated: April 2026',
+    lastUpdated: 'Last Updated: 22 April 2026',
     sections: [
       {
         heading: '1. Acceptance of Terms',
