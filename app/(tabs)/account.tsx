@@ -17,6 +17,7 @@ import { AccountHeader } from '@/components/account/AccountHeader'
 import { LoyaltyCard } from '@/components/account/LoyaltyCard'
 import { MiniStats } from '@/components/account/MiniStats'
 import { MemberQrCard } from '@/components/account/MemberQrCard'
+import { AddToWalletButton } from '@/components/account/AddToWalletButton'
 import { PromotionsCard } from '@/components/account/PromotionsCard'
 import { ActivityHistory } from '@/components/account/ActivityHistory'
 import { OrderHistory } from '@/components/account/OrderHistory'
@@ -142,6 +143,7 @@ export default function AccountScreen() {
           customerId={profile.square_customer_id}
           phoneE164={profile.phone_e164}
         />
+        <AddToWalletButton />
         <PromotionsCard rewardsCount={rewardsCount} />
         {orders.length === 0 ? (
           <OrderHistory orders={orders} />
