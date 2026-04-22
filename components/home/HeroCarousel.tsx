@@ -67,9 +67,10 @@ export function HeroCarousel() {
     return () => clearInterval(id);
   }, [isFocused]);
 
-  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / snapInterval);
-    setIndex(Math.max(0, Math.min(SLIDES.length - 1, i)));
+    const clamped = Math.max(0, Math.min(SLIDES.length - 1, i));
+    setIndex((prev) => (prev === clamped ? prev : clamped));
   };
 
   const handlePress = (name: string) => {
@@ -91,7 +92,8 @@ export function HeroCarousel() {
         decelerationRate="fast"
         contentContainerStyle={{ paddingHorizontal: sidePadding }}
         ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
-        onMomentumScrollEnd={onMomentumEnd}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         getItemLayout={(_, i) => ({
           length: snapInterval,
           offset: snapInterval * i,
