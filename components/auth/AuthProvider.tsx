@@ -59,6 +59,7 @@ type AuthContextValue = {
   verifyOtp: (phoneE164: string, token: string) => Promise<void>
   completeSignup: (args: { firstName: string; lastName?: string }) => Promise<AuthProfile>
   signOut: () => Promise<void>
+  deleteAccount: () => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -243,6 +244,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setWelcomeDiscount(DEFAULT_WELCOME)
   }, [])
 
+  const deleteAccount = useCallback(async () => {
+    // Server deletes auth.users (cascades user_profiles + device_push_tokens),
+    // welcome_discounts, and best-effort deletes the Square customer record.
+    // After this POST the bearer token is invalid, so use local-scope signOut
+    // to clear the Supabase client cache without hitting the server.
+    await apiFetch('/api/account/delete', { method: 'POST' })
+    await supabase.auth.signOut({ scope: 'local' })
+    setProfile(null)
+    setLoyalty(null)
+    setWelcomeDiscount(DEFAULT_WELCOME)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -256,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       verifyOtp,
       completeSignup,
       signOut,
+      deleteAccount,
       refresh: fetchMe,
     }),
     [
@@ -269,6 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       verifyOtp,
       completeSignup,
       signOut,
+      deleteAccount,
       fetchMe,
     ],
   )

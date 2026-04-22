@@ -59,9 +59,17 @@ interface Props {
   orders: OrderHistoryItem[]
   title?: string
   hideIfEmpty?: boolean
+  onSeeAll?: () => void
+  seeAllLabel?: string
 }
 
-export const OrderHistory = memo(function OrderHistory({ orders, title = 'Recent Orders', hideIfEmpty = false }: Props) {
+export const OrderHistory = memo(function OrderHistory({
+  orders,
+  title = 'Recent Orders',
+  hideIfEmpty = false,
+  onSeeAll,
+  seeAllLabel = 'View all',
+}: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const replaceCart = useCartStore((s) => s.clearCart)
@@ -116,6 +124,11 @@ export const OrderHistory = memo(function OrderHistory({ orders, title = 'Recent
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.heading}>{title}</Text>
+        {onSeeAll ? (
+          <TouchableOpacity onPress={onSeeAll} activeOpacity={0.6} hitSlop={8}>
+            <Text style={styles.seeAll}>{seeAllLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {orders.map((order) => (
@@ -231,6 +244,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     letterSpacing: -0.3,
     color: T.ink,
+  },
+  seeAll: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: T.brand,
   },
   card: {
     flexDirection: 'row',

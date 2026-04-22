@@ -25,6 +25,7 @@ import { WelcomeDiscountCard } from '@/components/account/WelcomeDiscountCard'
 import { StoreInfo } from '@/components/account/StoreInfo'
 import { LegalFooter } from '@/components/account/LegalFooter'
 import { SignOutBtn } from '@/components/account/SignOutBtn'
+import { DeleteAccountBtn } from '@/components/account/DeleteAccountBtn'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { isUnfinished } from '@/store/orders'
 import { T } from '@/constants/theme'
@@ -38,7 +39,14 @@ const EMPTY_LOYALTY: LoyaltyAccount = {
 
 export default function AccountScreen() {
   const auth = useAuth()
-  const { profile, starsPerReward, signOut, refresh: refreshAuth, loading: authLoading } = auth
+  const {
+    profile,
+    starsPerReward,
+    signOut,
+    deleteAccount,
+    refresh: refreshAuth,
+    loading: authLoading,
+  } = auth
   const { account, events, loading: loyaltyLoading, error, refresh: refreshLoyalty } = useLoyalty()
   const { orders, refresh: refreshOrders } = useOrderHistory()
   const [refreshing, setRefreshing] = useState(false)
@@ -150,13 +158,23 @@ export default function AccountScreen() {
         ) : (
           <>
             <OrderHistory orders={activeOrders} title="In Progress" hideIfEmpty />
-            <OrderHistory orders={pastOrders} title="Past Orders" hideIfEmpty />
+            <OrderHistory
+              orders={pastOrders.slice(0, 3)}
+              title="Past Orders"
+              hideIfEmpty
+              onSeeAll={
+                pastOrders.length > 3
+                  ? () => router.push('/(tabs)/order')
+                  : undefined
+              }
+            />
           </>
         )}
         <ActivityHistory events={events} />
         <StoreInfo />
         <LegalFooter />
         <SignOutBtn onPress={signOut} />
+        <DeleteAccountBtn onConfirm={deleteAccount} />
       </ScrollView>
     </View>
   )
