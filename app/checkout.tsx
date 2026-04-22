@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCartStore } from '@/store/cart'
 import { useCreateOrder } from '@/hooks/use-create-order'
 import { usePayment } from '@/hooks/use-payment'
+import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
+import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
 import { SignInCard } from '@/components/auth/SignInCard'
@@ -183,6 +185,9 @@ export default function CheckoutScreen() {
   const handlePay = async () => {
     if (items.length === 0) return
     if (!profile) return
+    // Defensive: UI should already have the button disabled, but guard the
+    // submit path in case acceptance flips between render and tap.
+    if (!canAcceptOrders().accepting) return
 
     setProcessing(true)
     setError(null)
@@ -284,6 +289,8 @@ export default function CheckoutScreen() {
   }
 
   const isLoading = orderLoading || payLoading || processing
+  const acceptance = useOrderAcceptance()
+  const payDisabled = isLoading || !acceptance.accepting
 
   if (authLoading && !profile) {
     return (
@@ -370,12 +377,16 @@ export default function CheckoutScreen() {
       <View style={[styles.ctaBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <Pressable
           onPress={handlePay}
-          disabled={isLoading}
-          style={[styles.placeBtn, isLoading && { opacity: 0.65 }, ctaShadow]}
+          disabled={payDisabled}
+          style={[styles.placeBtn, payDisabled && { opacity: 0.5 }, ctaShadow]}
         >
           <View style={{ flex: 1, paddingLeft: 18 }}>
-            <Text style={styles.placeEyebrow}>{payLabel(payMethod)}</Text>
-            <Text style={styles.placeTitle}>Place order</Text>
+            <Text style={styles.placeEyebrow}>
+              {!acceptance.accepting ? 'Closed' : payLabel(payMethod)}
+            </Text>
+            <Text style={styles.placeTitle}>
+              {!acceptance.accepting ? `Opens ${acceptance.nextOpenLabel}` : 'Place order'}
+            </Text>
           </View>
           <View style={styles.placeAmount}>
             {isLoading ? (

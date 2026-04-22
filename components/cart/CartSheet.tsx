@@ -10,6 +10,7 @@ import {
 } from '@gorhom/bottom-sheet'
 import { useCartStore } from '@/store/cart'
 import { useCartSheetStore } from '@/store/cartSheet'
+import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
 import { CartItemRow } from './CartItem'
 import { Icon } from '@/components/brand/Icon'
 import { formatPrice } from '@/lib/utils'
@@ -61,7 +62,8 @@ export function CartSheet() {
   )
 
   const count = items.reduce((s, i) => s + i.quantity, 0)
-  const disabled = items.length === 0
+  const acceptance = useOrderAcceptance()
+  const disabled = items.length === 0 || !acceptance.accepting
 
   return (
     <BottomSheetModal
@@ -102,18 +104,25 @@ export function CartSheet() {
       </BottomSheetScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
-        <TouchableOpacity style={styles.keepBtn} onPress={hide} activeOpacity={0.8}>
-          <Text style={styles.keepText}>Keep browsing</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.checkoutBtn, disabled && styles.checkoutBtnDisabled]}
-          onPress={handleCheckout}
-          disabled={disabled}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.checkoutText}>Checkout</Text>
-          <Icon name="arrow" size={14} color={T.cream} />
-        </TouchableOpacity>
+        {!acceptance.accepting ? (
+          <Text style={styles.closedNote}>
+            Orders closed · Opens {acceptance.nextOpenLabel}
+          </Text>
+        ) : null}
+        <View style={styles.footerRow}>
+          <TouchableOpacity style={styles.keepBtn} onPress={hide} activeOpacity={0.8}>
+            <Text style={styles.keepText}>Keep browsing</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.checkoutBtn, disabled && styles.checkoutBtnDisabled]}
+            onPress={handleCheckout}
+            disabled={disabled}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.checkoutText}>Checkout</Text>
+            <Icon name="arrow" size={14} color={T.cream} />
+          </TouchableOpacity>
+        </View>
       </View>
     </BottomSheetModal>
   )
@@ -197,9 +206,19 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 24,
     paddingTop: 14,
+    backgroundColor: T.paper,
+  },
+  footerRow: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: T.paper,
+  },
+  closedNote: {
+    fontFamily: FONT.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: T.ink3,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   keepBtn: {
     paddingHorizontal: 20,

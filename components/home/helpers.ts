@@ -118,11 +118,15 @@ export function brisbaneYMD(date: Date): { y: number; m: number; d: number } {
 // ---------------------------------------------------------------------
 
 export type StoreStatus = { open: boolean; nextLabel: string };
+export type OrderAcceptance = { accepting: boolean; nextOpenLabel: string };
 
 // Store runs 10:30–22:30 Australia/Brisbane (UTC+10, no DST) every day.
 // YAGNI: no holiday exceptions, no per-weekday variation.
 const OPEN_MIN = 10 * 60 + 30; // 10:30
 const CLOSE_MIN = 22 * 60 + 30; // 22:30
+// Stop accepting new orders 5 min before close so staff can finish prep.
+const ORDER_CUTOFF_BUFFER_MIN = 5;
+const ORDER_CUTOFF_MIN = CLOSE_MIN - ORDER_CUTOFF_BUFFER_MIN; // 22:25
 
 // @verification
 // getStoreStatus(new Date('2026-04-19T03:00:00Z')) // 13:00 Brisbane → open, "until 10:30pm"
@@ -140,6 +144,26 @@ export function getStoreStatus(now: Date = new Date()): StoreStatus {
     open: false,
     nextLabel: beforeOpen
       ? `${formatClock(OPEN_MIN)}`
+      : `${formatClock(OPEN_MIN)} tomorrow`,
+  };
+}
+
+// @verification
+// canAcceptOrders(new Date('2026-04-19T03:00:00Z')) // 13:00 Brisbane → accepting
+// canAcceptOrders(new Date('2026-04-19T12:26:00Z')) // 22:26 Brisbane → not accepting, "10:30am tomorrow"
+// canAcceptOrders(new Date('2026-04-18T22:00:00Z')) // 08:00 Brisbane → not accepting, "10:30am"
+export function canAcceptOrders(now: Date = new Date()): OrderAcceptance {
+  const brisbane = brisbaneDate(now);
+  const minutes = brisbane.getUTCHours() * 60 + brisbane.getUTCMinutes();
+  const accepting = minutes >= OPEN_MIN && minutes < ORDER_CUTOFF_MIN;
+  if (accepting) {
+    return { accepting: true, nextOpenLabel: '' };
+  }
+  const beforeOpen = minutes < OPEN_MIN;
+  return {
+    accepting: false,
+    nextOpenLabel: beforeOpen
+      ? formatClock(OPEN_MIN)
       : `${formatClock(OPEN_MIN)} tomorrow`,
   };
 }
