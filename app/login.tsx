@@ -296,6 +296,21 @@ export default function LoginScreen() {
     setError(null)
   }
 
+  // Show a full-screen indicator whenever we're mid-handshake: either our
+  // local `busy` (button press → network call) or AuthProvider is still
+  // hydrating a just-obtained session. Without this the SSO flow silently
+  // sits for 1–3s between native sheet close and AuthGate's redirect.
+  const loadingLabel =
+    stage === 'phone'
+      ? 'Sending code…'
+      : stage === 'otp'
+        ? 'Verifying…'
+        : stage === 'name'
+          ? 'Creating your account…'
+          : 'Signing you in…'
+  const showLoadingOverlay =
+    busy || (!!auth.session && !auth.profile && auth.loading)
+
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
@@ -370,6 +385,12 @@ export default function LoginScreen() {
         kind={legal ?? 'terms'}
         onClose={() => setLegal(null)}
       />
+      {showLoadingOverlay && (
+        <View style={styles.loadingOverlay} pointerEvents="auto">
+          <ActivityIndicator size="large" color={tokens.accent} />
+          <Text style={styles.loadingOverlayText}>{loadingLabel}</Text>
+        </View>
+      )}
     </SafeAreaView>
   )
 }
@@ -981,4 +1002,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footerLink: { color: tokens.ink2, textDecorationLine: 'underline' },
+
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(236,235,230,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    zIndex: 9999,
+  },
+  loadingOverlayText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: tokens.ink2,
+    letterSpacing: -0.1,
+  },
 })
