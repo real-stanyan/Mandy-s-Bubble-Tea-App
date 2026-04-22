@@ -1,8 +1,11 @@
 import { memo } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useRouter } from 'expo-router'
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { Icon } from '@/components/brand/Icon'
-import { T, TYPE, RADIUS, SPACING } from '@/constants/theme'
+import { StarCupsRow } from '@/components/brand/StarCupsRow'
+import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
 import type { LoyaltyAccount } from '@/types/square'
 
@@ -11,125 +14,131 @@ interface Props {
   starsPerReward?: number
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
 export const LoyaltyCard = memo(function LoyaltyCard({
   account,
   starsPerReward = LOYALTY.starsForReward,
 }: Props) {
+  const router = useRouter()
+  const scale = useSharedValue(1)
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+
   const goal = starsPerReward > 0 ? starsPerReward : 1
   const currentStars = account.balance % goal
-  const remaining = Math.max(0, goal - currentStars)
-  const pct = Math.min(1, currentStars / goal)
-  const lifetime = account.lifetimePoints ?? account.balance
+  const toGo = Math.max(0, goal - currentStars)
+  const reached = account.balance >= goal
 
   return (
-    <View style={styles.wrap}>
-      <LinearGradient
-        colors={[T.brand, T.brandDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.card}
+    <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+      <AnimatedPressable
+        onPressIn={() => { scale.value = withTiming(0.985, { duration: 160 }) }}
+        onPressOut={() => { scale.value = withTiming(1, { duration: 160 }) }}
+        onPress={() => router.push('/promotions')}
+        style={[animatedStyle, { borderRadius: RADIUS.card, ...SHADOW.miniCart, shadowColor: T.brandDark }]}
       >
-        <View style={styles.topRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.eyebrow}>YOUR STARS</Text>
-            <View style={styles.starsRow}>
-              <Text style={styles.starsBig}>{currentStars}</Text>
-              <Text style={styles.starsSep}> / {goal}</Text>
+        <LinearGradient
+          colors={[T.brand, T.brandDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={{ borderRadius: RADIUS.card, padding: 22, overflow: 'hidden' }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: T.peach }} />
+                <Text style={[TYPE.eyebrow, { color: 'rgba(255,255,255,0.7)' }]}>
+                  MANDY&apos;S REWARDS
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }}>
+                <Text
+                  style={{
+                    fontFamily: 'Fraunces_500Medium',
+                    fontSize: 36,
+                    lineHeight: 36,
+                    letterSpacing: -0.8,
+                    color: '#fff',
+                  }}
+                >
+                  {account.balance}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: 'Fraunces_500Medium',
+                    fontSize: 24,
+                    color: 'rgba(255,255,255,0.45)',
+                    marginLeft: 6,
+                  }}
+                >
+                  {` / ${goal} stars`}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+              }}
+            >
+              <Icon name="star" color={T.peach} size={12} />
+              <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: '#fff' }}>
+                Member
+              </Text>
             </View>
           </View>
-          <View style={styles.lifetimePill}>
-            <Icon name="star" color={T.peach} size={11} />
-            <Text style={styles.lifetimeText}>{lifetime} drinks</Text>
+
+          <StarCupsRow value={currentStars} total={goal} />
+
+          <View
+            style={{
+              marginTop: 18,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text style={[TYPE.body, { color: 'rgba(255,255,255,0.85)', flex: 1, paddingRight: 12 }]}>
+              {reached ? (
+                '🎉 Free drink ready to redeem'
+              ) : (
+                <>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#fff' }}>{toGo}</Text>
+                  {` stars until a free drink`}
+                </>
+              )}
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderRadius: 999,
+                backgroundColor: reached ? T.peach : 'rgba(255,255,255,0.18)',
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: 'Inter_500Medium',
+                  fontSize: 12.5,
+                  color: reached ? T.brandDark : '#fff',
+                }}
+              >
+                {reached ? 'Redeem' : 'View'}
+              </Text>
+              <Icon name="arrow" color={reached ? T.brandDark : '#fff'} size={12} />
+            </View>
           </View>
-        </View>
-        <View style={styles.progressTrack}>
-          <LinearGradient
-            colors={[T.peach, '#FFD9A3']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={[styles.progressFill, { width: `${pct * 100}%` }]}
-          />
-        </View>
-        <Text style={styles.caption}>
-          {remaining === 0
-            ? 'Free drink unlocked — redeem at pickup'
-            : `${remaining} star${remaining === 1 ? '' : 's'} until your next free drink`}
-        </Text>
-      </LinearGradient>
+        </LinearGradient>
+      </AnimatedPressable>
     </View>
   )
-})
-
-const styles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-  },
-  card: {
-    borderRadius: RADIUS.card,
-    padding: 18,
-    shadowColor: '#6B3E15',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  eyebrow: {
-    ...TYPE.eyebrow,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  starsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginTop: 4,
-  },
-  starsBig: {
-    fontFamily: 'Fraunces_500Medium',
-    fontSize: 34,
-    lineHeight: 36,
-    letterSpacing: -0.8,
-    color: '#fff',
-  },
-  starsSep: {
-    fontFamily: 'Fraunces_500Medium',
-    fontSize: 22,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: 30,
-  },
-  lifetimePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.pill,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  lifetimeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.3,
-  },
-  progressTrack: {
-    marginTop: 16,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-  },
-  caption: {
-    marginTop: 8,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Inter_400Regular',
-  },
 })
