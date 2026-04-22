@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { memo, useState } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Icon } from '@/components/brand/Icon'
 import { T, RADIUS, SPACING } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
@@ -9,19 +9,32 @@ interface Props {
   events: LoyaltyEvent[]
 }
 
+const COLLAPSED_LIMIT = 5
+
 export const ActivityHistory = memo(function ActivityHistory({ events }: Props) {
+  const [expanded, setExpanded] = useState(false)
+
   if (events.length === 0) return null
 
-  const top = events.slice(0, 5)
+  const canExpand = events.length > COLLAPSED_LIMIT
+  const visible = expanded ? events : events.slice(0, COLLAPSED_LIMIT)
 
   return (
     <View style={styles.wrap}>
       <View style={styles.head}>
         <Text style={styles.headLabel}>Activity</Text>
-        <Text style={styles.headAction}>All</Text>
+        {canExpand ? (
+          <TouchableOpacity
+            onPress={() => setExpanded((v) => !v)}
+            activeOpacity={0.6}
+            hitSlop={8}
+          >
+            <Text style={styles.headAction}>{expanded ? 'Show less' : 'All'}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <View style={styles.card}>
-        {top.map((item, i) => {
+        {visible.map((item, i) => {
           const isAccumulate = item.type === 'ACCUMULATE_POINTS'
           const points = item.accumulatePoints?.points ?? 0
           const delta = isAccumulate ? points : -LOYALTY.starsForReward
