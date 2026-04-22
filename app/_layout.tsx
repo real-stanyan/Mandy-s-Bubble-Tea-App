@@ -67,7 +67,7 @@ export default function RootLayout() {
           <ThemeProvider value={LightTheme}>
           <AuthGate>
           <Stack>
-            <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="login" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Menu' }} />
             <Stack.Screen name="menu/[id]" options={{ headerShown: true, title: '' }} />
             <Stack.Screen
