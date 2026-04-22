@@ -138,7 +138,7 @@ Pass type: `storeCard`.
     ],
     "barcodes": [
       {
-        "format": "PKBarcodeFormatPDF417",
+        "format": "PKBarcodeFormatQR",
         "message": "<serialNumber>",
         "messageEncoding": "iso-8859-1",
         "altText": "<serialNumber_alnum>"
@@ -391,14 +391,14 @@ CREATE INDEX wallet_exchange_tokens_customer_idx ON wallet_exchange_tokens (cust
 3. Order a drink via Square POS or app → within 2s, pass should update stars on lock screen
 4. Have second iPhone add the same pass → order again → both devices update
 5. Delete pass from Wallet on device A → order again → device A no longer receives (row cleaned), device B still updates
-6. POS scan test: Square Register scans PDF417 → parses → reverse-lookup `customer_id` from `serial_number` → attach to open sale → confirm star accrual flows back via webhook
+6. POS scan test: Square Register scans QR → parses → reverse-lookup `customer_id` from `serial_number` → attach to open sale → confirm star accrual flows back via webhook
 
 ### Load test (optional)
 - Script posting 50 concurrent webhook events → verify QStash queues and drains without dropped pushes
 
 ## Risks
 
-- **PDF417 POS compat**: Square Register historically better with QR than PDF417. If PDF417 fails in-store test, fallback is switching `barcodes[0].format` to `PKBarcodeFormatQR` — no other changes needed. POS test must happen before wide rollout.
+- **QR POS compat**: Square Register internal camera scans QR reliably (same format as app's MemberQrCard, already proven in deployment plan). If QR unexpectedly fails, fallback is switching `barcodes[0].format` to `PKBarcodeFormatPDF417` or `PKBarcodeFormatAztec` — no other changes needed. POS test must happen before wide rollout.
 - **Vercel Serverless cold start**: first pkpass sign after idle can take 1.5–2s. Acceptable for manual "Add to Wallet" tap but worth observing on webhook path. Mitigation: Vercel edge config pinned region `syd1` (Sydney).
 - **APNs certificate-vs-token auth**: Wallet passes historically required pass-type-specific push cert. As of iOS 16, token-based auth works for passes. Spec assumes token-based. If rollout hits auth errors, fall back to cert-based (additional `.p12` env var).
 - **Stars field overflow visual**: `headerFields` truncates long values. Max `"9/9"` = 3 chars, fits.

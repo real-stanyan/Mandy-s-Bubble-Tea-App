@@ -977,7 +977,7 @@
         ],
         barcodes: [
           {
-            format: 'PKBarcodeFormatPDF417',
+            format: 'PKBarcodeFormatQR',
             message: i.serialNumber,
             messageEncoding: 'iso-8859-1',
             altText: i.memberNumber,
@@ -1933,7 +1933,7 @@
 
 - [ ] **Step 4: POS scan test**
 
-  Scan the PDF417 on the pass using Square Register's built-in scanner. Confirm the serial number resolves.
+  Scan the QR code on the pass using Square Register's built-in scanner. Confirm the serial number resolves.
 
 ### Task 7.4: Update DEV_QUEUE + HANDOFF
 
@@ -1952,7 +1952,7 @@
 
 ## Risks + rollback
 
-- **PDF417 fails POS scan in real shop**: switch `barcodes[0].format` to `PKBarcodeFormatQR`, one line change. Re-sign + push to all devices via manual `UPDATE wallet_passes SET updated_at = now()` + trigger one-off worker invocation per serial.
+- **QR fails POS scan in real shop**: switch `barcodes[0].format` to `PKBarcodeFormatPDF417` or `PKBarcodeFormatAztec`, one line change. Re-sign + push to all devices via manual `UPDATE wallet_passes SET updated_at = now()` + trigger one-off worker invocation per serial.
 - **APNs push flakey**: examine Vercel logs for 410/400 responses. 410 auto-cleans; 400 means bad topic/JWT. Double-check env vars.
 - **Pass visual off vs handoff**: compare pkpass rendering on device against handoff screenshots; tune strip renderer. Version the strip (add `scale_version=2` in metadata) if iterating.
 - **Vercel Serverless canvas issue**: if `@napi-rs/canvas` fails on Vercel, fall back to `sharp` + SVG-to-raster; rewrite `strip.ts` to produce SVG, then rasterize with sharp. Tests should catch this before deploy.
