@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Mandy's Bubble Tea",
+    "name": "Mandy's",
     "slug": "mandys_bubble_tea_app",
-    "version": "1.0.0",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mandysbubbleteaapp",
