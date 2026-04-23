@@ -20,6 +20,7 @@ import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
 import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
+import { PickupReminderDialog } from '@/components/checkout/PickupReminderDialog'
 import { SignInCard } from '@/components/auth/SignInCard'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
@@ -325,6 +326,7 @@ export default function CheckoutScreen() {
   return (
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
+      <PickupReminderDialog />
       <PaymentErrorDialog
         visible={!!paymentError}
         message={paymentError}
