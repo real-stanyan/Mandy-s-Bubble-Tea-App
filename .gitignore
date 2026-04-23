@@ -40,3 +40,6 @@ app-example
 
 # generated native folders
 /android
+
+# tooling scratch
+.superpowers/
