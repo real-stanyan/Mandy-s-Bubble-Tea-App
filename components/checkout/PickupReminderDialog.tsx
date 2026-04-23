@@ -44,11 +44,8 @@ export function PickupReminderDialog() {
       <Pressable style={styles.backdrop} onPress={dismiss}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.title}>Pickup Reminder</Text>
-          <Text style={styles.message}>
-            Pick Up drinks are best collected within 10 minutes of the
-            scheduled time.
-          </Text>
           <View style={styles.bulletList}>
+            <BulletRow text="Pick Up drinks are best collected within 10 minutes of the scheduled time." />
             <BulletRow text="Please arrive on time to enjoy the best taste and ice level." />
             <BulletRow text="Orders not collected promptly may affect drink quality." />
           </View>
