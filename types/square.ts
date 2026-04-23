@@ -9,6 +9,7 @@ export interface ModifierOption {
   priceCents: number | null
   ordinal: number
   onByDefault: boolean
+  soldOut?: boolean
 }
 
 export interface ModifierList {
@@ -21,6 +22,7 @@ export interface ModifierList {
 
 export interface CatalogItemVariation {
   id: string
+  soldOut?: boolean
   itemVariationData?: {
     name?: string
     priceMoney?: { amount?: number | string; currency?: string }
@@ -31,6 +33,7 @@ export interface CatalogItem {
   id: string
   type: string
   imageUrl?: string
+  soldOut?: boolean
   itemData?: {
     name?: string
     description?: string

@@ -421,6 +421,7 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
   const variationName = firstVariation?.itemVariationData?.name
   const showVariationSubtitle =
     variationName && variationName.toLowerCase() !== 'regular'
+  const soldOut = item.soldOut === true
 
   const btnScale = useSharedValue(1)
   const checkOpacity = useSharedValue(0)
@@ -437,7 +438,7 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
   }))
 
   const handleAdd = () => {
-    if (!firstVariation) return
+    if (!firstVariation || soldOut || firstVariation.soldOut) return
     Haptics.selectionAsync()
     cancelAnimation(btnScale)
     cancelAnimation(checkOpacity)
@@ -464,8 +465,12 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
 
   return (
     <TouchableOpacity
-      style={styles.row}
-      onPress={() => useItemSheetStore.getState().open(item.id)}
+      style={[styles.row, soldOut && styles.rowSoldOut]}
+      onPress={() => {
+        if (soldOut) return
+        useItemSheetStore.getState().open(item.id)
+      }}
+      disabled={soldOut}
       activeOpacity={0.6}
     >
       {item.imageUrl ? (
@@ -481,9 +486,16 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
         </View>
       )}
       <View style={styles.rowInfo}>
-        <Text style={styles.rowName} numberOfLines={2}>
-          {name}
-        </Text>
+        <View style={styles.rowNameRow}>
+          <Text style={styles.rowName} numberOfLines={2}>
+            {name}
+          </Text>
+          {soldOut ? (
+            <View style={styles.soldOutPill}>
+              <Text style={styles.soldOutPillText}>SOLD OUT</Text>
+            </View>
+          ) : null}
+        </View>
         {showVariationSubtitle ? (
           <Text style={styles.rowSubtitle} numberOfLines={1}>
             {variationName}
@@ -498,9 +510,10 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
           e.stopPropagation?.()
           handleAdd()
         }}
+        disabled={soldOut}
         hitSlop={8}
       >
-        <Animated.View style={[styles.addBtn, btnStyle]}>
+        <Animated.View style={[styles.addBtn, btnStyle, soldOut && styles.addBtnDisabled]}>
           <Animated.View style={[styles.addBtnGlyph, plusStyle]}>
             <Icon name="plus" color="#fff" size={18} />
           </Animated.View>
@@ -747,6 +760,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  addBtnDisabled: {
+    backgroundColor: T.ink4,
+  },
+  rowSoldOut: {
+    opacity: 0.55,
+  },
+  rowNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  soldOutPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: T.ink2,
+  },
+  soldOutPillText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 9,
+    letterSpacing: 1.1,
+    color: '#fff',
   },
   addBtnGlyph: {
     position: 'absolute',

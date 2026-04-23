@@ -13,9 +13,19 @@ interface MenuData extends MenuSnapshot {
   refresh: () => Promise<void>
 }
 
+// TTL so sold-out / price edits made in Square Dashboard propagate
+// without forcing the user to pull-to-refresh. Hook state stays warm
+// between screens; only the age check causes a refetch.
+const MENU_CACHE_TTL_MS = 60_000
+
 let cache: MenuSnapshot | null = null
+let cacheAt = 0
 let inFlight: Promise<MenuSnapshot> | null = null
 const subscribers = new Set<(s: MenuSnapshot) => void>()
+
+function isCacheFresh() {
+  return cache != null && Date.now() - cacheAt < MENU_CACHE_TTL_MS
+}
 
 function deriveCategories(
   items: CatalogItem[],
@@ -40,11 +50,12 @@ async function fetchSnapshot(): Promise<MenuSnapshot> {
 }
 
 function load(force = false): Promise<MenuSnapshot> {
-  if (!force && cache) return Promise.resolve(cache)
+  if (!force && isCacheFresh()) return Promise.resolve(cache!)
   if (inFlight) return inFlight
   inFlight = fetchSnapshot()
     .then((snap) => {
       cache = snap
+      cacheAt = Date.now()
       subscribers.forEach((fn) => fn(snap))
       return snap
     })
@@ -68,9 +79,12 @@ export function useMenu(): MenuData {
       if (mounted.current) setSnap(s)
     }
     subscribers.add(sub)
-    if (!cache) {
-      setLoading(true)
-      load()
+    const fresh = isCacheFresh()
+    if (!fresh) {
+      // Stale or missing cache — refetch silently if we already have
+      // snapshot data, else flip loading on.
+      if (!cache) setLoading(true)
+      load(true)
         .then(() => mounted.current && setLoading(false))
         .catch((e: unknown) => {
           if (!mounted.current) return

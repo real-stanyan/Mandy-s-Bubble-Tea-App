@@ -72,10 +72,12 @@ export function ItemDetailContent({
         setModifierLists(mls)
         const vars = data.item.itemData?.variations ?? []
         if (vars.length) {
+          const available = vars.filter((v) => !v.soldOut)
+          const pool = available.length > 0 ? available : vars
           const baseline =
-            vars.find(
+            pool.find(
               (v) => (v.itemVariationData?.name ?? '').toLowerCase() === 'regular',
-            ) ?? vars[0]
+            ) ?? pool[0]
           setSelectedVariation(baseline)
         }
         const initial: Record<string, Set<string>> = {}
@@ -113,6 +115,8 @@ export function ItemDetailContent({
   }
 
   const isModifierDisabled = (list: ModifierList, modifierId: string): boolean => {
+    const mod = list.modifiers.find((m) => m.id === modifierId)
+    if (mod?.soldOut) return true
     const selected = selectedByList[list.id] ?? new Set()
     if (selected.has(modifierId)) return false
     if (list.maxSelected === 1) return false
@@ -202,7 +206,14 @@ export function ItemDetailContent({
     )
   }, 0)
   const totalCents = baseCents + modifierCents
-  const addDisabled = !selectedVariation
+  const hasSoldOutSelectedModifier = modifierLists.some((ml) => {
+    const picks = selectedByList[ml.id] ?? EMPTY_SELECTION
+    return ml.modifiers.some((m) => picks.has(m.id) && m.soldOut)
+  })
+  const addDisabled =
+    !selectedVariation ||
+    selectedVariation.soldOut === true ||
+    hasSoldOutSelectedModifier
 
   return (
     <View style={styles.container}>
@@ -252,19 +263,24 @@ export function ItemDetailContent({
               const priceAmt = Number(v.itemVariationData?.priceMoney?.amount ?? 0)
               const delta = priceAmt - baselineAmount
               const priceSuffix =
-                delta === 0
-                  ? null
-                  : delta < 0
-                    ? `−${formatPrice(Math.abs(delta))}`
-                    : `+${formatPrice(delta)}`
+                v.soldOut
+                  ? 'Sold out'
+                  : delta === 0
+                    ? null
+                    : delta < 0
+                      ? `−${formatPrice(Math.abs(delta))}`
+                      : `+${formatPrice(delta)}`
               return (
                 <Chip
                   key={v.id}
                   label={v.itemVariationData?.name ?? 'Regular'}
                   priceSuffix={priceSuffix}
                   selected={selected}
-                  disabled={false}
-                  onPress={() => setSelectedVariation(v)}
+                  disabled={v.soldOut === true && !selected}
+                  onPress={() => {
+                    if (v.soldOut) return
+                    setSelectedVariation(v)
+                  }}
                 />
               )
             })}
@@ -292,6 +308,7 @@ export function ItemDetailContent({
                         priceCents={Number(mod.priceCents ?? 0)}
                         selected={isSelected}
                         disabled={isDisabled}
+                        soldOut={mod.soldOut === true}
                         onPress={() => toggleModifier(ml, mod.id)}
                       />
                     )
@@ -310,15 +327,16 @@ export function ItemDetailContent({
                 {ml.modifiers.map((mod) => {
                   const isSelected = selected.has(mod.id)
                   const isDisabled = isModifierDisabled(ml, mod.id)
+                  const priceSuffix = mod.soldOut
+                    ? 'Sold out'
+                    : mod.priceCents != null && mod.priceCents > 0
+                      ? `+${formatPrice(mod.priceCents)}`
+                      : null
                   return (
                     <Chip
                       key={mod.id}
                       label={mod.name}
-                      priceSuffix={
-                        mod.priceCents != null && mod.priceCents > 0
-                          ? `+${formatPrice(mod.priceCents)}`
-                          : null
-                      }
+                      priceSuffix={priceSuffix}
                       selected={isSelected}
                       disabled={!isSelected && isDisabled}
                       onPress={() => toggleModifier(ml, mod.id)}
@@ -537,12 +555,14 @@ function ToppingRow({
   priceCents,
   selected,
   disabled,
+  soldOut = false,
   onPress,
 }: {
   label: string
   priceCents: number
   selected: boolean
   disabled: boolean
+  soldOut?: boolean
   onPress: () => void
 }) {
   return (
@@ -561,7 +581,9 @@ function ToppingRow({
         {selected ? <Icon name="check" size={14} color="#fff" /> : null}
       </View>
       <Text style={styles.toppingLabel}>{label}</Text>
-      {priceCents > 0 ? (
+      {soldOut ? (
+        <Text style={styles.toppingSoldOut}>Sold out</Text>
+      ) : priceCents > 0 ? (
         <Text style={styles.toppingPrice}>+{formatPrice(priceCents)}</Text>
       ) : null}
     </Pressable>
@@ -807,6 +829,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     fontSize: 13,
     color: T.ink3,
+  },
+  toppingSoldOut: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    letterSpacing: 0.6,
+    color: T.ink3,
+    textTransform: 'uppercase',
   },
   sectionHeaderRight: {
     flexDirection: 'row',
