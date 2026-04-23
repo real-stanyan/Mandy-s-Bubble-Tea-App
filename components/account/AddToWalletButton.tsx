@@ -2,8 +2,8 @@ import { memo, useCallback, useEffect, useState } from 'react'
 import {
   Platform,
   Pressable,
-  Image,
   Text,
+  View,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -12,6 +12,8 @@ import {
 import * as WebBrowser from 'expo-web-browser'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
+import { Icon } from '@/components/brand/Icon'
+import { T, TYPE, RADIUS, SPACING, SHADOW } from '@/constants/theme'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? 'https://mandybubbletea.com'
 const ADDED_KEY = 'mandy_wallet_added_v1'
@@ -64,52 +66,90 @@ export const AddToWalletButton = memo(function AddToWalletButton({ onAdded }: Pr
 
   if (Platform.OS !== 'ios') return null
 
-  if (state === 'added') {
-    return (
-      <Pressable onPress={openWallet} style={styles.addedRow}>
-        <Text style={styles.addedText}>✓ Card added to Wallet  ·  Open</Text>
-      </Pressable>
-    )
-  }
+  const added = state === 'added'
+  const loading = state === 'loading'
 
   return (
-    <Pressable onPress={onPress} disabled={state === 'loading'} style={styles.button}>
-      {state === 'loading' ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Image
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          source={require('@/assets/add-to-apple-wallet.png')}
-          style={styles.badge}
-          resizeMode="contain"
-        />
-      )}
-    </Pressable>
+    <View style={styles.card}>
+      <View style={styles.iconBox}>
+        <Icon name="card" color={T.ink2} size={22} />
+      </View>
+
+      <View style={styles.textCol}>
+        <Text style={styles.title}>Save your member card</Text>
+        <Text style={styles.subtitle}>
+          {added ? 'Added to Apple Wallet' : 'Scan at the counter — updates automatically'}
+        </Text>
+      </View>
+
+      <Pressable
+        onPress={added ? openWallet : onPress}
+        disabled={loading}
+        style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+        accessibilityLabel={added ? 'Open in Wallet' : 'Add to Apple Wallet'}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Icon name="apple" color="#fff" size={14} />
+            <Text style={styles.ctaText}>{added ? 'Open' : 'Add to Wallet'}</Text>
+          </>
+        )}
+      </Pressable>
+    </View>
   )
 })
 
 const styles = StyleSheet.create({
-  button: {
-    marginHorizontal: 16,
-    marginTop: 10,
+  card: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: T.paper,
+    borderRadius: RADIUS.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    ...SHADOW.card,
+  },
+  iconBox: {
+    width: 44,
     height: 44,
-    borderRadius: 8,
-    backgroundColor: '#000',
+    borderRadius: RADIUS.tile,
+    backgroundColor: T.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badge: { height: 44, width: 180 },
-  addedRow: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    alignItems: 'center',
+  textCol: {
+    flex: 1,
+    minWidth: 0,
   },
-  addedText: {
+  title: {
+    ...TYPE.cardTitle,
+    color: T.ink,
+  },
+  subtitle: {
+    ...TYPE.body,
+    color: T.ink3,
+    marginTop: 2,
+  },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: T.ink,
+  },
+  ctaPressed: {
+    opacity: 0.8,
+  },
+  ctaText: {
+    ...TYPE.bodyStrong,
+    color: '#fff',
     fontSize: 13,
-    color: '#18181b',
-    fontWeight: '500',
   },
 })
