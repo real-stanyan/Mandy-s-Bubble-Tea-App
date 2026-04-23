@@ -73,7 +73,9 @@ function buildGetItemLayout(sections: MenuSection[]) {
 
 const CATEGORY_BANNERS: Record<string, ReturnType<typeof require>> = {
   milky: require('@/assets/images/categories/milky.webp'),
+  milktea: require('@/assets/images/categories/milky.webp'),
   fruity: require('@/assets/images/categories/fruity.webp'),
+  fruitygreentea: require('@/assets/images/categories/fruity.webp'),
   specialmix: require('@/assets/images/categories/special-mix.webp'),
   freshbrew: require('@/assets/images/categories/fresh-brew.webp'),
   fruityblacktea: require('@/assets/images/categories/fruity-black-tea.webp'),
