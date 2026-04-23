@@ -15,8 +15,9 @@ interface MenuData extends MenuSnapshot {
 
 // TTL so sold-out / price edits made in Square Dashboard propagate
 // without forcing the user to pull-to-refresh. Hook state stays warm
-// between screens; only the age check causes a refetch.
-const MENU_CACHE_TTL_MS = 60_000
+// between screens; only the age check causes a refetch. Kept short
+// so dashboard edits show up within ~10s end-to-end.
+const MENU_CACHE_TTL_MS = 5_000
 
 let cache: MenuSnapshot | null = null
 let cacheAt = 0
