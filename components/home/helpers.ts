@@ -1,4 +1,5 @@
 // components/home/helpers.ts
+import { CATEGORY_SLUGS } from '@/lib/constants';
 import type { OrderHistoryItem, OrderHistoryLine } from '@/store/orders';
 
 export type YourUsualItem = {
@@ -190,6 +191,19 @@ export function normalizeSlug(name: string): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
+}
+
+// Resolve a Square category name to the app's canonical slug, honoring
+// the CATEGORY_SLUGS alias map so renamed categories (e.g. MILK TEA) keep
+// mapping to the same tile as their historical name (milky).
+// @verification
+// resolveCategorySlug('MILKY') === 'milky'
+// resolveCategorySlug('MILK TEA') === 'milky'
+// resolveCategorySlug('Unknown Extra') === 'unknown-extra'
+export function resolveCategorySlug(name: string): string {
+  const direct = CATEGORY_SLUGS[name] ?? CATEGORY_SLUGS[name.trim().toUpperCase()];
+  if (direct) return direct;
+  return normalizeSlug(name);
 }
 
 // ---------------------------------------------------------------------

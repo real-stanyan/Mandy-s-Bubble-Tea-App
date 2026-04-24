@@ -19,12 +19,19 @@ export const STORAGE_KEYS = {
   name: 'mbt:account:name',
 } as const
 
+// Map of Square category name → canonical app slug. Both the original
+// category names and the renamed ones keep pointing at the same app
+// slug so existing home tiles / deep links keep working after a Square
+// Dashboard rename.
 export const CATEGORY_SLUGS: Record<string, string> = {
   'MILKY': 'milky',
+  'MILK TEA': 'milky',
   'FRUITY': 'fruity',
+  'FRUITY GREEN TEA': 'fruity',
   'SPECIAL MIX': 'special-mix',
   'FRESH BREW': 'fresh-brew',
   'FRUITY BLACK TEA': 'fruity-black-tea',
   'FROZEN': 'frozen',
   'CHEESE CREAM': 'cheese-cream',
+  'TOP 10': 'top-10',
 }

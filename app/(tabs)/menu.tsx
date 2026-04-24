@@ -16,7 +16,7 @@ import { Image } from 'expo-image'
 import * as Haptics from 'expo-haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
-import { getStoreStatus, normalizeSlug } from '@/components/home/helpers'
+import { getStoreStatus, resolveCategorySlug } from '@/components/home/helpers'
 import { useMenuJumpStore } from '@/store/menuJump'
 import Animated, {
   useSharedValue,
@@ -201,7 +201,7 @@ export default function MenuScreen() {
       const pending = useMenuJumpStore.getState().pendingSlug
       if (!pending || sections.length === 0) return
       const idx = sections.findIndex(
-        (s) => normalizeSlug(s.category.name) === pending,
+        (s) => resolveCategorySlug(s.category.name) === pending,
       )
       useMenuJumpStore.getState().setPending(null)
       if (idx < 0) return

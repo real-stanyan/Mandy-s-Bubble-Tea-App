@@ -5,7 +5,7 @@ import { useMenu } from '@/hooks/use-menu';
 import { useMenuJumpStore } from '@/store/menuJump';
 import { T, TYPE, RADIUS } from '@/constants/theme';
 import { SectionHead } from './SectionHead';
-import { normalizeSlug } from './helpers';
+import { resolveCategorySlug } from './helpers';
 
 type HomeCategory = {
   slug: string;
@@ -37,7 +37,7 @@ export function CategoriesStrip() {
   const countsBySlug = useMemo(() => {
     const map = new Map<string, number>();
     for (const cat of categories) {
-      const slug = normalizeSlug(cat.name);
+      const slug = resolveCategorySlug(cat.name);
       const n = items.filter((item) =>
         (item.itemData?.categories ?? []).some((c) => c.id === cat.id),
       ).length;
