@@ -2,6 +2,7 @@
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeHeader } from '@/components/home/HomeHeader';
+import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner';
 import { HomeLoyaltyHero } from '@/components/home/HomeLoyaltyHero';
 import { YourUsual } from '@/components/home/YourUsual';
 import { DailySpecial } from '@/components/home/DailySpecial';
@@ -19,6 +20,7 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
         showsVerticalScrollIndicator={false}
       >
+        <PublicHolidayBanner />
         <HomeHeader />
         <HomeLoyaltyHero />
         <YourUsual />

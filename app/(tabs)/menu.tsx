@@ -28,6 +28,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useMenu } from '@/hooks/use-menu'
 import { SkeletonSection } from '@/components/menu/SkeletonCard'
+import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cart'
 import { useItemSheetStore } from '@/store/itemSheet'
@@ -268,6 +269,7 @@ export default function MenuScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      <PublicHolidayBanner />
       <View style={styles.header}>
         <Text style={styles.eyebrow}>MANDY&apos;S · SOUTHPORT</Text>
         <View style={styles.titleRow}>
