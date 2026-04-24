@@ -198,11 +198,17 @@ export default function CheckoutScreen() {
     // only pass the welcome flag when the user isn't redeeming a reward, so
     // the totals shown at checkout match what Square actually charges.
     const useWelcome = welcomeAvailable && !(useReward && canRedeem)
+    // When the reward fully covers the order, tell the server to skip the
+    // 1.9% card surcharge — Square would otherwise apply it against a $0
+    // total and still try to collect from the payment method.
+    const isFreeRedeem =
+      useReward && canRedeem && total - rewardDiscountCents <= 0
 
     try {
       const { orderId, order: createdOrder } = await createOrder({
         items,
         applyWelcomeDiscount: useWelcome,
+        applyLoyaltyReward: isFreeRedeem,
         note,
       })
 

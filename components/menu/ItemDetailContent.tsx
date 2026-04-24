@@ -22,7 +22,28 @@ import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/sq
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 
-const EMPTY_SELECTION: ReadonlySet<string> = new Set()
+// TOPPING list caps: up to 3 different kinds, each bumpable to 10.
+const TOPPING_MAX_DISTINCT = 3
+const TOPPING_MAX_PER_KIND = 10
+
+type CountMap = Record<string, number>
+const EMPTY_COUNTS: Readonly<CountMap> = Object.freeze({}) as Readonly<CountMap>
+
+function isToppingList(name: string | undefined | null): boolean {
+  return (name ?? '').toUpperCase().includes('TOPPING')
+}
+
+function totalInList(counts: CountMap): number {
+  let sum = 0
+  for (const v of Object.values(counts)) sum += v
+  return sum
+}
+
+function distinctInList(counts: CountMap): number {
+  let n = 0
+  for (const v of Object.values(counts)) if (v > 0) n += 1
+  return n
+}
 
 interface Props {
   itemId: string
@@ -45,7 +66,7 @@ export function ItemDetailContent({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedVariation, setSelectedVariation] = useState<CatalogItemVariation | null>(null)
-  const [selectedByList, setSelectedByList] = useState<Record<string, Set<string>>>({})
+  const [selectedByList, setSelectedByList] = useState<Record<string, CountMap>>({})
   const [added, setAdded] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
   const [quantity, setQuantity] = useState(1)
@@ -65,8 +86,8 @@ export function ItemDetailContent({
         if (cancelled) return
         setItem(data.item)
         const mls = (data.modifierLists ?? []).map((ml) =>
-          ml.name?.toUpperCase() === 'TOPPING'
-            ? { ...ml, minSelected: 0, maxSelected: 3 }
+          isToppingList(ml.name)
+            ? { ...ml, minSelected: 0, maxSelected: null }
             : ml,
         )
         setModifierLists(mls)
@@ -80,10 +101,14 @@ export function ItemDetailContent({
             ) ?? pool[0]
           setSelectedVariation(baseline)
         }
-        const initial: Record<string, Set<string>> = {}
+        const initial: Record<string, CountMap> = {}
         for (const ml of mls) {
-          const defaults = ml.modifiers.filter((m) => m.onByDefault).map((m) => m.id)
-          if (defaults.length > 0) initial[ml.id] = new Set(defaults)
+          const defaults = ml.modifiers.filter((m) => m.onByDefault)
+          if (defaults.length > 0) {
+            const map: CountMap = {}
+            for (const m of defaults) map[m.id] = 1
+            initial[ml.id] = map
+          }
         }
         setSelectedByList(initial)
         onLoadedRef.current?.(data.item)
@@ -114,48 +139,79 @@ export function ItemDetailContent({
     return partner?.id ?? null
   }
 
-  const isModifierDisabled = (list: ModifierList, modifierId: string): boolean => {
+  const countOf = (listId: string, modifierId: string): number =>
+    selectedByList[listId]?.[modifierId] ?? 0
+
+  const canIncrement = (list: ModifierList, modifierId: string): boolean => {
     const mod = list.modifiers.find((m) => m.id === modifierId)
-    if (mod?.soldOut) return true
-    const selected = selectedByList[list.id] ?? new Set()
-    if (selected.has(modifierId)) return false
-    if (list.maxSelected === 1) return false
-    if (list.maxSelected != null && selected.size >= list.maxSelected) return true
-    const partnerId = getExclusivePartner(list, modifierId)
-    if (partnerId && selected.has(partnerId)) return true
-    return false
+    if (!mod || mod.soldOut) return false
+    const counts = selectedByList[list.id] ?? EMPTY_COUNTS
+    const current = counts[modifierId] ?? 0
+    if (list.maxSelected === 1) return current < 1
+    // Exclusive modifier (Cheese Cream / Brulee): 0-or-1 and partner-mutex.
+    if (EXCLUSIVE_TOPPINGS.includes(mod.name)) {
+      const partnerId = getExclusivePartner(list, modifierId)
+      if (partnerId && (counts[partnerId] ?? 0) > 0) return false
+      if (current >= 1) return false
+    }
+    if (isToppingList(list.name)) {
+      if (current >= TOPPING_MAX_PER_KIND) return false
+      if (current === 0 && distinctInList(counts) >= TOPPING_MAX_DISTINCT)
+        return false
+    }
+    if (list.maxSelected != null && totalInList(counts) >= list.maxSelected)
+      return false
+    return true
+  }
+
+  const incrementModifier = (list: ModifierList, modifierId: string) => {
+    if (!canIncrement(list, modifierId)) return
+    setSelectedByList((prev) => {
+      const next: CountMap = { ...(prev[list.id] ?? {}) }
+      if (list.maxSelected === 1) {
+        for (const k of Object.keys(next)) next[k] = 0
+      }
+      const partnerId = getExclusivePartner(list, modifierId)
+      if (partnerId) next[partnerId] = 0
+      next[modifierId] = (next[modifierId] ?? 0) + 1
+      return { ...prev, [list.id]: next }
+    })
+  }
+
+  const decrementModifier = (list: ModifierList, modifierId: string) => {
+    setSelectedByList((prev) => {
+      const next: CountMap = { ...(prev[list.id] ?? {}) }
+      const current = next[modifierId] ?? 0
+      if (current <= 0) return prev
+      next[modifierId] = current - 1
+      return { ...prev, [list.id]: next }
+    })
   }
 
   const toggleModifier = (list: ModifierList, modifierId: string) => {
-    if (isModifierDisabled(list, modifierId)) return
-    setSelectedByList((prev) => {
-      const current = new Set(prev[list.id] ?? [])
-      const isSingleSelect = list.maxSelected === 1
-      if (current.has(modifierId)) {
-        current.delete(modifierId)
-      } else {
-        if (isSingleSelect) current.clear()
-        const partnerId = getExclusivePartner(list, modifierId)
-        if (partnerId) current.delete(partnerId)
-        current.add(modifierId)
-      }
-      return { ...prev, [list.id]: current }
-    })
+    const current = countOf(list.id, modifierId)
+    if (current > 0) {
+      decrementModifier(list, modifierId)
+    } else {
+      incrementModifier(list, modifierId)
+    }
   }
 
   const handleAddToCart = () => {
     if (!item || !selectedVariation) return
     const basePrice = Number(selectedVariation.itemVariationData?.priceMoney?.amount ?? 0)
     const chosenModifiers = modifierLists.flatMap((ml) => {
-      const picks = selectedByList[ml.id] ?? new Set()
-      return ml.modifiers
-        .filter((m) => picks.has(m.id))
-        .map((m) => ({
+      const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
+      return ml.modifiers.flatMap((m) => {
+        const c = counts[m.id] ?? 0
+        if (c <= 0) return []
+        return Array.from({ length: c }, () => ({
           id: m.id,
           name: m.name,
           listName: ml.name,
           priceCents: Number(m.priceCents ?? 0),
         }))
+      })
     })
     const modifierTotal = chosenModifiers.reduce((sum, m) => sum + m.priceCents, 0)
     for (let i = 0; i < quantity; i++) {
@@ -199,16 +255,19 @@ export function ItemDetailContent({
   )
   const baseCents = Number(selectedVariation?.itemVariationData?.priceMoney?.amount ?? 0)
   const modifierCents = modifierLists.reduce((sum, ml) => {
-    const picks = selectedByList[ml.id] ?? new Set()
+    const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
     return (
       sum +
-      ml.modifiers.filter((m) => picks.has(m.id)).reduce((s, m) => s + Number(m.priceCents ?? 0), 0)
+      ml.modifiers.reduce(
+        (s, m) => s + Number(m.priceCents ?? 0) * (counts[m.id] ?? 0),
+        0,
+      )
     )
   }, 0)
   const totalCents = baseCents + modifierCents
   const hasSoldOutSelectedModifier = modifierLists.some((ml) => {
-    const picks = selectedByList[ml.id] ?? EMPTY_SELECTION
-    return ml.modifiers.some((m) => picks.has(m.id) && m.soldOut)
+    const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
+    return ml.modifiers.some((m) => (counts[m.id] ?? 0) > 0 && m.soldOut)
   })
   const addDisabled =
     !selectedVariation ||
@@ -287,29 +346,36 @@ export function ItemDetailContent({
           </ModifierSection>
 
           {modifierLists.map((ml) => {
-            const selected = selectedByList[ml.id] ?? EMPTY_SELECTION
-            const isTopping = (ml.name ?? '').toUpperCase().includes('TOPPING')
+            const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
+            const isTopping = isToppingList(ml.name)
             if (isTopping) {
               return (
                 <ToppingSection
                   key={ml.id}
                   eyebrow={eyebrowForList(ml.name)}
                   title={titleForList(ml.name)}
-                  hint={describeSelection(ml)}
+                  hint={describeSelection(ml, true)}
                   required={ml.minSelected >= 1}
                 >
                   {ml.modifiers.map((mod) => {
-                    const isSelected = selected.has(mod.id)
-                    const isDisabled = isModifierDisabled(ml, mod.id)
+                    const count = counts[mod.id] ?? 0
+                    const isExclusive = EXCLUSIVE_TOPPINGS.includes(mod.name)
+                    const supportsStepper = !isExclusive
+                    const canInc = canIncrement(ml, mod.id)
+                    const rowDisabled = count === 0 && !canInc
                     return (
                       <ToppingRow
                         key={mod.id}
                         label={mod.name}
                         priceCents={Number(mod.priceCents ?? 0)}
-                        selected={isSelected}
-                        disabled={isDisabled}
+                        count={count}
+                        supportsStepper={supportsStepper}
+                        canIncrement={canInc}
+                        disabled={rowDisabled}
                         soldOut={mod.soldOut === true}
-                        onPress={() => toggleModifier(ml, mod.id)}
+                        onIncrement={() => incrementModifier(ml, mod.id)}
+                        onDecrement={() => decrementModifier(ml, mod.id)}
+                        onToggle={() => toggleModifier(ml, mod.id)}
                       />
                     )
                   })}
@@ -321,12 +387,14 @@ export function ItemDetailContent({
                 key={ml.id}
                 eyebrow={eyebrowForList(ml.name)}
                 title={titleForList(ml.name)}
-                hint={describeSelection(ml)}
+                hint={describeSelection(ml, false)}
                 required={ml.minSelected >= 1}
               >
                 {ml.modifiers.map((mod) => {
-                  const isSelected = selected.has(mod.id)
-                  const isDisabled = isModifierDisabled(ml, mod.id)
+                  const count = counts[mod.id] ?? 0
+                  const isSelected = count > 0
+                  const canInc = canIncrement(ml, mod.id)
+                  const isDisabled = !isSelected && !canInc
                   const priceSuffix = mod.soldOut
                     ? 'Sold out'
                     : mod.priceCents != null && mod.priceCents > 0
@@ -338,7 +406,7 @@ export function ItemDetailContent({
                       label={mod.name}
                       priceSuffix={priceSuffix}
                       selected={isSelected}
-                      disabled={!isSelected && isDisabled}
+                      disabled={isDisabled}
                       onPress={() => toggleModifier(ml, mod.id)}
                     />
                   )
@@ -553,28 +621,41 @@ function Chip({
 function ToppingRow({
   label,
   priceCents,
-  selected,
+  count,
+  supportsStepper,
+  canIncrement,
   disabled,
   soldOut = false,
-  onPress,
+  onIncrement,
+  onDecrement,
+  onToggle,
 }: {
   label: string
   priceCents: number
-  selected: boolean
+  count: number
+  supportsStepper: boolean
+  canIncrement: boolean
   disabled: boolean
   soldOut?: boolean
-  onPress: () => void
+  onIncrement: () => void
+  onDecrement: () => void
+  onToggle: () => void
 }) {
+  const selected = count > 0
+  // If the modifier supports multi-count and is already chosen, show a
+  // stepper on the right instead of the checkbox toggle so the customer
+  // can add more of the same kind.
+  const showStepper = supportsStepper && selected
   return (
     <Pressable
-      onPress={onPress}
-      disabled={disabled && !selected}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected, disabled: disabled && !selected }}
+      onPress={showStepper ? undefined : onToggle}
+      disabled={showStepper || disabled}
+      accessibilityRole={showStepper ? undefined : 'checkbox'}
+      accessibilityState={showStepper ? undefined : { checked: selected, disabled }}
       style={({ pressed }) => [
         styles.toppingRow,
         disabled && !selected && { opacity: 0.45 },
-        pressed && !(disabled && !selected) && { opacity: 0.6 },
+        !showStepper && pressed && !disabled && { opacity: 0.6 },
       ]}
     >
       <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
@@ -583,6 +664,38 @@ function ToppingRow({
       <Text style={styles.toppingLabel}>{label}</Text>
       {soldOut ? (
         <Text style={styles.toppingSoldOut}>Sold out</Text>
+      ) : showStepper ? (
+        <View style={styles.toppingStepper}>
+          <Pressable
+            onPress={onDecrement}
+            accessibilityRole="button"
+            accessibilityLabel={`Decrease ${label}`}
+            style={({ pressed }) => [
+              styles.toppingStepperBtn,
+              pressed && { opacity: 0.5 },
+            ]}
+          >
+            <Text style={styles.toppingStepperMinus}>−</Text>
+          </Pressable>
+          <Text style={styles.toppingStepperCount}>{count}</Text>
+          <Pressable
+            onPress={onIncrement}
+            disabled={!canIncrement}
+            accessibilityRole="button"
+            accessibilityLabel={`Increase ${label}`}
+            accessibilityState={{ disabled: !canIncrement }}
+            style={({ pressed }) => [
+              styles.toppingStepperBtn,
+              !canIncrement && { opacity: 0.35 },
+              pressed && canIncrement && { opacity: 0.5 },
+            ]}
+          >
+            <Icon name="plus" size={14} color={T.ink} />
+          </Pressable>
+          {priceCents > 0 ? (
+            <Text style={styles.toppingStepperPrice}>+{formatPrice(priceCents)}</Text>
+          ) : null}
+        </View>
       ) : priceCents > 0 ? (
         <Text style={styles.toppingPrice}>+{formatPrice(priceCents)}</Text>
       ) : null}
@@ -651,8 +764,11 @@ function titleForList(name: string): string {
   return name
 }
 
-function describeSelection(ml: ModifierList): string {
+function describeSelection(ml: ModifierList, isTopping: boolean): string {
   const { minSelected, maxSelected } = ml
+  if (isTopping) {
+    return `Up to ${TOPPING_MAX_DISTINCT} kinds · tap + for more of each`
+  }
   if (minSelected === 0 && maxSelected === 1) return 'Pick one (optional)'
   if (minSelected === 1 && maxSelected === 1) return 'Pick one'
   if (maxSelected == null && minSelected === 0) return 'Pick any'
@@ -836,6 +952,43 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     color: T.ink3,
     textTransform: 'uppercase',
+  },
+  toppingStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: T.line,
+    backgroundColor: T.paper,
+  },
+  toppingStepperBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toppingStepperMinus: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 18,
+    lineHeight: 18,
+    color: T.ink,
+  },
+  toppingStepperCount: {
+    minWidth: 20,
+    textAlign: 'center',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: T.ink,
+  },
+  toppingStepperPrice: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: T.ink3,
+    marginLeft: 6,
   },
   sectionHeaderRight: {
     flexDirection: 'row',
