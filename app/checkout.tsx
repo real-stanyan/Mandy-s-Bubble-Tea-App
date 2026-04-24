@@ -170,8 +170,14 @@ export default function CheckoutScreen() {
       : null
 
   const rewardDiscountCents = useReward && canRedeem ? cheapestItemPrice(items) : 0
+  // Reward covers the cheapest drink; "fully covers" means zero left.
+  const isFreeRedeem = useReward && canRedeem && total - rewardDiscountCents <= 0
+  // Mirrors the SUBTOTAL_PHASE Square service charge in /api/orders:
+  // 1.9% of the pre-discount subtotal, floored. Skipped on free redeem
+  // since the server also skips it on that branch.
+  const surchargeCents = isFreeRedeem ? 0 : Math.floor((total * 190) / 10000)
   const displayedTotal = Math.max(
-    total - rewardDiscountCents - (welcomeDiscountForSummary?.amountCents ?? 0),
+    total - rewardDiscountCents - (welcomeDiscountForSummary?.amountCents ?? 0) + surchargeCents,
     0,
   )
 
@@ -198,11 +204,6 @@ export default function CheckoutScreen() {
     // only pass the welcome flag when the user isn't redeeming a reward, so
     // the totals shown at checkout match what Square actually charges.
     const useWelcome = welcomeAvailable && !(useReward && canRedeem)
-    // When the reward fully covers the order, tell the server to skip the
-    // 1.9% card surcharge — Square would otherwise apply it against a $0
-    // total and still try to collect from the payment method.
-    const isFreeRedeem =
-      useReward && canRedeem && total - rewardDiscountCents <= 0
 
     try {
       const { orderId, order: createdOrder } = await createOrder({
@@ -239,6 +240,12 @@ export default function CheckoutScreen() {
       }
 
       const isFreeOrder = amountCents <= 0
+      // Surcharge mirrors the SUBTOTAL_PHASE service charge attached
+      // server-side; add it to the Apple/Google Pay sheet total so the
+      // user sees the real amount Square will capture.
+      if (!isFreeOrder && surchargeCents > 0) {
+        amountCents += surchargeCents
+      }
 
       let nonce: string | undefined
       if (!isFreeOrder) {
@@ -376,6 +383,7 @@ export default function CheckoutScreen() {
           subtotal={total}
           welcome={welcomeDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
+          surcharge={surchargeCents}
         />
         {(error || orderError || payError) && (
           <Text style={styles.errorText}>{error || orderError || payError}</Text>
@@ -656,13 +664,15 @@ function SummaryBlock({
   subtotal,
   welcome,
   rewardDiscount,
+  surcharge,
 }: {
   subtotal: number
   welcome: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
+  surcharge: number
 }) {
   const discountTotal = (welcome?.amountCents ?? 0) + rewardDiscount
-  const total = Math.max(subtotal - discountTotal, 0)
+  const total = Math.max(subtotal - discountTotal + surcharge, 0)
   return (
     <View style={styles.summaryCard}>
       <SummaryRow label="Subtotal" amountCents={subtotal} muted />
@@ -675,6 +685,9 @@ function SummaryBlock({
       )}
       {rewardDiscount > 0 && (
         <SummaryRow label="Reward discount" amountCents={-rewardDiscount} muted />
+      )}
+      {surcharge > 0 && (
+        <SummaryRow label="Card surcharge (1.9%)" amountCents={surcharge} muted />
       )}
       <View style={styles.summaryDivider} />
       <SummaryRow label="Total" amountCents={total} bold />
