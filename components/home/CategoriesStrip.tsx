@@ -15,13 +15,14 @@ type HomeCategory = {
 };
 
 const HOME_CATEGORIES: readonly HomeCategory[] = [
-  { slug: 'milky',            label: 'Milky',            color: '#F5E1C5', swatch: '#D9A066' },
-  { slug: 'fruity',           label: 'Fruity',           color: '#FCE1C9', swatch: '#F27D45' },
-  { slug: 'fruity-black-tea', label: 'Fruity Black Tea', color: '#EFDACB', swatch: '#8C5635' },
-  { slug: 'fresh-brew',       label: 'Fresh Brew',       color: '#E8DAC6', swatch: '#6B3E15' },
-  { slug: 'frozen',           label: 'Frozen',           color: '#D8E4E8', swatch: '#6EA3B0' },
-  { slug: 'cheese-cream',     label: 'Cheese Cream',     color: '#FFF1D6', swatch: '#E8B44E' },
-  { slug: 'special-mix',      label: 'Special Mix',      color: '#E6DDEB', swatch: '#8B6AA8' },
+  { slug: 'top-10',            label: 'Top 10',           color: '#FFE9B0', swatch: '#D4A82C' },
+  { slug: 'milk-tea',          label: 'Milk Tea',         color: '#F5E1C5', swatch: '#D9A066' },
+  { slug: 'fruity-green-tea',  label: 'Fruity Green Tea', color: '#FCE1C9', swatch: '#F27D45' },
+  { slug: 'fruity-black-tea',  label: 'Fruity Black Tea', color: '#EFDACB', swatch: '#8C5635' },
+  { slug: 'fresh-brew',        label: 'Fresh Brew',       color: '#E8DAC6', swatch: '#6B3E15' },
+  { slug: 'frozen',            label: 'Frozen',           color: '#D8E4E8', swatch: '#6EA3B0' },
+  { slug: 'cheese-cream',      label: 'Cheese Cream',     color: '#FFF1D6', swatch: '#E8B44E' },
+  { slug: 'special-mix',       label: 'Special Mix',      color: '#E6DDEB', swatch: '#8B6AA8' },
 ] as const;
 
 export function CategoriesStrip() {
