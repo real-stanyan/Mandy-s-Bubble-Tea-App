@@ -18,19 +18,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
 import { getStoreStatus, resolveCategorySlug } from '@/components/home/helpers'
 import { useMenuJumpStore } from '@/store/menuJump'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  cancelAnimation,
-  Easing,
-} from 'react-native-reanimated'
 import { useMenu } from '@/hooks/use-menu'
 import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
-import { useCartStore } from '@/store/cart'
 import { useItemSheetStore } from '@/store/itemSheet'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
@@ -418,7 +409,6 @@ const SectionHeader = memo(function SectionHeader({
 })
 
 const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
-  const addItem = useCartStore((s) => s.addItem)
   const name = item.itemData?.name ?? 'Unknown'
   const firstVariation = item.itemData?.variations?.[0]
   const price = firstVariation?.itemVariationData?.priceMoney?.amount
@@ -427,53 +417,16 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
     variationName && variationName.toLowerCase() !== 'regular'
   const soldOut = item.soldOut === true
 
-  const btnScale = useSharedValue(1)
-  const checkOpacity = useSharedValue(0)
-
-  const btnStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: btnScale.value }],
-  }))
-  const plusStyle = useAnimatedStyle(() => ({
-    opacity: 1 - checkOpacity.value,
-  }))
-  const checkStyle = useAnimatedStyle(() => ({
-    opacity: checkOpacity.value,
-    transform: [{ scale: 0.6 + checkOpacity.value * 0.4 }],
-  }))
-
-  const handleAdd = () => {
-    if (!firstVariation || soldOut || firstVariation.soldOut) return
+  const openSheet = () => {
+    if (soldOut) return
     Haptics.selectionAsync()
-    cancelAnimation(btnScale)
-    cancelAnimation(checkOpacity)
-    btnScale.value = 1
-    checkOpacity.value = 0
-    btnScale.value = withSequence(
-      withTiming(0.9, { duration: 80, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 140, easing: Easing.out(Easing.quad) }),
-    )
-    checkOpacity.value = withSequence(
-      withTiming(1, { duration: 120 }),
-      withTiming(0, { duration: 260 }),
-    )
-    addItem({
-      id: item.id,
-      variationId: firstVariation.id,
-      name,
-      price: Number(price ?? 0),
-      imageUrl: item.imageUrl,
-      variationName: firstVariation.itemVariationData?.name,
-      modifiers: [],
-    })
+    useItemSheetStore.getState().open(item.id)
   }
 
   return (
     <TouchableOpacity
       style={[styles.row, soldOut && styles.rowSoldOut]}
-      onPress={() => {
-        if (soldOut) return
-        useItemSheetStore.getState().open(item.id)
-      }}
+      onPress={openSheet}
       disabled={soldOut}
       activeOpacity={0.6}
     >
@@ -512,19 +465,14 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
       <Pressable
         onPress={(e) => {
           e.stopPropagation?.()
-          handleAdd()
+          openSheet()
         }}
         disabled={soldOut}
         hitSlop={8}
       >
-        <Animated.View style={[styles.addBtn, btnStyle, soldOut && styles.addBtnDisabled]}>
-          <Animated.View style={[styles.addBtnGlyph, plusStyle]}>
-            <Icon name="plus" color="#fff" size={18} />
-          </Animated.View>
-          <Animated.View style={[styles.addBtnGlyph, checkStyle]} pointerEvents="none">
-            <Icon name="check" color="#fff" size={18} />
-          </Animated.View>
-        </Animated.View>
+        <View style={[styles.addBtn, soldOut && styles.addBtnDisabled]}>
+          <Icon name="plus" color="#fff" size={18} />
+        </View>
       </Pressable>
     </TouchableOpacity>
   )
