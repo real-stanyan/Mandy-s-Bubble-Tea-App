@@ -94,6 +94,7 @@ export default function OrderConfirmationScreen() {
   const [orderItems, setOrderItems] = useState<CartItem[]>([])
   const [fulfillmentState, setFulfillmentState] = useState<FulfillmentState>('PROPOSED')
   const stateRef = useRef<FulfillmentState>('PROPOSED')
+  const [waitText, setWaitText] = useState<string | null>(null)
 
   const pickupNumber = pickupNum
     || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
@@ -113,6 +114,18 @@ export default function OrderConfirmationScreen() {
       useOrdersStore.getState().refresh()
     }
   }, [profile])
+
+  useEffect(() => {
+    if (!orderId) return
+    let cancelled = false
+    apiFetch<{ ok: boolean; text?: string }>(`/api/orders/${orderId}/wait`)
+      .then((data) => {
+        if (cancelled) return
+        if (data.ok && data.text) setWaitText(data.text)
+      })
+      .catch(() => { /* keep fallback */ })
+    return () => { cancelled = true }
+  }, [orderId])
 
   useEffect(() => {
     if (!orderId) return
@@ -187,7 +200,7 @@ export default function OrderConfirmationScreen() {
         </View>
         <View style={styles.infoBox}>
           <Text style={styles.infoLabel}>ESTIMATED PICKUP</Text>
-          <Text style={styles.infoValueLarge}>15–20 mins</Text>
+          <Text style={styles.infoValueLarge}>{waitText ?? '15–20 mins'}</Text>
         </View>
       </View>
 
