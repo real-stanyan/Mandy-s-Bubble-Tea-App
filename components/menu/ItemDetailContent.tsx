@@ -22,9 +22,9 @@ import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/sq
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 
-// TOPPING list caps: up to 3 different kinds, each bumpable to 10.
+// TOPPING list caps: up to 3 different kinds, each bumpable to 3.
 const TOPPING_MAX_DISTINCT = 3
-const TOPPING_MAX_PER_KIND = 10
+const TOPPING_MAX_PER_KIND = 3
 
 type CountMap = Record<string, number>
 const EMPTY_COUNTS: Readonly<CountMap> = Object.freeze({}) as Readonly<CountMap>
@@ -767,7 +767,7 @@ function titleForList(name: string): string {
 function describeSelection(ml: ModifierList, isTopping: boolean): string {
   const { minSelected, maxSelected } = ml
   if (isTopping) {
-    return `Up to ${TOPPING_MAX_DISTINCT} kinds · tap + for more of each`
+    return `Up to ${TOPPING_MAX_DISTINCT} kinds · max ${TOPPING_MAX_PER_KIND} of each`
   }
   if (minSelected === 0 && maxSelected === 1) return 'Pick one (optional)'
   if (minSelected === 1 && maxSelected === 1) return 'Pick one'
