@@ -21,6 +21,7 @@ import { isBestseller } from '@/components/menu/bestsellers'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
+const WARM_ICE_NAME = 'warm'
 
 // TOPPING list caps: up to 3 different kinds, each bumpable to 3.
 const TOPPING_MAX_DISTINCT = 3
@@ -31,6 +32,24 @@ const EMPTY_COUNTS: Readonly<CountMap> = Object.freeze({}) as Readonly<CountMap>
 
 function isToppingList(name: string | undefined | null): boolean {
   return (name ?? '').toUpperCase().includes('TOPPING')
+}
+
+function isWarmIceModifier(mod: { name: string }): boolean {
+  return mod.name.trim().toLowerCase() === WARM_ICE_NAME
+}
+
+function someSelectedAcrossLists(
+  selectedByList: Record<string, CountMap>,
+  modifierLists: ModifierList[],
+  predicate: (mod: { name: string }) => boolean,
+): boolean {
+  for (const ml of modifierLists) {
+    const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
+    for (const mod of ml.modifiers) {
+      if ((counts[mod.id] ?? 0) > 0 && predicate(mod)) return true
+    }
+  }
+  return false
 }
 
 function totalInList(counts: CountMap): number {
@@ -147,6 +166,22 @@ export function ItemDetailContent({
     if (!mod || mod.soldOut) return false
     const counts = selectedByList[list.id] ?? EMPTY_COUNTS
     const current = counts[modifierId] ?? 0
+    // Cross-list mutex: Warm ice ⊥ Cheese Cream / Brulee toppings.
+    // Hot drinks don't pair with cold cream / torched-sugar toppings.
+    if (
+      isWarmIceModifier(mod) &&
+      someSelectedAcrossLists(selectedByList, modifierLists, (m) =>
+        EXCLUSIVE_TOPPINGS.includes(m.name),
+      )
+    ) {
+      return false
+    }
+    if (
+      EXCLUSIVE_TOPPINGS.includes(mod.name) &&
+      someSelectedAcrossLists(selectedByList, modifierLists, isWarmIceModifier)
+    ) {
+      return false
+    }
     if (list.maxSelected === 1) return current < 1
     // Exclusive modifier (Cheese Cream / Brulee): 0-or-1 and partner-mutex.
     if (EXCLUSIVE_TOPPINGS.includes(mod.name)) {
