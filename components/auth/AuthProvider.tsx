@@ -36,6 +36,12 @@ export type WelcomeDiscountInfo = {
   drinksRemaining: number
 }
 
+export type IgFollowDiscountInfo = {
+  available: boolean
+  percentage: number
+  drinksRemaining: number
+}
+
 export type MeResponse = {
   ok: true
   authed: boolean
@@ -44,6 +50,7 @@ export type MeResponse = {
   phone?: string | null
   loyalty: LoyaltyInfo | null
   welcomeDiscount: WelcomeDiscountInfo
+  igFollowDiscount: IgFollowDiscountInfo
   starsPerReward: number
 }
 
@@ -53,11 +60,13 @@ type AuthContextValue = {
   profile: AuthProfile | null
   loyalty: LoyaltyInfo | null
   welcomeDiscount: WelcomeDiscountInfo
+  igFollowDiscount: IgFollowDiscountInfo
   starsPerReward: number
   loading: boolean
   signInWithPhone: (phoneE164: string) => Promise<void>
   verifyOtp: (phoneE164: string, token: string) => Promise<void>
   completeSignup: (args: { firstName: string; lastName?: string }) => Promise<AuthProfile>
+  claimIgFollowDiscount: () => Promise<{ alreadyClaimed: boolean }>
   signOut: () => Promise<void>
   deleteAccount: () => Promise<void>
   refresh: () => Promise<void>
@@ -72,6 +81,7 @@ export function useAuth(): AuthContextValue {
 }
 
 const DEFAULT_WELCOME: WelcomeDiscountInfo = { available: false, percentage: 0, drinksRemaining: 0 }
+const DEFAULT_IG_FOLLOW: IgFollowDiscountInfo = { available: false, percentage: 0, drinksRemaining: 0 }
 
 function shallowEqual<T extends Record<string, unknown> | null>(a: T, b: T): boolean {
   if (a === b) return true
@@ -90,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<AuthProfile | null>(null)
   const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null)
   const [welcomeDiscount, setWelcomeDiscount] = useState<WelcomeDiscountInfo>(DEFAULT_WELCOME)
+  const [igFollowDiscount, setIgFollowDiscount] = useState<IgFollowDiscountInfo>(DEFAULT_IG_FOLLOW)
   const [starsPerReward, setStarsPerReward] = useState(9)
   const [loading, setLoading] = useState(true)
 
@@ -113,6 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null)
           setLoyalty(null)
           setWelcomeDiscount(DEFAULT_WELCOME)
+          setIgFollowDiscount(DEFAULT_IG_FOLLOW)
           setStarsPerReward(json.starsPerReward)
           return
         }
@@ -124,6 +136,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoyalty((prev) => (shallowEqual(prev, json.loyalty) ? prev : json.loyalty))
         setWelcomeDiscount((prev) =>
           shallowEqual(prev, json.welcomeDiscount) ? prev : json.welcomeDiscount,
+        )
+        setIgFollowDiscount((prev) =>
+          shallowEqual(prev, json.igFollowDiscount) ? prev : json.igFollowDiscount,
         )
         setStarsPerReward(json.starsPerReward)
       } catch {
@@ -236,12 +251,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [fetchMe],
   )
 
+  const claimIgFollowDiscount = useCallback(async () => {
+    const json = await apiFetch<{ ok: boolean; alreadyClaimed?: boolean; error?: string }>(
+      '/api/promotions/ig-follow/claim',
+      { method: 'POST' },
+    )
+    if (!json.ok) throw new Error(json.error ?? 'Failed to claim IG follow discount')
+    await fetchMe()
+    return { alreadyClaimed: !!json.alreadyClaimed }
+  }, [fetchMe])
+
   const signOut = useCallback(async () => {
     await revokeCurrentPushToken()
     await supabase.auth.signOut()
     setProfile(null)
     setLoyalty(null)
     setWelcomeDiscount(DEFAULT_WELCOME)
+    setIgFollowDiscount(DEFAULT_IG_FOLLOW)
   }, [])
 
   const deleteAccount = useCallback(async () => {
@@ -254,6 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null)
     setLoyalty(null)
     setWelcomeDiscount(DEFAULT_WELCOME)
+    setIgFollowDiscount(DEFAULT_IG_FOLLOW)
   }, [])
 
   const value = useMemo<AuthContextValue>(
@@ -263,11 +290,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       loyalty,
       welcomeDiscount,
+      igFollowDiscount,
       starsPerReward,
       loading,
       signInWithPhone,
       verifyOtp,
       completeSignup,
+      claimIgFollowDiscount,
       signOut,
       deleteAccount,
       refresh: fetchMe,
@@ -277,11 +306,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       loyalty,
       welcomeDiscount,
+      igFollowDiscount,
       starsPerReward,
       loading,
       signInWithPhone,
       verifyOtp,
       completeSignup,
+      claimIgFollowDiscount,
       signOut,
       deleteAccount,
       fetchMe,
