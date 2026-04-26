@@ -125,9 +125,9 @@ export type OrderAcceptance = { accepting: boolean; nextOpenLabel: string };
 // YAGNI: no holiday exceptions, no per-weekday variation.
 const OPEN_MIN = 10 * 60 + 30; // 10:30
 const CLOSE_MIN = 22 * 60 + 30; // 22:30
-// Stop accepting new orders 5 min before close so staff can finish prep.
-const ORDER_CUTOFF_BUFFER_MIN = 5;
-const ORDER_CUTOFF_MIN = CLOSE_MIN - ORDER_CUTOFF_BUFFER_MIN; // 22:25
+// Stop accepting new orders 15 min before close so staff can finish prep.
+const ORDER_CUTOFF_BUFFER_MIN = 15;
+const ORDER_CUTOFF_MIN = CLOSE_MIN - ORDER_CUTOFF_BUFFER_MIN; // 22:15
 
 // @verification
 // getStoreStatus(new Date('2026-04-19T03:00:00Z')) // 13:00 Brisbane → open, "until 10:30pm"
