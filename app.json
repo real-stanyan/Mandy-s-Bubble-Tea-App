@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mandy's",
     "slug": "mandys_bubble_tea_app",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mandysbubbleteaapp",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "8",
+      "buildNumber": "9",
       "bundleIdentifier": "com.mandysbubbletea.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
