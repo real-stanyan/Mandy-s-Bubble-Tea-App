@@ -13,7 +13,8 @@ export interface PickPromoCupsResult {
  * Allocate cups to promotional discounts by sorted unit price.
  * One-cup-with-welcome-priority rule: when there is exactly one cup
  * and both promos want a slice, welcome wins (more savings to user)
- * and IG ticket is preserved (caller MUST NOT consume IG ticket).
+ * and IG ticket is preserved. The caller must therefore NOT call
+ * `consumeIgFollowDiscount` when `igFollowCups.length === 0`.
  */
 export function pickPromoCups(args: PickPromoCupsArgs): PickPromoCupsResult {
   const sorted = [...args.unitPrices].sort((a, b) => a - b)
