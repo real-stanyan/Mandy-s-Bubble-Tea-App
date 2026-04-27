@@ -134,12 +134,7 @@ export default function CheckoutScreen() {
   const unitPricesForPromos = (() => {
     const arr: number[] = []
     for (const item of items) {
-      const modSum = (item.modifiers ?? []).reduce(
-        (s, m) => s + (m.priceCents ?? 0),
-        0,
-      )
-      const unit = item.price + modSum
-      for (let i = 0; i < item.quantity; i++) arr.push(unit)
+      for (let i = 0; i < item.quantity; i++) arr.push(item.price)
     }
     return arr
   })()
