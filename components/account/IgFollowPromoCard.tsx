@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import {
   Pressable,
   StyleSheet,
@@ -24,6 +24,7 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
   const [visited, setVisited] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errMsg, setErrMsg] = useState<string | null>(null)
+  const inFlightRef = useRef(false)
   const [redeemedAt, setRedeemedAt] = useState<string | null | undefined>(undefined)
 
   useEffect(() => {
@@ -71,6 +72,8 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
   }
 
   const handleClaim = async () => {
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     setBusy(true)
     setErrMsg(null)
     try {
@@ -79,6 +82,7 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
       setErrMsg("Couldn't claim right now. Please try again.")
       console.error(err)
     } finally {
+      inFlightRef.current = false
       setBusy(false)
     }
   }

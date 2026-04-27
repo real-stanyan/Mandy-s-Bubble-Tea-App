@@ -225,8 +225,10 @@ export default function CheckoutScreen() {
     // Loyalty reward (line-level) beats welcome (order-level) in display —
     // only pass the welcome flag when the user isn't redeeming a reward, so
     // the totals shown at checkout match what Square actually charges.
-    const useWelcome = welcomeAvailable && !(useReward && canRedeem)
-    const useIgFollow = igFollowDiscount.available && !(useReward && canRedeem)
+    const useWelcome =
+      welcomeAvailable && !(useReward && canRedeem) && welcomeCups.length > 0
+    const useIgFollow =
+      igFollowDiscount.available && !(useReward && canRedeem) && igFollowCups.length > 0
 
     try {
       const { orderId, order: createdOrder } = await createOrder({
