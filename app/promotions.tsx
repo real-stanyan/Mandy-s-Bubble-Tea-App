@@ -1,15 +1,19 @@
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { WelcomeDiscountCard } from '@/components/account/WelcomeDiscountCard'
+import { IgFollowPromoCard } from '@/components/account/IgFollowPromoCard'
 import { LOYALTY } from '@/lib/constants'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 
 export default function PromotionsScreen() {
-  const { loyalty, welcomeDiscount, starsPerReward } = useAuth()
+  const { loyalty, welcomeDiscount, igFollowDiscount, starsPerReward } = useAuth()
   const stars = loyalty?.balance ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
   const rewardsCount = perReward > 0 ? Math.floor(stars / perReward) : 0
-  const hasAny = welcomeDiscount.available || rewardsCount > 0
+  const hasAny =
+    welcomeDiscount.available ||
+    igFollowDiscount.available ||
+    rewardsCount > 0
 
   return (
     <View style={styles.screen}>
@@ -17,6 +21,8 @@ export default function PromotionsScreen() {
         <Text style={styles.sectionLabel}>YOUR REWARDS</Text>
 
         <WelcomeDiscountCard />
+
+        <IgFollowPromoCard />
 
         {rewardsCount > 0 && (
           <View style={styles.rewardCard}>
