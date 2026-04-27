@@ -5,6 +5,7 @@ import type { CartItem, Order } from '@/types/square'
 interface CreateOrderParams {
   items: CartItem[]
   applyWelcomeDiscount?: boolean
+  applyIgFollowDiscount?: boolean
   applyLoyaltyReward?: boolean
   note?: string
 }
@@ -29,6 +30,7 @@ export function useCreateOrder(): CreateOrderHook {
   const createOrder = async ({
     items,
     applyWelcomeDiscount,
+    applyIgFollowDiscount,
     applyLoyaltyReward,
     note,
   }: CreateOrderParams): Promise<CreateOrderResult> => {
@@ -63,6 +65,7 @@ export function useCreateOrder(): CreateOrderHook {
         body: JSON.stringify({
           lines,
           applyWelcomeDiscount: !!applyWelcomeDiscount,
+          applyIgFollowDiscount: !!applyIgFollowDiscount,
           applyLoyaltyReward: !!applyLoyaltyReward,
           note: note?.trim() ? note.trim() : undefined,
         }),

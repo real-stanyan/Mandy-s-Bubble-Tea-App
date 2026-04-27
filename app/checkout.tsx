@@ -32,6 +32,7 @@ import { LOYALTY, PH_SURCHARGE } from '@/lib/constants'
 import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
+import { pickPromoCups } from '@/lib/promo-cup-pick'
 import {
   initSquarePayments,
   canUseApplePay,
@@ -43,34 +44,6 @@ import {
 import type { CartItem, CartModifier } from '@/types/square'
 
 type PayMethod = 'card' | 'apple' | 'google'
-
-/**
- * Mirrors the server-side cheapest-K algorithm in /api/orders for the
- * web repo. Keep in sync with src/app/api/orders/route.ts.
- */
-function computeWelcomeDiscount(
-  items: { price: number; quantity: number; modifiers?: { priceCents?: number }[] }[],
-  drinksRemaining: number,
-  percentage: number,
-): { coveredCount: number; discountCents: number } {
-  if (drinksRemaining <= 0 || items.length === 0 || percentage <= 0) {
-    return { coveredCount: 0, discountCents: 0 }
-  }
-  const unitPrices: number[] = []
-  for (const item of items) {
-    // item.price is the stored per-unit line price — matches the server's
-    // (variationPriceCents + modifierPriceCentsSum) expansion.
-    for (let i = 0; i < item.quantity; i++) unitPrices.push(item.price)
-  }
-  unitPrices.sort((a, b) => a - b)
-  const K = Math.min(drinksRemaining, unitPrices.length)
-  if (K === 0) return { coveredCount: 0, discountCents: 0 }
-  const coveredSum = unitPrices.slice(0, K).reduce((s, p) => s + p, 0)
-  return {
-    coveredCount: K,
-    discountCents: Math.floor((coveredSum * percentage) / 100),
-  }
-}
 
 function cheapestItemPrice(items: { price: number }[]): number {
   if (items.length === 0) return 0
@@ -108,6 +81,7 @@ export default function CheckoutScreen() {
     profile,
     loyalty,
     welcomeDiscount,
+    igFollowDiscount,
     starsPerReward,
     loading: authLoading,
     refresh: refreshAuth,
@@ -157,16 +131,56 @@ export default function CheckoutScreen() {
     }
   }, [profile])
 
-  const showWelcomeLine = welcomeAvailable && !(useReward && canRedeem)
-  const welcomeCoverage = showWelcomeLine
-    ? computeWelcomeDiscount(items, welcomeDiscount.drinksRemaining, welcomePercentage)
-    : { coveredCount: 0, discountCents: 0 }
+  const unitPricesForPromos = (() => {
+    const arr: number[] = []
+    for (const item of items) {
+      const modSum = (item.modifiers ?? []).reduce(
+        (s, m) => s + (m.priceCents ?? 0),
+        0,
+      )
+      const unit = item.price + modSum
+      for (let i = 0; i < item.quantity; i++) arr.push(unit)
+    }
+    return arr
+  })()
+
+  const skipPromos = useReward && canRedeem
+  const showWelcomeLine = welcomeAvailable && !skipPromos
+  const showIgFollowLine = igFollowDiscount.available && !skipPromos
+
+  const welcomeK = showWelcomeLine
+    ? Math.min(welcomeDiscount.drinksRemaining, unitPricesForPromos.length)
+    : 0
+  const igFollowK = showIgFollowLine ? igFollowDiscount.drinksRemaining : 0
+
+  const { welcomeCups, igFollowCups } = pickPromoCups({
+    unitPrices: unitPricesForPromos,
+    welcomeK,
+    igFollowK,
+  })
+
+  const welcomeAmount = Math.floor(
+    (welcomeCups.reduce((s, p) => s + p, 0) * welcomePercentage) / 100,
+  )
+  const igFollowAmount = Math.floor(
+    (igFollowCups.reduce((s, p) => s + p, 0) * igFollowDiscount.percentage) / 100,
+  )
+
   const welcomeDiscountForSummary =
-    showWelcomeLine && welcomeCoverage.coveredCount > 0
+    showWelcomeLine && welcomeCups.length > 0
       ? {
-          amountCents: welcomeCoverage.discountCents,
+          amountCents: welcomeAmount,
           percentage: welcomePercentage,
-          coveredCount: welcomeCoverage.coveredCount,
+          coveredCount: welcomeCups.length,
+        }
+      : null
+
+  const igFollowDiscountForSummary =
+    showIgFollowLine && igFollowCups.length > 0
+      ? {
+          amountCents: igFollowAmount,
+          percentage: igFollowDiscount.percentage,
+          coveredCount: igFollowCups.length,
         }
       : null
 
@@ -185,7 +199,12 @@ export default function CheckoutScreen() {
     ? 0
     : Math.floor((total * 1000) / 10000)
   const displayedTotal = Math.max(
-    total - rewardDiscountCents - (welcomeDiscountForSummary?.amountCents ?? 0) + surchargeCents + phSurchargeCents,
+    total
+      - rewardDiscountCents
+      - (welcomeDiscountForSummary?.amountCents ?? 0)
+      - (igFollowDiscountForSummary?.amountCents ?? 0)
+      + surchargeCents
+      + phSurchargeCents,
     0,
   )
 
@@ -212,24 +231,20 @@ export default function CheckoutScreen() {
     // only pass the welcome flag when the user isn't redeeming a reward, so
     // the totals shown at checkout match what Square actually charges.
     const useWelcome = welcomeAvailable && !(useReward && canRedeem)
+    const useIgFollow = igFollowDiscount.available && !(useReward && canRedeem)
 
     try {
       const { orderId, order: createdOrder } = await createOrder({
         items,
         applyWelcomeDiscount: useWelcome,
+        applyIgFollowDiscount: useIgFollow,
         applyLoyaltyReward: isFreeRedeem,
         note,
       })
 
       let amountCents = total
-      if (useWelcome) {
-        const { discountCents } = computeWelcomeDiscount(
-          items,
-          welcomeDiscount.drinksRemaining,
-          welcomePercentage,
-        )
-        amountCents = Math.max(total - discountCents, 0)
-      }
+      if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
+      if (useIgFollow) amountCents = Math.max(amountCents - igFollowAmount, 0)
       if (useReward && canRedeem) {
         const redeemRes = await apiFetch<{
           ok: boolean
@@ -381,6 +396,14 @@ export default function CheckoutScreen() {
                 }
               : null
           }
+          igFollow={
+            igFollowDiscountForSummary
+              ? {
+                  amountCents: igFollowDiscountForSummary.amountCents,
+                  coveredCount: igFollowDiscountForSummary.coveredCount,
+                }
+              : null
+          }
         />
         <PaymentBlock
           payMethod={payMethod}
@@ -392,6 +415,7 @@ export default function CheckoutScreen() {
         <SummaryBlock
           subtotal={total}
           welcome={welcomeDiscountForSummary}
+          igFollow={igFollowDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
           surcharge={surchargeCents}
           phSurcharge={phSurchargeCents}
@@ -544,6 +568,7 @@ function RewardsBlock({
   useReward,
   onToggle,
   welcome,
+  igFollow,
 }: {
   stars: number
   goal: number
@@ -551,6 +576,7 @@ function RewardsBlock({
   useReward: boolean
   onToggle: () => void
   welcome: { amountCents: number; coveredCount: number } | null
+  igFollow: { amountCents: number; coveredCount: number } | null
 }) {
   const title = canRedeem ? 'Free drink available' : `${stars} / ${goal} stars`
   const progressPct = Math.min(goal > 0 ? stars / goal : 0, 1) * 100
@@ -591,6 +617,12 @@ function RewardsBlock({
           <Text style={styles.welcomeHint}>
             Welcome 30% off applied to {welcome.coveredCount} drink
             {welcome.coveredCount === 1 ? '' : 's'} — saves {formatPrice(welcome.amountCents)}
+          </Text>
+        )}
+        {igFollow && igFollow.coveredCount > 0 && (
+          <Text style={styles.welcomeHint}>
+            IG Follow 10% off applied to {igFollow.coveredCount} drink
+            {igFollow.coveredCount === 1 ? '' : 's'} — saves {formatPrice(igFollow.amountCents)}
           </Text>
         )}
       </View>
@@ -674,17 +706,20 @@ function NotesBlock({ value, onChange }: { value: string; onChange: (s: string) 
 function SummaryBlock({
   subtotal,
   welcome,
+  igFollow,
   rewardDiscount,
   surcharge,
   phSurcharge,
 }: {
   subtotal: number
   welcome: { amountCents: number; percentage: number; coveredCount: number } | null
+  igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
   surcharge: number
   phSurcharge: number
 }) {
-  const discountTotal = (welcome?.amountCents ?? 0) + rewardDiscount
+  const discountTotal =
+    (welcome?.amountCents ?? 0) + (igFollow?.amountCents ?? 0) + rewardDiscount
   const total = Math.max(subtotal - discountTotal + surcharge + phSurcharge, 0)
   return (
     <View style={styles.summaryCard}>
@@ -693,6 +728,13 @@ function SummaryBlock({
         <SummaryRow
           label={`Welcome ${welcome.percentage}% off (${welcome.coveredCount} drink${welcome.coveredCount === 1 ? '' : 's'})`}
           amountCents={-welcome.amountCents}
+          muted
+        />
+      )}
+      {igFollow && igFollow.amountCents > 0 && (
+        <SummaryRow
+          label={`IG Follow ${igFollow.percentage}% off (${igFollow.coveredCount} drink${igFollow.coveredCount === 1 ? '' : 's'})`}
+          amountCents={-igFollow.amountCents}
           muted
         />
       )}
