@@ -43,6 +43,9 @@ import {
   startGooglePayPayment,
 } from '@/lib/square-payment'
 import type { CartItem, CartModifier } from '@/types/square'
+import { cartToSlots, type DoodleSlot } from '@/lib/doodle/cartToSlots'
+import { DoodleSection } from '@/components/doodle/DoodleSection'
+import { uploadDoodle } from '@/lib/doodle/uploadDoodle'
 
 type PayMethod = 'card' | 'apple' | 'google'
 
@@ -99,6 +102,27 @@ export default function CheckoutScreen() {
     totalCents: number
     starsEarned: number
   } | null>(null)
+
+  const [slots, setSlots] = useState<DoodleSlot[]>(() => cartToSlots(items))
+
+  useEffect(() => {
+    // Re-derive slots when cart shape changes, but preserve userPaths for slots
+    // whose (lineId, cupIdx) still exists.
+    setSlots(prev => {
+      const next = cartToSlots(items)
+      const prevByKey = new Map(
+        prev.map(s => [`${s.lineId}:${s.cupIdx}`, s] as const),
+      )
+      return next.map(n => {
+        const old = prevByKey.get(`${n.lineId}:${n.cupIdx}`)
+        return old?.userPaths ? { ...n, userPaths: old.userPaths } : n
+      })
+    })
+  }, [items])
+
+  const handleSlotChange = (slotIdx: number, next: DoodleSlot) => {
+    setSlots(prev => prev.map((s, i) => (i === slotIdx ? next : s)))
+  }
 
   const loyaltyBalance = loyalty?.balance ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
@@ -305,7 +329,23 @@ export default function CheckoutScreen() {
         }
       }
 
-      const result = await pay({ sourceId: nonce, orderId })
+      const doodleIds: Record<string, string> = {}
+      const drawnSlots = slots.filter(s => (s.userPaths?.length ?? 0) > 0)
+      for (const s of drawnSlots) {
+        try {
+          const { doodleId } = await uploadDoodle(s.userPaths!)
+          doodleIds[`${s.lineId}:${s.cupIdx}`] = doodleId
+        } catch (e) {
+          // Soft-fail: this cup falls back to the default. The order still goes through.
+          console.warn('[doodle] upload failed for', s.lineId, s.cupIdx, e)
+        }
+      }
+
+      const result = await pay({
+        sourceId: nonce,
+        orderId,
+        doodleIds: Object.keys(doodleIds).length > 0 ? doodleIds : undefined,
+      })
 
       // Save order items for track/history screens before clearing cart
       await AsyncStorage.setItem('mbt:lastOrder:items', JSON.stringify(items))
@@ -388,6 +428,7 @@ export default function CheckoutScreen() {
         <InlineHeader onBack={handleBack} total={displayedTotal} />
         <StoreBlock />
         <PickupTimeBlock />
+        <DoodleSection slots={slots} onSlotChange={handleSlotChange} />
         <OrderItemsBlock items={items} />
         <RewardsBlock
           stars={loyaltyBalance}
