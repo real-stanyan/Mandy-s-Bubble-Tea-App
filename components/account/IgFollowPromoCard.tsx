@@ -24,12 +24,16 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
   const [visited, setVisited] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errMsg, setErrMsg] = useState<string | null>(null)
-  const [redeemedAt, setRedeemedAt] = useState<string | null>(null)
+  const [redeemedAt, setRedeemedAt] = useState<string | null | undefined>(undefined)
 
   useEffect(() => {
-    AsyncStorage.getItem(VISITED_KEY).then((val) => {
-      if (val === '1') setVisited(true)
-    })
+    AsyncStorage.getItem(VISITED_KEY)
+      .then((val) => {
+        if (val === '1') setVisited(true)
+      })
+      .catch(() => {
+        // Hydration failure leaves visited=false; user re-clicks Step 1.
+      })
   }, [])
 
   // Fetch authoritative redeemedAt from the server. Refetch when
@@ -52,8 +56,17 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
   }, [igFollowDiscount.available])
 
   const handleStep1 = async () => {
-    await Linking.openURL(IG_URL)
-    await AsyncStorage.setItem(VISITED_KEY, '1')
+    try {
+      await Linking.openURL(IG_URL)
+    } catch (err) {
+      setErrMsg("Couldn't open Instagram. Please follow @mandysbubbletea manually, then tap claim.")
+      console.error(err)
+    }
+    try {
+      await AsyncStorage.setItem(VISITED_KEY, '1')
+    } catch {
+      // Storage failure shouldn't block the in-memory flag.
+    }
     setVisited(true)
   }
 
@@ -150,6 +163,11 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
       </View>
     )
   }
+
+  // Don't render anything until we have a definitive redeemedAt answer.
+  // Prevents brief Locked flash before transitioning to Redeemed on real
+  // users who already consumed their ticket.
+  if (redeemedAt === undefined) return null
 
   // ----- Locked state -----
   const step2Disabled = !visited || busy
