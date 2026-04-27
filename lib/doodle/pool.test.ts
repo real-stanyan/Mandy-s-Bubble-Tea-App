@@ -2,11 +2,12 @@ import { POOL, hashSeed, pickDefaultForCup } from './pool'
 
 describe('hashSeed', () => {
   it('matches backend cyrb53-lite output for known inputs', () => {
-    // These values match src/lib/doodle/pool.ts in the backend repo.
+    // Golden values computed from src/lib/doodle/pool.ts in the backend repo.
     // If you change one side you MUST change the other.
-    expect(hashSeed('VAR1::MOD_PEARL:0')).toBe(hashSeed('VAR1::MOD_PEARL:0'))
+    expect(hashSeed('VAR1::MOD_PEARL:0')).toBe(1329387627)
+    expect(hashSeed('VAR1::MOD_PEARL:1')).toBe(3159781826)
+    expect(hashSeed('test')).toBe(3537827104)
     expect(hashSeed('a')).not.toBe(hashSeed('b'))
-    expect(typeof hashSeed('test')).toBe('number')
   })
 })
 
