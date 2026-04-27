@@ -13,12 +13,6 @@ export const LOYALTY = {
   rewardName: 'Free Drink of Your Choice',
 } as const
 
-export const STORAGE_KEYS = {
-  phone: 'mbt:account:phone',
-  deviceToken: 'mbt_account_deviceToken',
-  name: 'mbt:account:name',
-} as const
-
 // Map of Square category name → canonical app slug. Keys are the current
 // Square Dashboard category names; slugs flow into home tiles, deep
 // links, and banner keys.
