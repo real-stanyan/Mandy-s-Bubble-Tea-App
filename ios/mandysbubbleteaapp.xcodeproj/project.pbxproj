@@ -145,9 +145,9 @@
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				CB935327F64F4382A93AD7C1 /* [CP] Square In-App Payments SDK Setup */,
 				AEC7182ADAB9691575E5A959 /* [CP] Embed Pods Frameworks */,
 				2E3DA1A6A689083AE095CF94 /* [CP] Copy Pods Resources */,
+				CB935327F64F4382A93AD7C1 /* [CP] Square In-App Payments SDK Setup */,
 			);
 			buildRules = (
 			);
