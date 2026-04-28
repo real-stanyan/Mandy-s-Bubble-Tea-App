@@ -63,6 +63,11 @@ type AuthContextValue = {
   igFollowDiscount: IgFollowDiscountInfo
   starsPerReward: number
   loading: boolean
+  // True when the latest /api/me call threw (network / 5xx) — distinct
+  // from the server explicitly returning authed=false. AuthGate uses
+  // this to keep authenticated users from being bounced to /login on a
+  // transient outage.
+  fetchError: boolean
   signInWithPhone: (phoneE164: string) => Promise<void>
   verifyOtp: (phoneE164: string, token: string) => Promise<void>
   completeSignup: (args: { firstName: string; lastName?: string }) => Promise<AuthProfile>
@@ -103,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [igFollowDiscount, setIgFollowDiscount] = useState<IgFollowDiscountInfo>(DEFAULT_IG_FOLLOW)
   const [starsPerReward, setStarsPerReward] = useState(9)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
 
   const inFlight = useRef<Promise<void> | null>(null)
 
@@ -126,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setWelcomeDiscount(DEFAULT_WELCOME)
           setIgFollowDiscount(DEFAULT_IG_FOLLOW)
           setStarsPerReward(json.starsPerReward)
+          setFetchError(false)
           return
         }
         // Preserve prior references when server data matches — downstream
@@ -141,8 +148,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           shallowEqual(prev, json.igFollowDiscount) ? prev : json.igFollowDiscount,
         )
         setStarsPerReward(json.starsPerReward)
+        setFetchError(false)
       } catch {
-        // Non-fatal — leave state untouched.
+        // Network / 5xx — flag so AuthGate can show a retry overlay
+        // instead of bouncing the user (who may still be authenticated
+        // via Supabase) onto the signup flow.
+        setFetchError(true)
       }
     })()
     inFlight.current = p
@@ -293,6 +304,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       igFollowDiscount,
       starsPerReward,
       loading,
+      fetchError,
       signInWithPhone,
       verifyOtp,
       completeSignup,
@@ -309,6 +321,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       igFollowDiscount,
       starsPerReward,
       loading,
+      fetchError,
       signInWithPhone,
       verifyOtp,
       completeSignup,

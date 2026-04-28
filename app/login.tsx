@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import Svg, { Circle, Path, Rect } from 'react-native-svg'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import {
@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { LegalModal } from '@/components/legal/LegalModal'
 import type { LegalKind } from '@/lib/legal'
+import { normalizeAUMobile } from '@/lib/phone'
 
 const tokens = {
   bg: '#ECEBE6',
@@ -55,6 +56,15 @@ GoogleSignin.configure({
 export default function LoginScreen() {
   const auth = useAuth()
   const insets = useSafeAreaInsets()
+  // `next` is set by AuthGate when redirecting an unauthenticated user to
+  // /login — we restore that path on success so deep links survive auth.
+  const params = useLocalSearchParams<{ next?: string | string[] }>()
+  const nextRaw = Array.isArray(params.next) ? params.next[0] : params.next
+  const nextPath =
+    nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') && !nextRaw.startsWith('/login')
+      ? nextRaw
+      : null
+  const successTarget = (nextPath ?? '/(tabs)') as never
   const [stage, setStage] = useState<Stage>('landing')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -186,12 +196,11 @@ export default function LoginScreen() {
   }
 
   async function handleSendOtp() {
-    const digits = phoneInput.replace(/\D/g, '')
-    if (digits.length < 9) {
-      setError('Enter a valid AU mobile number')
+    const phoneE164 = normalizeAUMobile(phoneInput)
+    if (!phoneE164) {
+      setError('Enter a valid AU mobile number (e.g. 0412 345 678)')
       return
     }
-    const phoneE164 = `+61${digits.replace(/^0+/, '')}`
     setError(null)
     setBusy(true)
     try {
@@ -222,7 +231,7 @@ export default function LoginScreen() {
             firstName: ssoNames.first,
             lastName: ssoNames.last || undefined,
           })
-          router.replace('/(tabs)')
+          router.replace(successTarget)
           return
         } catch (completeErr) {
           // Auto-complete failed (e.g. network) — pre-fill the manual
@@ -271,7 +280,7 @@ export default function LoginScreen() {
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
       })
-      router.replace('/(tabs)')
+      router.replace(successTarget)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Could not finish signup')
     } finally {

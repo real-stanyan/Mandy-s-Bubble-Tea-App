@@ -17,6 +17,7 @@ import {
 import { BRAND } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { normalizeAUMobile } from '@/lib/phone'
 
 // Mirror of web SignInCard. Four stages:
 //   chooser (Apple / Google / phone) → phone → otp → name
@@ -57,10 +58,16 @@ export function SignInCard({
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
 
-  // Auto-promote to "name" once auth session exists but profile is missing.
+  // Auto-promote once auth session exists but profile is missing. SSO
+  // sessions arrive without a phone attached — the server requires one
+  // before completeSignup, so route those users to 'phone' first. Phone
+  // OTP users (already have a phone in the session) jump to 'name'.
   useEffect(() => {
-    if (auth.session && !auth.profile && !auth.loading) {
+    if (!auth.session || auth.profile || auth.loading) return
+    if (auth.session.user?.phone) {
       setStage('name')
+    } else {
+      setStage('phone')
     }
   }, [auth.session, auth.profile, auth.loading])
 
@@ -134,12 +141,11 @@ export function SignInCard({
   }
 
   async function handleSendOtp() {
-    const digits = phoneInput.replace(/\D/g, '')
-    if (digits.length < 9) {
-      setError('Enter a valid AU mobile number')
+    const phoneE164 = normalizeAUMobile(phoneInput)
+    if (!phoneE164) {
+      setError('Enter a valid AU mobile number (e.g. 0412 345 678)')
       return
     }
-    const phoneE164 = `+61${digits.replace(/^0+/, '')}`
     setError(null)
     setBusy(true)
     try {
