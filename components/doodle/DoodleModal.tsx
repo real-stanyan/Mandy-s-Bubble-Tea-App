@@ -9,8 +9,10 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { SvgXml } from 'react-native-svg'
 import { DoodleCanvas } from './DoodleCanvas'
 import type { DoodleSlot, SvgPath } from '@/lib/doodle/cartToSlots'
+import { POOL } from '@/lib/doodle/pool'
 import { T, FONT, RADIUS } from '@/constants/theme'
 
 interface Props {
@@ -27,6 +29,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   const insets = useSafeAreaInsets()
   const [idx, setIdx] = useState(initialIndex)
   const [brush, setBrush] = useState<(typeof BRUSHES)[number]>(6)
+  const [scrollEnabled, setScrollEnabled] = useState(true)
 
   if (slots.length === 0) return null
   const safeIdx = Math.min(Math.max(idx, 0), slots.length - 1)
@@ -39,8 +42,10 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
 
   const handleUndo = () => setPaths(paths.slice(0, -1))
   const handleClear = () => setPaths([])
-  const handleUseDefault = () => onSlotChange(safeIdx, { ...slot, userPaths: null })
+  const handlePickPreset = (key: string) =>
+    onSlotChange(safeIdx, { ...slot, userPaths: null, defaultKey: key })
   const handleDone = () => onClose()
+  const isDrawing = paths.length > 0
 
   const goPrev = () => setIdx(Math.max(0, safeIdx - 1))
   const goNext = () => setIdx(Math.min(slots.length - 1, safeIdx + 1))
@@ -61,8 +66,17 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
-          <DoodleCanvas paths={paths} brushWidth={brush} onPathsChange={setPaths} />
+        <ScrollView
+          contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
+          scrollEnabled={scrollEnabled}
+        >
+          <DoodleCanvas
+            paths={paths}
+            brushWidth={brush}
+            onPathsChange={setPaths}
+            onDrawStart={() => setScrollEnabled(false)}
+            onDrawEnd={() => setScrollEnabled(true)}
+          />
 
           <View style={styles.tools}>
             {BRUSHES.map(w => {
@@ -84,10 +98,29 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
             <Pressable onPress={handleClear} style={styles.toolBtn}>
               <Text style={styles.toolBtnText}>Clear</Text>
             </Pressable>
-            <Pressable onPress={handleUseDefault} style={styles.toolBtn}>
-              <Text style={styles.toolBtnText}>Use default</Text>
-            </Pressable>
           </View>
+
+          <Text style={styles.presetHeader}>
+            Or pick a preset {isDrawing ? '(replaces your drawing)' : ''}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.presetRow}
+          >
+            {POOL.map(item => {
+              const active = !isDrawing && slot.defaultKey === item.key
+              return (
+                <Pressable
+                  key={item.key}
+                  onPress={() => handlePickPreset(item.key)}
+                  style={[styles.presetTile, active && styles.presetTileActive]}
+                >
+                  <SvgXml xml={item.svg} width="100%" height="100%" />
+                </Pressable>
+              )
+            })}
+          </ScrollView>
 
           <View style={styles.nav}>
             <Pressable
@@ -153,6 +186,22 @@ const styles = StyleSheet.create({
     backgroundColor: T.card, borderWidth: 1, borderColor: T.line,
   },
   toolBtnText: { fontFamily: FONT.sans, fontSize: 13, fontWeight: '600', color: T.ink },
+  presetHeader: {
+    fontFamily: FONT.mono, fontSize: 10, letterSpacing: 1.4,
+    fontWeight: '700', color: T.brand, textTransform: 'uppercase',
+    marginTop: 18,
+  },
+  presetRow: {
+    flexDirection: 'row', gap: 8, marginTop: 8, paddingRight: 16,
+  },
+  presetTile: {
+    width: 72, height: 72, borderRadius: RADIUS.small,
+    backgroundColor: '#fff', borderWidth: 2, borderColor: T.line,
+    alignItems: 'center', justifyContent: 'center', padding: 6,
+  },
+  presetTileActive: {
+    borderColor: T.brand, borderWidth: 2.5, backgroundColor: T.paper,
+  },
   nav: {
     flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, gap: 12,
   },

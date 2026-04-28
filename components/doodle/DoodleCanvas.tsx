@@ -11,9 +11,11 @@ interface Props {
   paths: SvgPath[]
   brushWidth: number
   onPathsChange: (next: SvgPath[]) => void
+  onDrawStart?: () => void
+  onDrawEnd?: () => void
 }
 
-export function DoodleCanvas({ paths, brushWidth, onPathsChange }: Props) {
+export function DoodleCanvas({ paths, brushWidth, onPathsChange, onDrawStart, onDrawEnd }: Props) {
   const [layout, setLayout] = useState<{ w: number; h: number }>({ w: 1, h: 1 })
   const currentPath = useRef<string>('')
   const [draftD, setDraftD] = useState<string>('')
@@ -22,8 +24,12 @@ export function DoodleCanvas({ paths, brushWidth, onPathsChange }: Props) {
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: e => {
+          onDrawStart?.()
           const x = (e.nativeEvent.locationX / layout.w) * CANVAS_W
           const y = (e.nativeEvent.locationY / layout.h) * CANVAS_H
           currentPath.current = `M${x.toFixed(1)},${y.toFixed(1)}`
@@ -44,13 +50,15 @@ export function DoodleCanvas({ paths, brushWidth, onPathsChange }: Props) {
           }
           currentPath.current = ''
           setDraftD('')
+          onDrawEnd?.()
         },
         onPanResponderTerminate: () => {
           currentPath.current = ''
           setDraftD('')
+          onDrawEnd?.()
         },
       }),
-    [layout.w, layout.h, paths, brushWidth, onPathsChange],
+    [layout.w, layout.h, paths, brushWidth, onPathsChange, onDrawStart, onDrawEnd],
   )
 
   return (

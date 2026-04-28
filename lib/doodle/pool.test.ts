@@ -12,8 +12,17 @@ describe('hashSeed', () => {
 })
 
 describe('POOL', () => {
-  it('contains exactly the 4 v1 keys', () => {
-    expect(POOL.map(p => p.key)).toEqual(['bunny', 'flower', 'star', 'cloud'])
+  it('contains the canonical preset keys in stable order', () => {
+    expect(POOL.map(p => p.key)).toEqual([
+      'bunny',
+      'flower',
+      'star',
+      'cloud',
+      'boba_eyes',
+      'im_fine',
+      'sakura_car',
+      'buddha_chill',
+    ])
   })
 })
 
