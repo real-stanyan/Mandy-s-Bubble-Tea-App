@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "9",
+      "buildNumber": "10",
       "bundleIdentifier": "com.mandysbubbletea.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -69,6 +69,14 @@
         "@react-native-google-signin/google-signin",
         {
           "iosUrlScheme": "com.googleusercontent.apps.744591425203-g5oh2tirvk6nafjus77s2bl3mg3admbe"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Used to attach photos when reporting an order issue.",
+          "cameraPermission": "Used to take a photo when reporting an order issue.",
+          "microphonePermission": false
         }
       ]
     ],
