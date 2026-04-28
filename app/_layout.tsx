@@ -149,6 +149,13 @@ export default function RootLayout() {
                 ),
               }}
             />
+            <Stack.Screen
+              name="order-complaint"
+              options={{
+                presentation: 'modal',
+                headerShown: false,
+              }}
+            />
           </Stack>
           <ItemDetailSheet />
           <StatusBar style="dark" />
