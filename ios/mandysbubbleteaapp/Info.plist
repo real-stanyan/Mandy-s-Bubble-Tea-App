@@ -62,6 +62,10 @@
     </dict>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Used to take a photo when reporting an order issue.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Used to attach photos when reporting an order issue.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
