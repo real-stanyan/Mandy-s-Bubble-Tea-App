@@ -11,6 +11,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { OrderComplaintSection } from '@/components/account/OrderComplaintSection'
 import { Icon, type IconName } from '@/components/brand/Icon'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import { useOrdersStore, type OrderHistoryLineModifier } from '@/store/orders'
@@ -306,6 +307,14 @@ export default function OrderDetailScreen() {
             </View>
           ))}
         </View>
+      )}
+
+      {state === 'COMPLETED' && (
+        <OrderComplaintSection
+          orderId={orderId}
+          pickupNumber={pickupNumber}
+          orderState={state}
+        />
       )}
 
       <TouchableOpacity
