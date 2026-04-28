@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://mandybubbletea.com'
+export const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://mandybubbletea.com'
 
 let cachedToken: string | null = null
 let hydratePromise: Promise<void> | null = null
