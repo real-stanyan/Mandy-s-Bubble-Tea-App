@@ -6,6 +6,7 @@ interface PaymentParams {
   orderId: string
   verificationToken?: string
   doodleIds?: Record<string, string>
+  doodleDefaults?: Record<string, string>
 }
 
 interface PaymentResult {

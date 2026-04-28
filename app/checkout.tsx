@@ -341,10 +341,18 @@ export default function CheckoutScreen() {
         }
       }
 
+      const doodleDefaults: Record<string, string> = {}
+      for (const s of slots) {
+        if (!s.userPaths || s.userPaths.length === 0) {
+          doodleDefaults[`${s.lineId}:${s.cupIdx}`] = s.defaultKey
+        }
+      }
+
       const result = await pay({
         sourceId: nonce,
         orderId,
         doodleIds: Object.keys(doodleIds).length > 0 ? doodleIds : undefined,
+        doodleDefaults: Object.keys(doodleDefaults).length > 0 ? doodleDefaults : undefined,
       })
 
       // Save order items for track/history screens before clearing cart
