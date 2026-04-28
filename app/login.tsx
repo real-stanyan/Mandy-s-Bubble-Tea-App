@@ -126,17 +126,14 @@ export default function LoginScreen() {
       if (appleFirst || appleLast) {
         setSsoNames({ first: appleFirst, last: appleLast })
       }
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
       })
       if (error) throw error
-      // SSO always needs a phone attached before completeSignup — advance
-      // directly instead of waiting for the auth-state useEffect, which
-      // races against the async session propagation.
-      if (data.session && !data.user?.phone) {
-        setStage('phone')
-      }
+      // Routing is handled by the auth-state useEffect: registered users
+      // (profile non-null) get redirected to /(tabs); first-time SSO users
+      // (profile still null after fetch) advance to the phone OTP stage.
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string }
       if (err?.code === 'ERR_REQUEST_CANCELED') return
@@ -169,17 +166,12 @@ export default function LoginScreen() {
       if (gFirst || gLast) {
         setSsoNames({ first: gFirst, last: gLast })
       }
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
       })
       if (error) throw error
-      // SSO always needs a phone attached before completeSignup — advance
-      // directly instead of waiting for the auth-state useEffect, which
-      // races against the async session propagation.
-      if (data.session && !data.user?.phone) {
-        setStage('phone')
-      }
+      // Routing handled by the auth-state useEffect (see handleApple).
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string }
       if (
