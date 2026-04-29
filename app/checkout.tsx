@@ -28,7 +28,8 @@ import { CardBlock } from '@/components/checkout/CardBlock'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
 import { hashColor } from '@/components/brand/color'
 import { T, FONT, RADIUS, SHADOW } from '@/constants/theme'
-import { LOYALTY, PH_SURCHARGE } from '@/lib/constants'
+import { CARD_SURCHARGE, LOYALTY, PH_SURCHARGE, PLATFORM_FEE } from '@/lib/constants'
+import { cardSurcharge, platformFee, publicHolidaySurcharge } from '@/lib/surcharge'
 import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
@@ -185,20 +186,22 @@ export default function CheckoutScreen() {
   // Mirrors the SUBTOTAL_PHASE Square service charge in /api/orders:
   // 1.9% of the pre-discount subtotal, floored. Skipped on free redeem
   // since the server also skips it on that branch.
-  const surchargeCents = isFreeRedeem ? 0 : Math.floor((total * 190) / 10000)
+  const surchargeCents = isFreeRedeem ? 0 : cardSurcharge(total)
+  const platformFeeCents = isFreeRedeem ? 0 : platformFee(total)
   // PH surcharge mirrors the server-side detection: 10% of the pre-discount
   // subtotal, only on QLD public holidays (Christmas Eve from 18:00).
   // Skipped on free redeem for the same reason as the card surcharge.
   const phActive = isPublicHolidayActive()
   const phSurchargeCents = isFreeRedeem || !phActive
     ? 0
-    : Math.floor((total * 1000) / 10000)
+    : publicHolidaySurcharge(total)
   const displayedTotal = Math.max(
     total
       - rewardDiscountCents
       - (welcomeDiscountForSummary?.amountCents ?? 0)
       - (igFollowDiscountForSummary?.amountCents ?? 0)
       + surchargeCents
+      + platformFeeCents
       + phSurchargeCents,
     0,
   )
@@ -262,10 +265,11 @@ export default function CheckoutScreen() {
       const isFreeOrder = amountCents <= 0
       // Surcharges mirror the SUBTOTAL_PHASE service charges attached
       // server-side; add them to the Apple/Google Pay sheet total so the
-      // user sees the real amount Square will capture. PH first to match
-      // the server's receipt ordering.
+      // user sees the real amount Square will capture. PH → Platform → Card
+      // matches the server's receipt ordering.
       if (!isFreeOrder) {
         if (phSurchargeCents > 0) amountCents += phSurchargeCents
+        if (platformFeeCents > 0) amountCents += platformFeeCents
         if (surchargeCents > 0) amountCents += surchargeCents
       }
 
@@ -415,6 +419,7 @@ export default function CheckoutScreen() {
           igFollow={igFollowDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
           surcharge={surchargeCents}
+          platformFee={platformFeeCents}
           phSurcharge={phSurchargeCents}
         />
         {(error || orderError || payError) && (
@@ -706,6 +711,7 @@ function SummaryBlock({
   igFollow,
   rewardDiscount,
   surcharge,
+  platformFee: platformFeeAmt,
   phSurcharge,
 }: {
   subtotal: number
@@ -713,11 +719,15 @@ function SummaryBlock({
   igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
   surcharge: number
+  platformFee: number
   phSurcharge: number
 }) {
   const discountTotal =
     (welcome?.amountCents ?? 0) + (igFollow?.amountCents ?? 0) + rewardDiscount
-  const total = Math.max(subtotal - discountTotal + surcharge + phSurcharge, 0)
+  const total = Math.max(
+    subtotal - discountTotal + surcharge + platformFeeAmt + phSurcharge,
+    0,
+  )
   return (
     <View style={styles.summaryCard}>
       <SummaryRow label="Subtotal" amountCents={subtotal} muted />
@@ -745,8 +755,19 @@ function SummaryBlock({
           muted
         />
       )}
+      {platformFeeAmt > 0 && (
+        <SummaryRow
+          label={`${PLATFORM_FEE.name} (${PLATFORM_FEE.percentage}%)`}
+          amountCents={platformFeeAmt}
+          muted
+        />
+      )}
       {surcharge > 0 && (
-        <SummaryRow label="Card surcharge (1.9%)" amountCents={surcharge} muted />
+        <SummaryRow
+          label={`${CARD_SURCHARGE.name} (${CARD_SURCHARGE.percentage}%)`}
+          amountCents={surcharge}
+          muted
+        />
       )}
       <View style={styles.summaryDivider} />
       <SummaryRow label="Total" amountCents={total} bold />
