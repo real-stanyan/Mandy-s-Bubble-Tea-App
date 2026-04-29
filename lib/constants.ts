@@ -27,6 +27,28 @@ export const CATEGORY_SLUGS: Record<string, string> = {
   'SPECIAL MIX': 'special-mix',
 }
 
+// ---- Card surcharge ----
+// Mirrors the SUBTOTAL_PHASE Square service charge attached in /api/orders.
+export const CARD_SURCHARGE = {
+  name: 'Card Surcharge',
+  /** Percentage as a string — matches Square's OrderServiceCharge.percentage. */
+  percentage: '1.9',
+} as const
+
+/** 1.9% as basis-points-per-10000 for BigInt math: 190 / 10000. */
+export const CARD_SURCHARGE_BPS = 190n
+
+// ---- Platform Fee ----
+// Additional online-ordering pass-through. Same SUBTOTAL_PHASE pattern as
+// CARD_SURCHARGE; visible to the customer on every receipt surface.
+export const PLATFORM_FEE = {
+  name: 'Platform Fee',
+  percentage: '0.4',
+} as const
+
+/** 0.4% as basis-points-per-10000 for BigInt math: 40 / 10000. */
+export const PLATFORM_FEE_BPS = 40n
+
 // ---- Public holiday surcharge ----
 
 export const PH_SURCHARGE = {
