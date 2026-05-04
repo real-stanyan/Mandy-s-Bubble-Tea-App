@@ -22,6 +22,7 @@ import { PromotionsCard } from '@/components/account/PromotionsCard'
 import { ActivityHistory } from '@/components/account/ActivityHistory'
 import { OrderHistory } from '@/components/account/OrderHistory'
 import { WelcomeDiscountCard } from '@/components/account/WelcomeDiscountCard'
+import { ActivePrizes } from '@/components/account/ActivePrizes'
 import { StoreInfo } from '@/components/account/StoreInfo'
 import { LegalFooter } from '@/components/account/LegalFooter'
 import { SignOutBtn } from '@/components/account/SignOutBtn'
@@ -136,6 +137,7 @@ export default function AccountScreen() {
       >
         <AccountHeader profile={profile} />
         <WelcomeDiscountCard />
+        <ActivePrizes />
         <LoyaltyCard
           account={account ?? EMPTY_LOYALTY}
           starsPerReward={perReward}
