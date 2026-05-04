@@ -26,6 +26,8 @@ import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
+import { PrizeRevealModal } from '@/components/prize/PrizeRevealModal'
+import type { PrizeReveal } from '@/hooks/use-payment'
 import { hashColor } from '@/components/brand/color'
 import { T, FONT, RADIUS, SHADOW } from '@/constants/theme'
 import { CARD_SURCHARGE, LOYALTY, PH_SURCHARGE, PLATFORM_FEE } from '@/lib/constants'
@@ -104,6 +106,7 @@ export default function CheckoutScreen() {
     totalCents: number
     starsEarned: number
   } | null>(null)
+  const [prize, setPrize] = useState<PrizeReveal | null>(null)
 
   const loyaltyBalance = loyalty?.balance ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
@@ -314,6 +317,14 @@ export default function CheckoutScreen() {
         : 0
       const totalCents = Math.max(amountCents, 0)
 
+      if (result.prize) {
+        const seenKey = `prize_seen_${result.prize.rollId}`
+        const alreadySeen = await AsyncStorage.getItem(seenKey)
+        if (!alreadySeen) {
+          setPrize(result.prize)
+        }
+      }
+
       clearCart()
       // Re-hydrate profile/loyalty/welcomeDiscount so the success overlay
       // and home tab show the updated stars + consumed welcome.
@@ -463,6 +474,15 @@ export default function CheckoutScreen() {
           }}
         />
       )}
+      <PrizeRevealModal
+        prize={prize}
+        onDismiss={async () => {
+          if (prize) {
+            await AsyncStorage.setItem(`prize_seen_${prize.rollId}`, '1')
+          }
+          setPrize(null)
+        }}
+      />
     </View>
   )
 }
