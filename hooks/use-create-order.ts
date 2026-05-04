@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import type { CartItem, Order } from '@/types/square'
 
+export interface AppliedPrize {
+  rollId: string
+  tier_id: string
+  label: string
+}
+
 interface CreateOrderParams {
   items: CartItem[]
   applyWelcomeDiscount?: boolean
@@ -13,6 +19,7 @@ interface CreateOrderParams {
 interface CreateOrderResult {
   orderId: string
   order: Order
+  appliedPrize: AppliedPrize | null
 }
 
 interface CreateOrderHook {
@@ -60,6 +67,7 @@ export function useCreateOrder(): CreateOrderHook {
         ok: boolean
         orderId: string
         order: Order
+        appliedPrize: AppliedPrize | null
       }>('/api/orders', {
         method: 'POST',
         body: JSON.stringify({
@@ -68,10 +76,15 @@ export function useCreateOrder(): CreateOrderHook {
           applyIgFollowDiscount: !!applyIgFollowDiscount,
           applyLoyaltyReward: !!applyLoyaltyReward,
           note: note?.trim() ? note.trim() : undefined,
+          __source: 'app',
         }),
       })
 
-      return { orderId: orderRes.orderId, order: orderRes.order }
+      return {
+        orderId: orderRes.orderId,
+        order: orderRes.order,
+        appliedPrize: orderRes.appliedPrize ?? null,
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to create order'
       setError(msg)

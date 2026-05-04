@@ -1,5 +1,18 @@
 import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import type { AppliedPrize } from '@/hooks/use-create-order'
+
+export type { AppliedPrize }
+
+export interface PrizeReveal {
+  rollId: string
+  tier_id: string
+  prize_type: 'thank_you' | 'digital' | 'physical'
+  label: string
+  payload: Record<string, unknown>
+  claim_code?: string
+  expires_at: string | null
+}
 
 interface PaymentParams {
   sourceId?: string
@@ -13,6 +26,8 @@ interface PaymentResult {
   loyaltyAccrued?: boolean
   welcomeDiscountConsumed?: boolean
   payment?: unknown
+  prize?: PrizeReveal | null
+  appliedPrize?: AppliedPrize | null
 }
 
 interface PaymentHook {
