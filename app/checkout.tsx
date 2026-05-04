@@ -27,7 +27,7 @@ import { CupArt } from '@/components/brand/CupArt'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
 import { PrizeRevealModal } from '@/components/prize/PrizeRevealModal'
-import type { PrizeReveal } from '@/hooks/use-payment'
+import type { PrizeReveal, AppliedPrize } from '@/hooks/use-payment'
 import { hashColor } from '@/components/brand/color'
 import { T, FONT, RADIUS, SHADOW } from '@/constants/theme'
 import { CARD_SURCHARGE, LOYALTY, PH_SURCHARGE, PLATFORM_FEE } from '@/lib/constants'
@@ -105,6 +105,7 @@ export default function CheckoutScreen() {
     pickupNumber: string
     totalCents: number
     starsEarned: number
+    appliedPrize: AppliedPrize | null
   } | null>(null)
   const [prize, setPrize] = useState<PrizeReveal | null>(null)
 
@@ -329,7 +330,12 @@ export default function CheckoutScreen() {
       // Re-hydrate profile/loyalty/welcomeDiscount so the success overlay
       // and home tab show the updated stars + consumed welcome.
       refreshAuth()
-      setPlaced({ pickupNumber: pickupRef, totalCents, starsEarned })
+      setPlaced({
+        pickupNumber: pickupRef,
+        totalCents,
+        starsEarned,
+        appliedPrize: result.appliedPrize ?? null,
+      })
     } catch (e) {
       const message =
         e instanceof Error ? e.message : 'Something went wrong. Please try again.'
@@ -468,6 +474,7 @@ export default function CheckoutScreen() {
           totalCents={placed.totalCents}
           starsEarned={placed.starsEarned}
           storeName="Southport"
+          appliedPrize={placed.appliedPrize}
           onTrack={() => {
             setPlaced(null)
             router.replace('/(tabs)/order')

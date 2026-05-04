@@ -12,12 +12,14 @@ import Animated, {
 import { Icon } from '@/components/brand/Icon'
 import { T, FONT, RADIUS, SHADOW } from '@/constants/theme'
 import { formatPrice } from '@/lib/utils'
+import type { AppliedPrize } from '@/hooks/use-payment'
 
 export interface OrderPlacedProps {
   pickupNumber: string
   totalCents: number
   starsEarned: number
   storeName: string
+  appliedPrize?: AppliedPrize | null
   onTrack: () => void
 }
 
@@ -26,6 +28,7 @@ export function OrderPlaced({
   totalCents,
   starsEarned,
   storeName,
+  appliedPrize,
   onTrack,
 }: OrderPlacedProps) {
   const checkScale = useSharedValue(0.3)
@@ -71,6 +74,12 @@ export function OrderPlaced({
             </View>
           </View>
         </View>
+        {appliedPrize && (
+          <View style={styles.prizeRow}>
+            <Text style={styles.infoLabel}>Used</Text>
+            <Text style={styles.prizeValue}>✓ {appliedPrize.label}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.ctaWrap}>
@@ -193,6 +202,24 @@ const styles = StyleSheet.create({
   starsValue: {
     fontFamily: FONT.mono,
     fontSize: 20,
+    fontWeight: '700',
+    color: T.brand,
+  },
+  prizeRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: RADIUS.small,
+    backgroundColor: T.paper,
+    borderWidth: 1,
+    borderColor: T.line,
+  },
+  prizeValue: {
+    fontFamily: FONT.mono,
+    fontSize: 13,
     fontWeight: '700',
     color: T.brand,
   },
