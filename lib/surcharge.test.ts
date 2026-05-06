@@ -15,13 +15,13 @@ describe('cardSurcharge (1.9%)', () => {
   })
 })
 
-describe('platformFee (0.4%)', () => {
+describe('platformFee (0.5%)', () => {
   it('rounds half-up', () => {
-    // 0.4% of 620 = 2.48 → round 2
-    expect(platformFee(620)).toBe(2)
-    // 0.4% of 1240 = 4.96 → round 5
-    expect(platformFee(1240)).toBe(5)
-    // 0.4% of 125 = 0.5 → round 1 (Math.round half-up matches Square)
+    // 0.5% of 620 = 3.1 → round 3
+    expect(platformFee(620)).toBe(3)
+    // 0.5% of 1240 = 6.2 → round 6
+    expect(platformFee(1240)).toBe(6)
+    // 0.5% of 125 = 0.625 → round 1 (Math.round half-up matches Square)
     expect(platformFee(125)).toBe(1)
     expect(platformFee(0)).toBe(0)
   })
@@ -31,8 +31,8 @@ describe('platformFee (0.4%)', () => {
   })
 
   it('handles large amounts', () => {
-    // 0.4% of $10,000.00 = $40.00
-    expect(platformFee(1_000_000)).toBe(4_000)
+    // 0.5% of $10,000.00 = $50.00
+    expect(platformFee(1_000_000)).toBe(5_000)
   })
 })
 
