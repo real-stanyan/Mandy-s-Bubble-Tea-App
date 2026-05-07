@@ -7,6 +7,7 @@ interface CreateOrderParams {
   applyWelcomeDiscount?: boolean
   applyIgFollowDiscount?: boolean
   applyLoyaltyReward?: boolean
+  loyaltyRewardCount?: number
   note?: string
 }
 
@@ -32,6 +33,7 @@ export function useCreateOrder(): CreateOrderHook {
     applyWelcomeDiscount,
     applyIgFollowDiscount,
     applyLoyaltyReward,
+    loyaltyRewardCount,
     note,
   }: CreateOrderParams): Promise<CreateOrderResult> => {
     setLoading(true)
@@ -67,6 +69,7 @@ export function useCreateOrder(): CreateOrderHook {
           applyWelcomeDiscount: !!applyWelcomeDiscount,
           applyIgFollowDiscount: !!applyIgFollowDiscount,
           applyLoyaltyReward: !!applyLoyaltyReward,
+          loyaltyRewardCount: loyaltyRewardCount ?? 0,
           note: note?.trim() ? note.trim() : undefined,
         }),
       })

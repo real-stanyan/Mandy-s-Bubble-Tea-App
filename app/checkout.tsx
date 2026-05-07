@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   View,
   Text,
@@ -46,9 +46,14 @@ import type { CartItem, CartModifier } from '@/types/square'
 
 type PayMethod = 'card' | 'apple' | 'google'
 
-function cheapestItemPrice(items: { price: number }[]): number {
-  if (items.length === 0) return 0
-  return items.reduce((min, it) => (it.price < min ? it.price : min), items[0].price)
+function sumOfCheapestN(items: { price: number; quantity: number }[], n: number): number {
+  if (n <= 0 || items.length === 0) return 0
+  const cups: number[] = []
+  for (const it of items) {
+    for (let i = 0; i < it.quantity; i++) cups.push(it.price)
+  }
+  cups.sort((a, b) => a - b)
+  return cups.slice(0, n).reduce((s, p) => s + p, 0)
 }
 
 function groupModifiers(mods: CartModifier[] | undefined): string {
@@ -97,7 +102,7 @@ export default function CheckoutScreen() {
   const [payMethod, setPayMethod] = useState<PayMethod>('card')
   const [applePayAvailable, setApplePayAvailable] = useState(false)
   const [googlePayAvailable, setGooglePayAvailable] = useState(false)
-  const [useReward, setUseReward] = useState(false)
+  const [rewardCount, setRewardCount] = useState(0)
   const [note, setNote] = useState('')
   const [placed, setPlaced] = useState<{
     pickupNumber: string
@@ -110,6 +115,15 @@ export default function CheckoutScreen() {
   const canRedeem = perReward > 0 && loyaltyBalance >= perReward
   const welcomeAvailable = welcomeDiscount.available
   const welcomePercentage = welcomeDiscount.percentage
+
+  const cupCount = items.reduce((n, it) => n + it.quantity, 0)
+  const maxRewardCount = perReward > 0
+    ? Math.min(Math.floor(loyaltyBalance / perReward), cupCount)
+    : 0
+
+  useEffect(() => {
+    if (rewardCount > maxRewardCount) setRewardCount(maxRewardCount)
+  }, [maxRewardCount, rewardCount])
 
   useEffect(() => {
     if (!profile) return
@@ -132,27 +146,24 @@ export default function CheckoutScreen() {
     }
   }, [profile])
 
-  const unitPricesForPromos = (() => {
+  const sortedUnitPrices = useMemo(() => {
     const arr: number[] = []
     for (const item of items) {
       for (let i = 0; i < item.quantity; i++) arr.push(item.price)
     }
-    return arr
-  })()
+    return arr.sort((a, b) => a - b)
+  }, [items])
 
-  const skipPromos = useReward && canRedeem
-  const showWelcomeLine = welcomeAvailable && !skipPromos
-  const showIgFollowLine = igFollowDiscount.available && !skipPromos
-
-  const welcomeK = showWelcomeLine
-    ? Math.min(welcomeDiscount.drinksRemaining, unitPricesForPromos.length)
+  const welcomeK = welcomeAvailable
+    ? Math.min(welcomeDiscount.drinksRemaining, sortedUnitPrices.length)
     : 0
-  const igFollowK = showIgFollowLine ? igFollowDiscount.drinksRemaining : 0
+  const igFollowK = igFollowDiscount.available ? igFollowDiscount.drinksRemaining : 0
 
   const { welcomeCups, igFollowCups } = pickPromoCups({
-    unitPrices: unitPricesForPromos,
+    unitPrices: sortedUnitPrices,
     welcomeK,
     igFollowK,
+    loyaltyRewardCount: rewardCount,
   })
 
   const welcomeAmount = Math.floor(
@@ -163,7 +174,7 @@ export default function CheckoutScreen() {
   )
 
   const welcomeDiscountForSummary =
-    showWelcomeLine && welcomeCups.length > 0
+    welcomeAvailable && welcomeCups.length > 0
       ? {
           amountCents: welcomeAmount,
           percentage: welcomePercentage,
@@ -172,7 +183,7 @@ export default function CheckoutScreen() {
       : null
 
   const igFollowDiscountForSummary =
-    showIgFollowLine && igFollowCups.length > 0
+    igFollowDiscount.available && igFollowCups.length > 0
       ? {
           amountCents: igFollowAmount,
           percentage: igFollowDiscount.percentage,
@@ -180,9 +191,12 @@ export default function CheckoutScreen() {
         }
       : null
 
-  const rewardDiscountCents = useReward && canRedeem ? cheapestItemPrice(items) : 0
-  // Reward covers the cheapest drink; "fully covers" means zero left.
-  const isFreeRedeem = useReward && canRedeem && total - rewardDiscountCents <= 0
+  const rewardDiscountCents = sumOfCheapestN(items, rewardCount)
+  const totalDiscountCents =
+    rewardDiscountCents +
+    (welcomeDiscountForSummary?.amountCents ?? 0) +
+    (igFollowDiscountForSummary?.amountCents ?? 0)
+  const isFreeRedeem = rewardCount > 0 && total - totalDiscountCents <= 0
   // Mirrors the SUBTOTAL_PHASE Square service charge in /api/orders:
   // 1.9% of the pre-discount subtotal, floored. Skipped on free redeem
   // since the server also skips it on that branch.
@@ -225,34 +239,30 @@ export default function CheckoutScreen() {
     setError(null)
     setPaymentError(null)
 
-    // Loyalty reward (line-level) beats welcome (order-level) in display —
-    // only pass the welcome flag when the user isn't redeeming a reward, so
-    // the totals shown at checkout match what Square actually charges.
-    const useWelcome =
-      welcomeAvailable && !(useReward && canRedeem) && welcomeCups.length > 0
-    const useIgFollow =
-      igFollowDiscount.available && !(useReward && canRedeem) && igFollowCups.length > 0
+    const useWelcome = welcomeAvailable && welcomeCups.length > 0
+    const useIgFollow = igFollowDiscount.available && igFollowCups.length > 0
 
     try {
       const { orderId, order: createdOrder } = await createOrder({
         items,
         applyWelcomeDiscount: useWelcome,
         applyIgFollowDiscount: useIgFollow,
-        applyLoyaltyReward: isFreeRedeem,
+        applyLoyaltyReward: rewardCount > 0,
+        loyaltyRewardCount: rewardCount,
         note,
       })
 
       let amountCents = total
       if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
       if (useIgFollow) amountCents = Math.max(amountCents - igFollowAmount, 0)
-      if (useReward && canRedeem) {
+      if (rewardCount > 0) {
         const redeemRes = await apiFetch<{
           ok: boolean
           updatedAmountCents?: string
           error?: string
         }>('/api/loyalty/redeem', {
           method: 'POST',
-          body: JSON.stringify({ orderId }),
+          body: JSON.stringify({ orderId, count: rewardCount }),
         })
         if (!redeemRes.ok) {
           throw new Error(redeemRes.error ?? 'Could not redeem reward')
@@ -387,8 +397,10 @@ export default function CheckoutScreen() {
           stars={loyaltyBalance}
           goal={perReward}
           canRedeem={canRedeem}
-          useReward={useReward}
-          onToggle={() => setUseReward((v) => !v)}
+          rewardCount={rewardCount}
+          maxRewardCount={maxRewardCount}
+          onIncrement={() => setRewardCount((n) => Math.min(maxRewardCount, n + 1))}
+          onDecrement={() => setRewardCount((n) => Math.max(0, n - 1))}
           welcome={
             welcomeDiscountForSummary
               ? {
@@ -418,6 +430,7 @@ export default function CheckoutScreen() {
           welcome={welcomeDiscountForSummary}
           igFollow={igFollowDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
+          rewardCount={rewardCount}
           surcharge={surchargeCents}
           platformFee={platformFeeCents}
           phSurcharge={phSurchargeCents}
@@ -567,16 +580,20 @@ function RewardsBlock({
   stars,
   goal,
   canRedeem,
-  useReward,
-  onToggle,
+  rewardCount,
+  maxRewardCount,
+  onIncrement,
+  onDecrement,
   welcome,
   igFollow,
 }: {
   stars: number
   goal: number
   canRedeem: boolean
-  useReward: boolean
-  onToggle: () => void
+  rewardCount: number
+  maxRewardCount: number
+  onIncrement: () => void
+  onDecrement: () => void
   welcome: { amountCents: number; coveredCount: number } | null
   igFollow: { amountCents: number; coveredCount: number } | null
 }) {
@@ -587,15 +604,28 @@ function RewardsBlock({
       eyebrow="Rewards"
       title={title}
       right={
-        canRedeem ? (
-          <Pressable onPress={onToggle} style={styles.toggleRow} hitSlop={8}>
-            <Text style={styles.toggleLabel}>Apply</Text>
-            <View style={[styles.toggleTrack, useReward && { backgroundColor: T.brand }]}>
-              <View
-                style={[styles.toggleThumb, useReward && { transform: [{ translateX: 16 }] }]}
-              />
-            </View>
-          </Pressable>
+        maxRewardCount > 0 ? (
+          <View style={styles.stepperRow}>
+            <Pressable
+              onPress={onDecrement}
+              disabled={rewardCount === 0}
+              style={[styles.stepperBtn, rewardCount === 0 && styles.stepperBtnDisabled]}
+              accessibilityLabel="Decrease reward count"
+              hitSlop={6}
+            >
+              <Text style={styles.stepperBtnText}>−</Text>
+            </Pressable>
+            <Text style={styles.stepperCount}>{rewardCount}</Text>
+            <Pressable
+              onPress={onIncrement}
+              disabled={rewardCount === maxRewardCount}
+              style={[styles.stepperBtn, rewardCount === maxRewardCount && styles.stepperBtnDisabled]}
+              accessibilityLabel="Increase reward count"
+              hitSlop={6}
+            >
+              <Text style={styles.stepperBtnText}>+</Text>
+            </Pressable>
+          </View>
         ) : undefined
       }
     >
@@ -610,9 +640,14 @@ function RewardsBlock({
             </Text>
           </>
         )}
-        {canRedeem && (
+        {canRedeem && rewardCount === 0 && (
           <Text style={styles.rewardsHint}>
-            Toggle on to redeem one free drink from your order. Stars reset after redemption.
+            Tap + to redeem free drinks. Each reward covers one drink and uses {goal} stars.
+          </Text>
+        )}
+        {canRedeem && rewardCount > 0 && (
+          <Text style={styles.rewardsHint}>
+            Redeeming {rewardCount} free drink{rewardCount === 1 ? '' : 's'}.
           </Text>
         )}
         {welcome && welcome.coveredCount > 0 && (
@@ -710,6 +745,7 @@ function SummaryBlock({
   welcome,
   igFollow,
   rewardDiscount,
+  rewardCount: rewardCountForSummary,
   surcharge,
   platformFee: platformFeeAmt,
   phSurcharge,
@@ -718,6 +754,7 @@ function SummaryBlock({
   welcome: { amountCents: number; percentage: number; coveredCount: number } | null
   igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
+  rewardCount: number
   surcharge: number
   platformFee: number
   phSurcharge: number
@@ -746,7 +783,11 @@ function SummaryBlock({
         />
       )}
       {rewardDiscount > 0 && (
-        <SummaryRow label="Reward discount" amountCents={-rewardDiscount} muted />
+        <SummaryRow
+          label={`Reward discount${rewardCountForSummary > 1 ? ` ×${rewardCountForSummary}` : ''}`}
+          amountCents={-rewardDiscount}
+          muted
+        />
       )}
       {phSurcharge > 0 && (
         <SummaryRow
@@ -949,33 +990,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: T.ink,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepperBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1, borderColor: T.brand,
+    alignItems: 'center', justifyContent: 'center',
   },
-  toggleLabel: {
-    fontFamily: FONT.mono,
-    fontSize: 10.5,
-    letterSpacing: 1.3,
-    fontWeight: '700',
-    color: T.ink2,
-    textTransform: 'uppercase',
-  },
-  toggleTrack: {
-    width: 36,
-    height: 20,
-    borderRadius: 999,
-    backgroundColor: T.ink4,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    width: 16,
-    height: 16,
-    borderRadius: 999,
-    backgroundColor: '#fff',
-  },
+  stepperBtnDisabled: { opacity: 0.3 },
+  stepperBtnText: { color: T.brand, fontSize: 18, fontWeight: '500' },
+  stepperCount: { minWidth: 24, textAlign: 'center', fontWeight: '500', color: T.brand, fontSize: 16 },
   progressBg: {
     height: 6,
     borderRadius: 999,
