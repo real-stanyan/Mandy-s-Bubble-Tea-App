@@ -46,16 +46,6 @@ import type { CartItem, CartModifier } from '@/types/square'
 
 type PayMethod = 'card' | 'apple' | 'google'
 
-function sumOfCheapestN(items: { price: number; quantity: number }[], n: number): number {
-  if (n <= 0 || items.length === 0) return 0
-  const cups: number[] = []
-  for (const it of items) {
-    for (let i = 0; i < it.quantity; i++) cups.push(it.price)
-  }
-  cups.sort((a, b) => a - b)
-  return cups.slice(0, n).reduce((s, p) => s + p, 0)
-}
-
 function groupModifiers(mods: CartModifier[] | undefined): string {
   if (!mods || mods.length === 0) return ''
   const byList = new Map<string, string[]>()
@@ -191,7 +181,9 @@ export default function CheckoutScreen() {
         }
       : null
 
-  const rewardDiscountCents = sumOfCheapestN(items, rewardCount)
+  const rewardDiscountCents = sortedUnitPrices
+    .slice(0, rewardCount)
+    .reduce((s, p) => s + p, 0)
   const totalDiscountCents =
     rewardDiscountCents +
     (welcomeDiscountForSummary?.amountCents ?? 0) +
@@ -243,6 +235,10 @@ export default function CheckoutScreen() {
     const useIgFollow = igFollowDiscount.available && igFollowCups.length > 0
 
     try {
+      // applyLoyaltyReward (legacy) + loyaltyRewardCount (new) both gate
+      // server-side skipSurcharges. Either > 0 / true skips the SUBTOTAL_PHASE
+      // service charges (card surcharge, platform fee, PH surcharge) — which
+      // matches Square applying loyalty reward discounts on the order.
       const { orderId, order: createdOrder } = await createOrder({
         items,
         applyWelcomeDiscount: useWelcome,
