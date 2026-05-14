@@ -149,13 +149,24 @@ export function getStoreStatus(now: Date = new Date()): StoreStatus {
   };
 }
 
-// Ordering is now always open on this branch (24/7) — the previous
-// 10:30–22:15 ordering window has been lifted. Physical store hours
-// (getStoreStatus) still report 10:30–22:30 as the in-store schedule;
-// only the online-order acceptance gate is removed.
-export function canAcceptOrders(_now: Date = new Date()): OrderAcceptance {
-  void _now;
-  return { accepting: true, nextOpenLabel: '' };
+// @verification
+// canAcceptOrders(new Date('2026-04-19T03:00:00Z')) // 13:00 Brisbane → accepting
+// canAcceptOrders(new Date('2026-04-19T12:26:00Z')) // 22:26 Brisbane → not accepting, "10:30am tomorrow"
+// canAcceptOrders(new Date('2026-04-18T22:00:00Z')) // 08:00 Brisbane → not accepting, "10:30am"
+export function canAcceptOrders(now: Date = new Date()): OrderAcceptance {
+  const brisbane = brisbaneDate(now);
+  const minutes = brisbane.getUTCHours() * 60 + brisbane.getUTCMinutes();
+  const accepting = minutes >= OPEN_MIN && minutes < ORDER_CUTOFF_MIN;
+  if (accepting) {
+    return { accepting: true, nextOpenLabel: '' };
+  }
+  const beforeOpen = minutes < OPEN_MIN;
+  return {
+    accepting: false,
+    nextOpenLabel: beforeOpen
+      ? formatClock(OPEN_MIN)
+      : `${formatClock(OPEN_MIN)} tomorrow`,
+  };
 }
 
 function formatClock(minsOfDay: number): string {
