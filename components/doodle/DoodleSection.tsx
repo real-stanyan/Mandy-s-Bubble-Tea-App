@@ -1,13 +1,60 @@
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { SvgXml } from 'react-native-svg'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { DoodleModal } from './DoodleModal'
-import type { DoodleSlot } from '@/lib/doodle/cartToSlots'
+import type { DoodleSlot, SvgPath } from '@/lib/doodle/cartToSlots'
+import { POOL } from '@/lib/doodle/pool'
 import { T, FONT, RADIUS } from '@/constants/theme'
 
 interface Props {
   slots: DoodleSlot[]
   onSlotChange: (slotIdx: number, next: DoodleSlot) => void
+}
+
+const USER_PATH_CANVAS = 400
+
+function pathsToInlineSvg(paths: SvgPath[]): string {
+  // Mirrors the server's pathsJsonToSvg shape so the preview here lines
+  // up roughly with what gets binarised for print.
+  const els = paths
+    .map(
+      (p) =>
+        `<path d="${p.d}" stroke="${p.stroke}" stroke-width="${p.width}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+    )
+    .join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${USER_PATH_CANVAS} ${USER_PATH_CANVAS}" width="100%" height="100%">${els}</svg>`
+}
+
+function CupPreview({ slot }: { slot: DoodleSlot }) {
+  if (slot.aiPreviewUrl) {
+    return <Image source={{ uri: slot.aiPreviewUrl }} style={styles.preview} resizeMode="cover" />
+  }
+  if (slot.uploadedPreviewUrl) {
+    return (
+      <Image source={{ uri: slot.uploadedPreviewUrl }} style={styles.preview} resizeMode="cover" />
+    )
+  }
+  if ((slot.userPaths?.length ?? 0) > 0) {
+    return (
+      <View style={styles.preview}>
+        <SvgXml xml={pathsToInlineSvg(slot.userPaths!)} width="100%" height="100%" />
+      </View>
+    )
+  }
+  const preset = POOL.find((p) => p.key === slot.defaultKey) ?? POOL[0]
+  return (
+    <View style={styles.preview}>
+      <SvgXml xml={preset.svg} width="100%" height="100%" />
+    </View>
+  )
+}
+
+function sourceBadge(slot: DoodleSlot): string {
+  if (slot.aiDoodleId) return '✨ AI'
+  if (slot.uploadedDoodleId) return '📷 Photo'
+  if ((slot.userPaths?.length ?? 0) > 0) return '✏️ Drawn'
+  return '🎨 Preset'
 }
 
 export function DoodleSection({ slots, onSlotChange }: Props) {
@@ -22,17 +69,23 @@ export function DoodleSection({ slots, onSlotChange }: Props) {
         contentContainerStyle={styles.row}
       >
         {slots.map((slot, i) => {
-          const drawn = (slot.userPaths?.length ?? 0) > 0
+          const isCustom =
+            !!slot.aiDoodleId ||
+            !!slot.uploadedDoodleId ||
+            (slot.userPaths?.length ?? 0) > 0
           return (
             <Pressable
               key={`${slot.lineId}:${slot.cupIdx}`}
               onPress={() => setOpenIdx(i)}
-              style={[styles.cup, drawn && styles.cupDrawn]}
+              style={[styles.cup, isCustom && styles.cupCustom]}
             >
-              <Text style={styles.cupNum}>Cup {i + 1}</Text>
-              <Text style={styles.cupName} numberOfLines={2}>{slot.drinkName}</Text>
-              <Text style={styles.cupState}>
-                {drawn ? '✓ doodled' : `default · ${slot.defaultKey}`}
+              <View style={styles.cupHeader}>
+                <Text style={styles.cupNum}>Cup {i + 1}</Text>
+                <Text style={styles.cupBadge}>{sourceBadge(slot)}</Text>
+              </View>
+              <CupPreview slot={slot} />
+              <Text style={styles.cupName} numberOfLines={2}>
+                {slot.drinkName}
               </Text>
             </Pressable>
           )
@@ -53,20 +106,52 @@ export function DoodleSection({ slots, onSlotChange }: Props) {
 const styles = StyleSheet.create({
   row: { paddingHorizontal: 16, paddingBottom: 14, gap: 10 },
   cup: {
-    width: 110,
-    minHeight: 110,
-    padding: 12,
+    width: 132,
+    padding: 10,
     borderRadius: RADIUS.small,
     backgroundColor: T.paper,
     borderWidth: 1,
     borderColor: T.line,
+    gap: 8,
+  },
+  cupCustom: {
+    borderColor: T.brand,
+    backgroundColor: 'rgba(196,58,16,0.06)',
+  },
+  cupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cupDrawn: { borderColor: T.brand, backgroundColor: 'rgba(196,58,16,0.06)' },
   cupNum: {
-    fontFamily: FONT.mono, fontSize: 10, letterSpacing: 1.3,
-    fontWeight: '700', color: T.brand, textTransform: 'uppercase',
+    fontFamily: FONT.mono,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontWeight: '700',
+    color: T.brand,
+    textTransform: 'uppercase',
   },
-  cupName: { fontFamily: FONT.sans, fontSize: 12, fontWeight: '600', color: T.ink, marginTop: 4 },
-  cupState: { fontFamily: FONT.sans, fontSize: 11, color: T.ink2, marginTop: 6 },
+  cupBadge: {
+    fontFamily: FONT.sans,
+    fontSize: 10,
+    fontWeight: '700',
+    color: T.ink2,
+  },
+  preview: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: RADIUS.small,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: T.line,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cupName: {
+    fontFamily: FONT.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: T.ink,
+  },
 })

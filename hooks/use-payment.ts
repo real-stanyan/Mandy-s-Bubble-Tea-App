@@ -7,6 +7,7 @@ interface PaymentParams {
   verificationToken?: string
   doodleIds?: Record<string, string>
   doodleDefaults?: Record<string, string>
+  aiDoodleIds?: Record<string, string>
 }
 
 interface PaymentResult {

@@ -329,8 +329,20 @@ export default function CheckoutScreen() {
         }
       }
 
+      // Slot resolution priority: AI / uploaded photo > drawn > preset/default.
+      // Server-side both `aiDoodleId` and `uploadedDoodleId` end up in the
+      // same `aiDoodleIds` map — they're both preprocessed PNGs in Storage,
+      // the source distinction is purely UI-side.
+      const aiDoodleIds: Record<string, string> = {}
+      for (const s of slots) {
+        const id = s.aiDoodleId ?? s.uploadedDoodleId
+        if (id) aiDoodleIds[`${s.lineId}:${s.cupIdx}`] = id
+      }
+
       const doodleIds: Record<string, string> = {}
-      const drawnSlots = slots.filter(s => (s.userPaths?.length ?? 0) > 0)
+      const drawnSlots = slots.filter(
+        (s) => !s.aiDoodleId && !s.uploadedDoodleId && (s.userPaths?.length ?? 0) > 0,
+      )
       for (const s of drawnSlots) {
         try {
           const { doodleId } = await uploadDoodle(s.userPaths!)
@@ -343,6 +355,7 @@ export default function CheckoutScreen() {
 
       const doodleDefaults: Record<string, string> = {}
       for (const s of slots) {
+        if (s.aiDoodleId || s.uploadedDoodleId) continue
         if (!s.userPaths || s.userPaths.length === 0) {
           doodleDefaults[`${s.lineId}:${s.cupIdx}`] = s.defaultKey
         }
@@ -353,6 +366,7 @@ export default function CheckoutScreen() {
         orderId,
         doodleIds: Object.keys(doodleIds).length > 0 ? doodleIds : undefined,
         doodleDefaults: Object.keys(doodleDefaults).length > 0 ? doodleDefaults : undefined,
+        aiDoodleIds: Object.keys(aiDoodleIds).length > 0 ? aiDoodleIds : undefined,
       })
 
       // Save order items for track/history screens before clearing cart
