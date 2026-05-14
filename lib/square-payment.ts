@@ -1,8 +1,10 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 
-const SQUARE_APP_ID = 'sq0idp-1IOAOYqjBpdqlMPwxWpqXA'
-const SQUARE_LOCATION_ID = 'LFS3V7YRVTGTK'
+const SQUARE_APP_ID =
+  process.env.EXPO_PUBLIC_SQUARE_APP_ID ?? 'sq0idp-1IOAOYqjBpdqlMPwxWpqXA'
+const SQUARE_LOCATION_ID =
+  process.env.EXPO_PUBLIC_SQUARE_LOCATION_ID ?? 'LFS3V7YRVTGTK'
 const APPLE_MERCHANT_ID = 'merchant.com.mandysbubbletea.app'
 
 // Expo Go 不含原生模块。在 Expo Go 里 require 会 throw,需要在 dev build / production build 里使用。

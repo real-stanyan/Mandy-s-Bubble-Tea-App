@@ -4,8 +4,13 @@ import { PanResponder, StyleSheet, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import type { SvgPath } from '@/lib/doodle/cartToSlots'
 
+// Square 400×400 vector canvas — matches the server-side cup-label middle
+// band geometry (472×472 dots ≈ 40mm × 40mm on a 300 DPI Zebra ZD410).
+// Vector units, not dots — server resvg renders our SVG paths into the
+// 472-dot middle band. Keeping the app draw area square avoids clipping
+// the lower half of the drawing on the printed sticker.
 export const CANVAS_W = 400
-export const CANVAS_H = 640
+export const CANVAS_H = 400
 
 interface Props {
   paths: SvgPath[]
@@ -104,7 +109,7 @@ export function DoodleCanvas({ paths, brushWidth, onPathsChange, onDrawStart, on
 
 const styles = StyleSheet.create({
   box: {
-    aspectRatio: 400 / 640,
+    aspectRatio: CANVAS_W / CANVAS_H,
     width: '100%',
     backgroundColor: '#fff',
     borderRadius: 12,
