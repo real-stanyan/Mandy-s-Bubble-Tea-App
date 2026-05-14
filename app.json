@@ -13,7 +13,10 @@
       "buildNumber": "21",
       "bundleIdentifier": "com.mandysbubbletea.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       },
       "entitlements": {
         "com.apple.developer.in-app-payments": [
