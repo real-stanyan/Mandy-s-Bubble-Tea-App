@@ -1,37 +1,54 @@
 // lib/doodle/aiGenerate.ts
 //
-// Calls POST /api/cup-label/ai-generate with the user's prompt. Server
-// appends a forced line-art suffix and runs the result through the same
-// 300dpi 1-bit thermal pipeline used by drawn doodles, then returns the
-// stored aiDoodleId + signed preview URL. The id flows straight back at
-// checkout via /api/payment → enqueueCupLabelJobs → ZD410.
+// Submit-and-forget AI doodle. Hits POST /api/cup-label/ai-submit which
+// returns immediately with an aiDoodleId; the real Doubao + binarize
+// pipeline runs server-side in the background. The customer never
+// sees a preview — the image is revealed on the printed cup label
+// ("Surprise on your cup" mode).
+//
+// Per-cup-slot 1× quota is enforced server-side via the
+// cup_label_ai_jobs UNIQUE(user_id, slot_key) constraint. Re-submitting
+// for the same slot returns the original aiDoodleId (response includes
+// reused=true) — no extra Doubao charge.
 
 import { apiFetch } from '@/lib/api'
 
-export interface AiGenerateResult {
+export interface AiSubmitResult {
   aiDoodleId: string
-  previewUrl: string
+  status: 'pending' | 'ready' | 'failed'
+  reused: boolean
 }
 
-export async function aiGenerateCupLabel(
-  prompt: string,
-  sourceImageBase64?: string,
-): Promise<AiGenerateResult> {
-  const trimmed = prompt.trim()
+export async function submitAiCupLabel(args: {
+  slotKey: string
+  prompt: string
+  sourceImageBase64?: string
+}): Promise<AiSubmitResult> {
+  const trimmed = args.prompt.trim()
   if (trimmed.length === 0) throw new Error('Prompt is empty')
+  if (!args.slotKey) throw new Error('slotKey is required')
 
   const res = await apiFetch<{
     ok: boolean
     aiDoodleId?: string
-    previewUrl?: string
+    status?: 'pending' | 'ready' | 'failed'
+    reused?: boolean
     error?: string
-  }>('/api/cup-label/ai-generate', {
+  }>('/api/cup-label/ai-submit', {
     method: 'POST',
-    body: JSON.stringify({ prompt: trimmed, sourceImageBase64 }),
+    body: JSON.stringify({
+      slotKey: args.slotKey,
+      prompt: trimmed,
+      sourceImageBase64: args.sourceImageBase64,
+    }),
   })
 
-  if (!res.ok || !res.aiDoodleId || !res.previewUrl) {
-    throw new Error(res.error ?? 'AI generation failed')
+  if (!res.ok || !res.aiDoodleId) {
+    throw new Error(res.error ?? 'AI submit failed')
   }
-  return { aiDoodleId: res.aiDoodleId, previewUrl: res.previewUrl }
+  return {
+    aiDoodleId: res.aiDoodleId,
+    status: res.status ?? 'pending',
+    reused: res.reused ?? false,
+  }
 }

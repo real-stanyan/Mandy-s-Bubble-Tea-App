@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SvgXml } from 'react-native-svg'
 import { DoodleCanvas } from './DoodleCanvas'
-import { aiGenerateCupLabel } from '@/lib/doodle/aiGenerate'
+import { submitAiCupLabel } from '@/lib/doodle/aiGenerate'
 import { pickAndUploadImage, pickImageBase64 } from '@/lib/doodle/uploadImage'
 import type { DoodleSlot, SvgPath } from '@/lib/doodle/cartToSlots'
 import { POOL } from '@/lib/doodle/pool'
@@ -124,34 +124,45 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
       uploadedPreviewUrl: null,
     })
 
-  const handleAiGenerate = async () => {
+  // Slot-keying must match the server-side enqueue:
+  //   `${clientLineId}:${cupIdx}` (see web's lib/cup-label/client-line-id.ts).
+  // App's cartToSlots names this `lineId` but it's the same key shape
+  // (variationId + "::" + sorted modifierIds.join(",")).
+  const slotKey = `${slot.lineId}:${slot.cupIdx}`
+
+  const handleAiSubmit = async () => {
     const prompt = promptDraft.trim()
     if (prompt.length === 0) return
     setAiGenerating(true)
     setAiError(null)
     try {
-      const { aiDoodleId, previewUrl } = await aiGenerateCupLabel(
+      const { aiDoodleId } = await submitAiCupLabel({
+        slotKey,
         prompt,
-        slot.aiSourceDataUri ?? undefined,
-      )
+        sourceImageBase64: slot.aiSourceDataUri ?? undefined,
+      })
       onSlotChange(safeIdx, {
         ...slot,
         userPaths: null,
         aiDoodleId,
-        aiPreviewUrl: previewUrl,
+        // No preview — surprise mode. The image is revealed on the
+        // printed cup label.
+        aiPreviewUrl: null,
         aiPrompt: prompt,
         uploadedDoodleId: null,
         uploadedPreviewUrl: null,
       })
+      // Close the modal so the user can't burn another Doubao call
+      // re-submitting. The card now shows the "Surprise on your cup"
+      // placeholder; to AI another cup, they re-open the modal on
+      // that cup's card.
+      onClose()
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : 'AI generation failed')
+      setAiError(e instanceof Error ? e.message : 'AI submit failed')
     } finally {
       setAiGenerating(false)
     }
   }
-
-  const handleAiClear = () =>
-    onSlotChange(safeIdx, { ...slot, aiDoodleId: null, aiPreviewUrl: null })
 
   const handlePickAiSource = async () => {
     setAiError(null)
@@ -311,75 +322,82 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
 
           {viewTab === 'ai' && (
             <View>
-              <Text style={styles.sectionHint}>Describe what you want. Optionally pin a reference photo.</Text>
-              <TextInput
-                style={styles.aiInput}
-                placeholder="e.g. a sleepy panda holding a boba cup"
-                placeholderTextColor={T.ink2}
-                value={promptDraft}
-                onChangeText={setPromptDraft}
-                editable={!aiGenerating}
-                maxLength={200}
-                multiline
-              />
-              <View style={styles.aiSourceRow}>
-                {slot.aiSourceLocalUri ? (
-                  <>
-                    <Image
-                      source={{ uri: slot.aiSourceLocalUri }}
-                      style={styles.aiSourceThumb}
-                      resizeMode="cover"
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.aiSourceLabel}>Reference image</Text>
-                      <Text style={styles.aiSourceHint}>AI will reshape this with your prompt</Text>
-                    </View>
-                    <Pressable onPress={handleClearAiSource} style={styles.aiSourceRemove}>
-                      <Text style={styles.aiSourceRemoveText}>✕</Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  <Pressable
-                    onPress={handlePickAiSource}
-                    disabled={aiGenerating}
-                    style={[styles.aiSourceAddBtn, aiGenerating && styles.aiGenBtnDisabled]}
-                  >
-                    <Text style={styles.aiSourceAddText}>+ Add reference photo (optional)</Text>
-                  </Pressable>
-                )}
-              </View>
-              <View style={styles.aiActions}>
-                <Pressable
-                  onPress={handleAiGenerate}
-                  disabled={aiGenerating || promptDraft.trim().length === 0}
-                  style={[
-                    styles.aiGenBtn,
-                    (aiGenerating || promptDraft.trim().length === 0) && styles.aiGenBtnDisabled,
-                  ]}
-                >
-                  {aiGenerating ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.aiGenBtnText}>
-                      {slot.aiDoodleId ? 'Regenerate' : 'Generate'}
-                    </Text>
-                  )}
-                </Pressable>
-                {slot.aiDoodleId && (
-                  <Pressable onPress={handleAiClear} style={styles.aiClearBtn}>
-                    <Text style={styles.aiClearBtnText}>Clear</Text>
-                  </Pressable>
-                )}
-              </View>
-              {aiError && <Text style={styles.aiError}>{aiError}</Text>}
-              {slot.aiPreviewUrl && (
-                <View style={styles.aiPreviewWrap}>
-                  <Image
-                    source={{ uri: slot.aiPreviewUrl }}
-                    style={styles.aiPreviewImg}
-                    resizeMode="contain"
-                  />
+              {slot.aiDoodleId ? (
+                // Surprise-mode locked state. Customers see this after
+                // submitting — no preview, no regenerate. The image
+                // is revealed only when the cup label prints. Quota
+                // is enforced server-side (UNIQUE(user_id, slot_key)),
+                // so a "Regenerate" button here wouldn't actually
+                // re-charge Doubao — but its absence also stops the
+                // customer expecting iteration.
+                <View style={styles.aiSubmittedCard}>
+                  <Text style={styles.aiSubmittedTitle}>✨ Submitted</Text>
+                  <Text style={styles.aiSubmittedPrompt} numberOfLines={3}>
+                    "{slot.aiPrompt ?? ''}"
+                  </Text>
+                  <Text style={styles.aiSubmittedHint}>
+                    Surprise on your cup — image generated in the background and revealed when the cup is printed.
+                  </Text>
                 </View>
+              ) : (
+                <>
+                  <Text style={styles.sectionHint}>
+                    Describe what you want. Optionally pin a reference photo. One AI image per cup — image is revealed on the printed cup, no preview.
+                  </Text>
+                  <TextInput
+                    style={styles.aiInput}
+                    placeholder="e.g. a sleepy panda holding a boba cup"
+                    placeholderTextColor={T.ink2}
+                    value={promptDraft}
+                    onChangeText={setPromptDraft}
+                    editable={!aiGenerating}
+                    maxLength={200}
+                    multiline
+                  />
+                  <View style={styles.aiSourceRow}>
+                    {slot.aiSourceLocalUri ? (
+                      <>
+                        <Image
+                          source={{ uri: slot.aiSourceLocalUri }}
+                          style={styles.aiSourceThumb}
+                          resizeMode="cover"
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.aiSourceLabel}>Reference image</Text>
+                          <Text style={styles.aiSourceHint}>AI will reshape this with your prompt</Text>
+                        </View>
+                        <Pressable onPress={handleClearAiSource} style={styles.aiSourceRemove}>
+                          <Text style={styles.aiSourceRemoveText}>✕</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <Pressable
+                        onPress={handlePickAiSource}
+                        disabled={aiGenerating}
+                        style={[styles.aiSourceAddBtn, aiGenerating && styles.aiGenBtnDisabled]}
+                      >
+                        <Text style={styles.aiSourceAddText}>+ Add reference photo (optional)</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <View style={styles.aiActions}>
+                    <Pressable
+                      onPress={handleAiSubmit}
+                      disabled={aiGenerating || promptDraft.trim().length === 0}
+                      style={[
+                        styles.aiGenBtn,
+                        (aiGenerating || promptDraft.trim().length === 0) && styles.aiGenBtnDisabled,
+                      ]}
+                    >
+                      {aiGenerating ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.aiGenBtnText}>Submit</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                  {aiError && <Text style={styles.aiError}>{aiError}</Text>}
+                </>
               )}
             </View>
           )}
@@ -562,6 +580,22 @@ const styles = StyleSheet.create({
   aiPreviewImg: {
     width: 240, height: 240, borderRadius: RADIUS.small,
     backgroundColor: '#fff', borderWidth: 1, borderColor: T.line,
+  },
+  aiSubmittedCard: {
+    padding: 20, borderRadius: RADIUS.small,
+    backgroundColor: T.paper, borderWidth: 1, borderColor: T.line,
+    alignItems: 'center', gap: 12,
+  },
+  aiSubmittedTitle: {
+    fontFamily: FONT.serif, fontSize: 24, fontWeight: '700', color: T.brand,
+  },
+  aiSubmittedPrompt: {
+    fontFamily: FONT.sans, fontSize: 14, fontStyle: 'italic',
+    color: T.ink, textAlign: 'center', maxWidth: 280,
+  },
+  aiSubmittedHint: {
+    fontFamily: FONT.sans, fontSize: 12, color: T.ink2,
+    textAlign: 'center', maxWidth: 280,
   },
   presetGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 10,

@@ -27,8 +27,17 @@ function pathsToInlineSvg(paths: SvgPath[]): string {
 }
 
 function CupPreview({ slot }: { slot: DoodleSlot }) {
-  if (slot.aiPreviewUrl) {
-    return <Image source={{ uri: slot.aiPreviewUrl }} style={styles.preview} resizeMode="cover" />
+  // AI submissions are surprise-mode — no preview image, just a
+  // sparkle placeholder. The aiDoodleId is set as soon as /ai-submit
+  // returns; the actual Doubao result is revealed only on the
+  // printed cup.
+  if (slot.aiDoodleId) {
+    return (
+      <View style={[styles.preview, styles.surprisePreview]}>
+        <Text style={styles.surpriseEmoji}>✨</Text>
+        <Text style={styles.surpriseLabel}>Surprise{'\n'}on your cup</Text>
+      </View>
+    )
   }
   if (slot.uploadedPreviewUrl) {
     return (
@@ -147,6 +156,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  surprisePreview: {
+    backgroundColor: T.paper,
+    gap: 4,
+  },
+  surpriseEmoji: {
+    fontSize: 32,
+  },
+  surpriseLabel: {
+    fontFamily: FONT.sans,
+    fontSize: 11,
+    fontWeight: '700',
+    color: T.brand,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   cupName: {
     fontFamily: FONT.sans,
