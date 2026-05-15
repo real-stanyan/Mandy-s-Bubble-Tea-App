@@ -23,10 +23,18 @@ export async function submitAiCupLabel(args: {
   slotKey: string
   prompt: string
   sourceImageBase64?: string
+  /**
+   * Cart-session id from the local cart store. Scoping the server-side
+   * 1×/slot quota to this id is what stops a fresh cart from inheriting
+   * the AI image of a previous cart for the same drink+modifier combo
+   * — see web /api/cup-label/ai-submit.
+   */
+  cartSessionId: string
 }): Promise<AiSubmitResult> {
   const trimmed = args.prompt.trim()
   if (trimmed.length === 0) throw new Error('Prompt is empty')
   if (!args.slotKey) throw new Error('slotKey is required')
+  if (!args.cartSessionId) throw new Error('cartSessionId is required')
 
   const res = await apiFetch<{
     ok: boolean
@@ -40,6 +48,7 @@ export async function submitAiCupLabel(args: {
       slotKey: args.slotKey,
       prompt: trimmed,
       sourceImageBase64: args.sourceImageBase64,
+      cartSessionId: args.cartSessionId,
     }),
   })
 

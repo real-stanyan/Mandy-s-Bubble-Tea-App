@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SvgXml } from 'react-native-svg'
 import { DoodleCanvas } from './DoodleCanvas'
 import { submitAiCupLabel } from '@/lib/doodle/aiGenerate'
+import { useCartStore } from '@/store/cart'
 import { pickAndUploadImage, pickImageBase64 } from '@/lib/doodle/uploadImage'
 import type { DoodleSlot, SvgPath } from '@/lib/doodle/cartToSlots'
 import { POOL } from '@/lib/doodle/pool'
@@ -130,6 +131,8 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   // (variationId + "::" + sorted modifierIds.join(",")).
   const slotKey = `${slot.lineId}:${slot.cupIdx}`
 
+  const ensureCartSessionId = useCartStore((s) => s.ensureCartSessionId)
+
   const handleAiSubmit = async () => {
     const prompt = promptDraft.trim()
     if (prompt.length === 0) return
@@ -140,6 +143,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
         slotKey,
         prompt,
         sourceImageBase64: slot.aiSourceDataUri ?? undefined,
+        cartSessionId: ensureCartSessionId(),
       })
       onSlotChange(safeIdx, {
         ...slot,
