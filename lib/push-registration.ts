@@ -13,8 +13,19 @@ export type PushRegistrationResult =
   | { ok: true; token: string }
   | { ok: false; reason: 'not-physical-device' | 'denied' | 'unsupported-platform' | 'error'; detail?: string }
 
+async function ensureAndroidChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'Order updates',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#C43A10',
+    sound: 'default',
+  })
+}
+
 export async function registerForPushAndUpload(): Promise<PushRegistrationResult> {
-  if (Platform.OS !== 'ios') {
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
     return { ok: false, reason: 'unsupported-platform' }
   }
   if (!Device.isDevice) {
@@ -22,6 +33,8 @@ export async function registerForPushAndUpload(): Promise<PushRegistrationResult
   }
 
   try {
+    await ensureAndroidChannel()
+
     const existing = await Notifications.getPermissionsAsync()
     let status = existing.status
     if (status !== 'granted') {
@@ -39,7 +52,11 @@ export async function registerForPushAndUpload(): Promise<PushRegistrationResult
 
     await apiFetch<{ ok: true }>('/api/device-push-token', {
       method: 'POST',
-      body: JSON.stringify({ token, platform: 'ios', appVersion: APP_VERSION }),
+      body: JSON.stringify({
+        token,
+        platform: Platform.OS,
+        appVersion: APP_VERSION,
+      }),
     })
 
     return { ok: true, token }
@@ -51,7 +68,7 @@ export async function registerForPushAndUpload(): Promise<PushRegistrationResult
 }
 
 export async function revokeCurrentPushToken(): Promise<void> {
-  if (Platform.OS !== 'ios') return
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') return
   if (!Device.isDevice) return
   try {
     const tokenResp = await Notifications.getExpoPushTokenAsync(
