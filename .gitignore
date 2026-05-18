@@ -38,8 +38,13 @@ yarn-error.*
 
 app-example
 
-# generated native folders
-/android
+# Android — commit android/ alongside ios/; ignore only build artifacts
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+android/captures/
 
 # tooling scratch
 .superpowers/
