@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -86,6 +86,11 @@ export default function CheckoutScreen() {
   const { pay, loading: payLoading, error: payError } = usePayment()
 
   const [processing, setProcessing] = useState(false)
+  // Synchronous double-tap guard: React state updates are async, so a fast
+  // second tap can enter handlePay before setProcessing(true) commits and
+  // re-renders the disabled button. The ref flips synchronously and is read
+  // at the very top of handlePay to bail before re-submitting the same nonce.
+  const processingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
 
@@ -221,11 +226,28 @@ export default function CheckoutScreen() {
   }
 
   const handlePay = async () => {
-    if (items.length === 0) return
-    if (!profile) return
+    // Hard lock against double-tap (React state updates are async; a fast
+    // second tap fires before setProcessing(true) commits). Without this,
+    // Square's single-use nonce gets submitted twice → first succeeds → second
+    // returns 400 "Card nonce not found" and the UI shows payment failed even
+    // though the first call already charged the user.
+    if (processingRef.current) return
+    processingRef.current = true
+
+    if (items.length === 0) {
+      processingRef.current = false
+      return
+    }
+    if (!profile) {
+      processingRef.current = false
+      return
+    }
     // Defensive: UI should already have the button disabled, but guard the
     // submit path in case acceptance flips between render and tap.
-    if (!canAcceptOrders().accepting) return
+    if (!canAcceptOrders().accepting) {
+      processingRef.current = false
+      return
+    }
 
     setProcessing(true)
     setError(null)
@@ -299,6 +321,7 @@ export default function CheckoutScreen() {
           const msg = sdkErr instanceof Error ? sdkErr.message : String(sdkErr)
           if (msg.includes('cancelled') || msg.includes('canceled')) {
             setProcessing(false)
+            processingRef.current = false
             return
           }
           throw sdkErr
@@ -331,6 +354,7 @@ export default function CheckoutScreen() {
       setPaymentError(message)
     } finally {
       setProcessing(false)
+      processingRef.current = false
     }
   }
 
