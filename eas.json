@@ -19,6 +19,12 @@
       "environment": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://mandybubbletea.com",
+        "EXPO_PUBLIC_SQUARE_APP_ID": "sq0idp-1IOAOYqjBpdqlMPwxWpqXA",
+        "EXPO_PUBLIC_SQUARE_LOCATION_ID": "LFS3V7YRVTGTK",
+        "EXPO_PUBLIC_SQUARE_ENVIRONMENT": "production"
       }
     },
     "production": {
