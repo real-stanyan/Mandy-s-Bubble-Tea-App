@@ -45,8 +45,6 @@ android/.gradle/
 android/local.properties
 android/app/release/
 android/captures/
-# google-services.json canonical lives at repo root; prebuild copies into android/app/ at build time
-android/app/google-services.json
 
 # tooling scratch
 .superpowers/
