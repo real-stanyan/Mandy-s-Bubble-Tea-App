@@ -90,7 +90,10 @@ android {
     namespace 'com.mandysbubbletea.app'
     defaultConfig {
         applicationId 'com.mandysbubbletea.app'
-        minSdkVersion rootProject.ext.minSdkVersion
+        // Square Card Entry SDK 1.6.8 requires minSdkVersion >= 28 (Android 9.0 Pie+).
+        // Overriding Expo SDK 54 default of 24. Android 9+ has ~95% market share in 2026,
+        // so this drops a small tail of legacy users in exchange for Square's CDE / Google Pay path.
+        minSdkVersion 28
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.1.2"
