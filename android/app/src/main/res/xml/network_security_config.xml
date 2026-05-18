@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      Production / cloud traffic stays HTTPS-only by default policy.
+      Cleartext exception below is ONLY for local dev hosts so Pixel on the
+      same Wi-Fi as Mac can hit `http://192.168.x.x:3000` Next.js dev server
+      during T11 Pixel smoke. Remove this exception (and the file itself if
+      empty) before the v1.2.0 Play Store production build to harden.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">192.168.0.116</domain>
+        <domain includeSubdomains="false">192.168.0.82</domain>
+    </domain-config>
+</network-security-config>
