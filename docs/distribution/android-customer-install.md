@@ -52,9 +52,9 @@ Scan the QR code above → opens Chrome → downloads the APK file (~160 MB).
 
 ---
 
-**APK URL:** `<填入 build #5 完成后的 EAS URL>`
-**QR Code PNG:** `~/Downloads/mandys-android-v1-install-qr.png` 或 `~/Desktop/mandys-android-v2-install-qr.png`
-**Build:** Phase A v1.2.0 distribution (TBD commit + EAS build ID)
+**APK URL:** `https://expo.dev/artifacts/eas/a7be3brUg2pt5DWvuR9fzD.apk`
+**QR Code PNG:** `~/Desktop/mandys-android-v1.2.0-install-qr.png` (922 bytes)
+**Build:** Phase A v1.2.0 distribution — commit `da766c8` / EAS build `49bf0305-dc1c-49eb-9529-91408b60dba7`
 **Min Android version:** 9.0 Pie (API 28) — required by Square Card Entry SDK 1.6.8
 **Stores hit:** mandybubbletea.com (Vercel) + Square Production + Supabase Production + Firebase FCM
 
