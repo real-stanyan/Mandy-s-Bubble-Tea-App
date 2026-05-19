@@ -46,19 +46,29 @@ describe('D3 — RN app authed full customer journey [TestBaseline:D3]', () => {
     if (fixture) await fixture.stop()
   })
 
-  it('Home tab renders Mandy\'s Rewards loyalty hero', async () => {
+  it('Home tab renders loyalty hero (Member badge + stars-to-free-drink copy)', async () => {
     await waitFor(element(by.text('Home')).atIndex(0))
       .toBeVisible()
       .withTimeout(30_000)
-    // Loyalty hero text on Home — fresh authed user has 0 stars.
-    await detoxExpect(element(by.text(/MANDY.S REWARDS/i))).toBeVisible()
-    await detoxExpect(element(by.text(/\/ 9 stars/))).toBeVisible()
+    // Loyalty card depends on useLoyalty hook + /api/me data which
+    // arrives ~1-2s after first paint. Use waitFor with generous
+    // timeout instead of expecting immediate visibility.
+    await waitFor(element(by.text('Member')))
+      .toBeVisible()
+      .withTimeout(15_000)
+    // Note: Detox iOS by.text takes string only; regex passed in is
+    // matched as the literal string "/regex/i". Use exact-string copy
+    // from components/account/LoyaltyCard.tsx — fresh user has 0
+    // stars so "9 stars until a free drink" is the rendered copy.
+    await detoxExpect(
+      element(by.text('9 stars until a free drink')),
+    ).toBeVisible()
   })
 
   it('Home tab shows Browse the menu + Hot Picks strips', async () => {
     await detoxExpect(element(by.text('Browse the menu'))).toBeVisible()
     await detoxExpect(
-      element(by.text(/this week.s favourites/i)),
+      element(by.text("This week's favourites")),
     ).toBeVisible()
   })
 
@@ -89,7 +99,7 @@ describe('D3 — RN app authed full customer journey [TestBaseline:D3]', () => {
     // Account shows the same loyalty surface as home — the rewards
     // hero is the canonical authed marker. Sign-out lives below the
     // fold and isn't a reliable anchor without scroll.
-    await detoxExpect(element(by.text(/MANDY.S REWARDS/i))).toBeVisible()
+    await detoxExpect(element(by.text("MANDY'S REWARDS")).atIndex(0)).toBeVisible()
   })
 
   it('My Orders tab loads without crash (empty state acceptable)', async () => {

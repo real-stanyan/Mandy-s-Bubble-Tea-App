@@ -124,6 +124,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // lands on /login's landing stage instead of limping into 'name'.
         if (!json.authed) {
           const { data } = await supabase.auth.getSession()
+          // Detox fixture race guard. When EXPO_PUBLIC_DETOX_FIXTURE_URL
+          // is set (only in local test builds — see lib/supabase.ts
+          // backdoor), an in-flight session injection may land between
+          // apiFetch sending /api/me without bearer (hydrateOnce found
+          // empty storage) and this getSession() read. The original
+          // signOut() then wipes the fresh fixture write before the
+          // next fetchMe can use it. Skip the signOut + leave state
+          // alone — the onAuthStateChange listener fires another
+          // fetchMe with bearer and resolves authed:true on its own.
+          // Production EAS builds never set this env so this branch
+          // is dead code there.
+          const isDetoxFixture = !!process.env.EXPO_PUBLIC_DETOX_FIXTURE_URL
+          if (isDetoxFixture && data.session) {
+            setFetchError(false)
+            return
+          }
           if (data.session) {
             await supabase.auth.signOut()
           }
