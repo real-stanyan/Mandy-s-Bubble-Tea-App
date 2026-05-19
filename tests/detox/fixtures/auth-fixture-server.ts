@@ -1,5 +1,7 @@
 import { createServer, type Server } from 'node:http'
 import { createClient } from '@supabase/supabase-js'
+import { SquareClient, SquareEnvironment } from 'square'
+import { randomUUID } from 'node:crypto'
 
 // Detox auth fixture HTTP server.
 //
@@ -55,32 +57,81 @@ export async function startAuthFixtureServer(
     throw new Error(`detox fixture signIn failed: ${signErr?.message}`)
   }
 
-  // Insert user_profiles row so AuthProvider doesn't bounce back to /login.
-  // The app's AuthProvider treats !profile as not-fully-signed-up.
+  // Create Square sandbox customer. /api/me's profile-completeness gate
+  // returns profile:null when square_customer_id is missing, so this
+  // step is REQUIRED for AuthProvider to route into (tabs) instead of
+  // bouncing back to the firstName/lastName signup stage.
+  const squareToken = process.env.SQUARE_ACCESS_TOKEN!
+  const square = new SquareClient({
+    token: squareToken,
+    environment:
+      process.env.SQUARE_ENVIRONMENT === 'production'
+        ? SquareEnvironment.Production
+        : SquareEnvironment.Sandbox,
+  })
+  const phone = `+6140${Math.floor(Math.random() * 1e7).toString().padStart(7, '0')}`
+  const refId = `detox-d2-${stamp}`
+  const sqCreated = await square.customers.create({
+    givenName: 'Detox',
+    familyName: 'TestUser',
+    emailAddress: email,
+    phoneNumber: phone,
+    referenceId: refId,
+    idempotencyKey: randomUUID(),
+  })
+  const squareCustomerId = sqCreated.customer?.id
+  if (!squareCustomerId) {
+    await admin.auth.admin.deleteUser(userId).catch(() => undefined)
+    throw new Error('Square sandbox customer.create returned no id')
+  }
+
+  // Insert user_profiles row with square_customer_id so /api/me's
+  // gate passes and AuthProvider routes into (tabs).
   const { error: profileErr } = await admin.from('user_profiles').upsert(
     {
       user_id: userId,
+      square_customer_id: squareCustomerId,
       first_name: 'Detox',
       last_name: 'TestUser',
-      phone_e164: `+6140${Math.floor(Math.random() * 1e7).toString().padStart(7, '0')}`,
+      phone_e164: phone,
       signup_channel: 'app',
       square_verified_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
   )
   if (profileErr) {
+    await square.customers.delete({ customerId: squareCustomerId }).catch(() => undefined)
     await admin.auth.admin.deleteUser(userId).catch(() => undefined)
     throw new Error(`detox fixture profile upsert failed: ${profileErr.message}`)
   }
 
+  // Verify the profile actually landed (defensive — early debug showed
+  // /api/me returning profile:null despite upsert returning no error).
+  const { data: verify, error: verifyErr } = await admin
+    .from('user_profiles')
+    .select('user_id, square_customer_id, phone_e164, signup_channel')
+    .eq('user_id', userId)
+    .maybeSingle()
+  // eslint-disable-next-line no-console
+  console.log(
+    '[fixture verify] profile row:',
+    verify ? JSON.stringify(verify) : 'NULL',
+    verifyErr ? `err=${verifyErr.message}` : '',
+  )
+
   const accessToken = session.session.access_token
   const refreshToken = session.session.refresh_token
 
-  // Spin up the HTTP server that the app will hit on launch.
+  // Spin up the HTTP server that the app will hit on launch. Serve
+  // the FULL Supabase session object (including .user) so the app's
+  // AsyncStorage write matches what supabase-js v2 expects to find
+  // on subsequent reloads — missing .user means supabase rejects
+  // the stored session as malformed and clears it on next getSession().
+  const fullSession = session.session
   const server = createServer((req, res) => {
     if (req.url === '/session.json' || req.url === '/') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }))
+      res.end(JSON.stringify(fullSession))
     } else {
       res.writeHead(404)
       res.end()
