@@ -1,8 +1,7 @@
 // components/doodle/DoodleModal.tsx
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -11,14 +10,16 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { Image as RNImage } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SvgXml } from 'react-native-svg'
+import { Image } from 'expo-image'
 import { DoodleCanvas } from './DoodleCanvas'
 import { submitAiCupLabel } from '@/lib/doodle/aiGenerate'
 import { useCartStore } from '@/store/cart'
 import { pickAndUploadImage, pickImageBase64 } from '@/lib/doodle/uploadImage'
 import type { DoodleSlot, SvgPath } from '@/lib/doodle/cartToSlots'
-import { POOL } from '@/lib/doodle/pool'
+import { GALLERY_HASHES, GALLERY_MANIFEST } from '@/lib/doodle/gallery-manifest.generated'
 import { T, FONT, RADIUS } from '@/constants/theme'
 
 interface Props {
@@ -40,22 +41,27 @@ const TABS: Array<{ key: Tab; label: string; emoji: string }> = [
   { key: 'photo', label: 'Photo', emoji: '📷' },
 ]
 
-/** Which mode's result the cup will actually print, derived purely from slot data. */
+/** Which mode's result the cup will actually print, derived from selection union. */
 function activeModeFor(slot: DoodleSlot): Tab {
-  if (slot.aiDoodleId) return 'ai'
-  if (slot.uploadedDoodleId) return 'photo'
-  if ((slot.userPaths?.length ?? 0) > 0) return 'draw'
+  const kind = slot.selection.kind
+  if (kind === 'ai') return 'ai'
+  if (kind === 'photo') return 'photo'
+  if (kind === 'draw') return 'draw'
   return 'preset'
 }
 
 function activeSummary(slot: DoodleSlot, active: Tab): string {
   if (active === 'ai') {
-    const p = (slot.aiPrompt ?? '').slice(0, 32)
-    return `✨ AI · ${p}${(slot.aiPrompt?.length ?? 0) > 32 ? '…' : ''}`
+    const s = slot.selection
+    const prompt = s.kind === 'ai' ? s.prompt : ''
+    const p = prompt.slice(0, 32)
+    return `✨ AI · ${p}${prompt.length > 32 ? '…' : ''}`
   }
   if (active === 'photo') return '📷 Your photo'
   if (active === 'draw') return '✏️ Your drawing'
-  return `🎨 ${slot.defaultKey}`
+  const s = slot.selection
+  const hash = s.kind === 'preset' ? s.hash : ''
+  return `🎨 ${hash.slice(0, 8)}`
 }
 
 export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChange }: Props) {
@@ -71,13 +77,17 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   const [brush, setBrush] = useState<(typeof BRUSHES)[number]>(6)
   const [scrollEnabled, setScrollEnabled] = useState(true)
 
-  // AI + upload local UI state. Prompt draft mirrors slot.aiPrompt and
+  // AI + upload local UI state. Prompt draft mirrors slot.selection.prompt and
   // resets on cup-nav so each cup feels independent.
   const [promptDraft, setPromptDraft] = useState<string>('')
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+
+  // AI source image local URI — transient UI state (not persisted in cart selection)
+  const [aiSourceLocalUri, setAiSourceLocalUri] = useState<string | null>(null)
+  const [aiSourceDataUri, setAiSourceDataUri] = useState<string | null>(null)
 
   // Which tab the user is *viewing* — independent of `activeMode` (what
   // the cup will actually print). User action in a tab implicitly
@@ -87,75 +97,70 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
 
   if (slots.length === 0) return null
   const safeIdx = Math.min(Math.max(idx, 0), slots.length - 1)
-  const slot = slots[safeIdx]
-  const paths = slot.userPaths ?? []
+  const slot = slots[safeIdx]!
   const activeMode = useMemo(() => activeModeFor(slot), [slot])
+
+  // Extract draw paths from selection (draw tab needs them)
+  const paths: SvgPath[] =
+    slot.selection.kind === 'draw' ? slot.selection.paths : []
+
+  // Cart store actions
+  const setLabel = useCartStore((s) => s.setLabel)
+  const ensureCartSessionId = useCartStore((s) => s.ensureCartSessionId)
 
   // When the active slot changes, reset transient UI state and snap the
   // view tab to whatever the cup's currently using.
   useEffect(() => {
-    setPromptDraft(slot.aiPrompt ?? '')
+    const s = slot.selection
+    setPromptDraft(s.kind === 'ai' ? s.prompt : '')
     setAiError(null)
     setUploadError(null)
+    setAiSourceLocalUri(null)
+    setAiSourceDataUri(null)
     setViewTab(activeModeFor(slot))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safeIdx])
 
   const setPaths = (next: SvgPath[]) => {
-    onSlotChange(safeIdx, {
-      ...slot,
-      userPaths: next,
-      aiDoodleId: null,
-      aiPreviewUrl: null,
-      uploadedDoodleId: null,
-      uploadedPreviewUrl: null,
+    setLabel(slot.cupKey, {
+      kind: 'draw',
+      userDoodleId: slot.selection.kind === 'draw' ? slot.selection.userDoodleId : null,
+      pathCount: next.length,
+      paths: next,
     })
+    setViewTab('draw')
   }
 
   const handleUndo = () => setPaths(paths.slice(0, -1))
   const handleClear = () => setPaths([])
-  const handlePickPreset = (key: string) =>
-    onSlotChange(safeIdx, {
-      ...slot,
-      userPaths: null,
-      defaultKey: key,
-      aiDoodleId: null,
-      aiPreviewUrl: null,
-      uploadedDoodleId: null,
-      uploadedPreviewUrl: null,
-    })
+
+  const handlePickPreset = useCallback((hash: string) => {
+    setLabel(slot.cupKey, { kind: 'preset', hash })
+    // Close picker on select — mirrors UX on other tabs
+    onClose()
+  }, [setLabel, slot.cupKey, onClose])
 
   // Slot-keying must match the server-side enqueue:
   //   `${clientLineId}:${cupIdx}` (see web's lib/cup-label/client-line-id.ts).
   // App's cartToSlots names this `lineId` but it's the same key shape
   // (variationId + "::" + sorted modifierIds.join(",")).
-  const slotKey = `${slot.lineId}:${slot.cupIdx}`
-
-  const ensureCartSessionId = useCartStore((s) => s.ensureCartSessionId)
+  const slotKey = slot.cupKey
 
   const handleAiSubmit = async () => {
     const prompt = promptDraft.trim()
     if (prompt.length === 0) return
     setAiGenerating(true)
     setAiError(null)
+    // Optimistically write pending AI selection
+    setLabel(slot.cupKey, { kind: 'ai', aiDoodleId: null, prompt })
     try {
       const { aiDoodleId } = await submitAiCupLabel({
         slotKey,
         prompt,
-        sourceImageBase64: slot.aiSourceDataUri ?? undefined,
+        sourceImageBase64: aiSourceDataUri ?? undefined,
         cartSessionId: ensureCartSessionId(),
       })
-      onSlotChange(safeIdx, {
-        ...slot,
-        userPaths: null,
-        aiDoodleId,
-        // No preview — surprise mode. The image is revealed on the
-        // printed cup label.
-        aiPreviewUrl: null,
-        aiPrompt: prompt,
-        uploadedDoodleId: null,
-        uploadedPreviewUrl: null,
-      })
+      setLabel(slot.cupKey, { kind: 'ai', aiDoodleId, prompt })
       // Close the modal so the user can't burn another Doubao call
       // re-submitting. The card now shows the "Surprise on your cup"
       // placeholder; to AI another cup, they re-open the modal on
@@ -163,6 +168,8 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
       onClose()
     } catch (e) {
       setAiError(e instanceof Error ? e.message : 'AI submit failed')
+      // Revert optimistic write on failure
+      setLabel(slot.cupKey, slot.selection)
     } finally {
       setAiGenerating(false)
     }
@@ -173,18 +180,17 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
     try {
       const picked = await pickImageBase64()
       if (!picked) return
-      onSlotChange(safeIdx, {
-        ...slot,
-        aiSourceDataUri: picked.dataUri,
-        aiSourceLocalUri: picked.localUri,
-      })
+      setAiSourceDataUri(picked.dataUri)
+      setAiSourceLocalUri(picked.localUri)
     } catch (e) {
       setAiError(e instanceof Error ? e.message : 'Picking reference image failed')
     }
   }
 
-  const handleClearAiSource = () =>
-    onSlotChange(safeIdx, { ...slot, aiSourceDataUri: null, aiSourceLocalUri: null })
+  const handleClearAiSource = () => {
+    setAiSourceDataUri(null)
+    setAiSourceLocalUri(null)
+  }
 
   const handlePickPhoto = async () => {
     setUploading(true)
@@ -192,14 +198,12 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
     try {
       const picked = await pickAndUploadImage()
       if (!picked) return
-      onSlotChange(safeIdx, {
-        ...slot,
-        userPaths: null,
-        aiDoodleId: null,
-        aiPreviewUrl: null,
+      setLabel(slot.cupKey, {
+        kind: 'photo',
         uploadedDoodleId: picked.uploadedDoodleId,
-        uploadedPreviewUrl: picked.previewUrl,
+        previewUrl: picked.previewUrl,
       })
+      onClose()
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
     } finally {
@@ -207,13 +211,35 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
     }
   }
 
-  const handleUploadClear = () =>
-    onSlotChange(safeIdx, { ...slot, uploadedDoodleId: null, uploadedPreviewUrl: null })
+  const handleUploadClear = () => {
+    // Revert to deterministic preset default by clearing to a preset
+    const s = slot.selection
+    if (s.kind === 'photo') {
+      // Remove photo — parent DoodleSection will re-derive default via cartToSlots
+      // For now, reset to the slot's current hash if it was previously a preset,
+      // or keep as-is and let the parent handle re-default on next render.
+      // The simplest safe action: go back to a preset with an empty placeholder.
+      // The cart store doesn't have a clearLabel here, but we can set a fresh preset.
+      // We don't have the deterministic hash here — caller/parent will re-derive.
+      // Use slot.cupKey to clear back to kind:'preset' with hash from GALLERY_HASHES[0].
+      // This is acceptable: cartToSlots will recompute the deterministic default
+      // the next time the parent re-derives slots from cart state.
+      setLabel(slot.cupKey, { kind: 'preset', hash: GALLERY_HASHES[0]! })
+    }
+  }
 
   const handleDone = () => onClose()
 
   const goPrev = () => setIdx(Math.max(0, safeIdx - 1))
   const goNext = () => setIdx(Math.min(slots.length - 1, safeIdx + 1))
+
+  // Derive photo display values from selection
+  const photoUploadedId = slot.selection.kind === 'photo' ? slot.selection.uploadedDoodleId : null
+  const photoPreviewUrl = slot.selection.kind === 'photo' ? slot.selection.previewUrl : null
+
+  // Derive AI display values from selection
+  const aiDoodleId = slot.selection.kind === 'ai' ? slot.selection.aiDoodleId : null
+  const aiPrompt = slot.selection.kind === 'ai' ? slot.selection.prompt : ''
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
@@ -272,17 +298,21 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
         >
           {viewTab === 'preset' && (
             <View>
-              <Text style={styles.sectionHint}>Tap a tile — it prints when no drawing / AI / photo is set.</Text>
+              <Text style={styles.sectionHint}>Tap a tile to set this cup's label.</Text>
               <View style={styles.presetGrid}>
-                {POOL.map(item => {
-                  const selected = slot.defaultKey === item.key
+                {GALLERY_HASHES.map((hash) => {
+                  const selected = slot.selection.kind === 'preset' && slot.selection.hash === hash
                   return (
                     <Pressable
-                      key={item.key}
-                      onPress={() => handlePickPreset(item.key)}
+                      key={hash}
+                      onPress={() => handlePickPreset(hash)}
                       style={[styles.presetTile, selected && styles.presetTileActive]}
                     >
-                      <SvgXml xml={item.svg} width="100%" height="100%" />
+                      <Image
+                        source={GALLERY_MANIFEST[hash]}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="contain"
+                      />
                     </Pressable>
                   )
                 })}
@@ -326,7 +356,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
 
           {viewTab === 'ai' && (
             <View>
-              {slot.aiDoodleId ? (
+              {aiDoodleId ? (
                 // Surprise-mode locked state. Customers see this after
                 // submitting — no preview, no regenerate. The image
                 // is revealed only when the cup label prints. Quota
@@ -337,7 +367,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
                 <View style={styles.aiSubmittedCard}>
                   <Text style={styles.aiSubmittedTitle}>✨ Submitted</Text>
                   <Text style={styles.aiSubmittedPrompt} numberOfLines={3}>
-                    "{slot.aiPrompt ?? ''}"
+                    "{aiPrompt}"
                   </Text>
                   <Text style={styles.aiSubmittedHint}>
                     Surprise on your cup — image generated in the background and revealed when the cup is printed.
@@ -359,10 +389,10 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
                     multiline
                   />
                   <View style={styles.aiSourceRow}>
-                    {slot.aiSourceLocalUri ? (
+                    {aiSourceLocalUri ? (
                       <>
-                        <Image
-                          source={{ uri: slot.aiSourceLocalUri }}
+                        <RNImage
+                          source={{ uri: aiSourceLocalUri }}
                           style={styles.aiSourceThumb}
                           resizeMode="cover"
                         />
@@ -418,15 +448,15 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <Text style={styles.aiGenBtnText}>
-                    {slot.uploadedDoodleId ? 'Pick another photo' : 'Pick from library'}
+                    {photoUploadedId ? 'Pick another photo' : 'Pick from library'}
                   </Text>
                 )}
               </Pressable>
               {uploadError && <Text style={styles.aiError}>{uploadError}</Text>}
-              {slot.uploadedPreviewUrl && (
+              {photoPreviewUrl && (
                 <View style={styles.aiPreviewWrap}>
-                  <Image
-                    source={{ uri: slot.uploadedPreviewUrl }}
+                  <RNImage
+                    source={{ uri: photoPreviewUrl }}
                     style={styles.aiPreviewImg}
                     resizeMode="contain"
                   />
@@ -605,9 +635,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: 10,
   },
   presetTile: {
-    width: '30%', aspectRatio: 1, borderRadius: RADIUS.small,
+    width: '23%', aspectRatio: 1, borderRadius: RADIUS.small,
     backgroundColor: '#fff', borderWidth: 2, borderColor: T.line,
-    alignItems: 'center', justifyContent: 'center', padding: 6,
+    alignItems: 'center', justifyContent: 'center', padding: 4,
   },
   presetTileActive: {
     borderColor: T.brand, borderWidth: 2.5, backgroundColor: T.paper,
