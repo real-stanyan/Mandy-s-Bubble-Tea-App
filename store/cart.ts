@@ -2,9 +2,23 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { CartItem, CartModifier } from '@/types/square'
+import type { SvgPath } from '@/lib/doodle/types'
+
+export type CupLabelSelection =
+  | { kind: 'preset'; hash: string }
+  | { kind: 'photo'; uploadedDoodleId: string; previewUrl: string }
+  | { kind: 'draw'; userDoodleId: string | null; pathCount: number; paths: SvgPath[] }
+  | { kind: 'ai'; aiDoodleId: string | null; prompt: string; previewUri?: string }
+
+/** Per-cup key. lineId is `signatureFor` output (uses `::` internally), so
+ *  single-colon separator stays unambiguous and matches web server `slotKey`. */
+export function cupKey(lineId: string, cupIdx: number): string {
+  return `${lineId}:${cupIdx}`
+}
 
 interface CartState {
   items: CartItem[]
+  labelSelections: Record<string, CupLabelSelection>
   // Opaque UUID minted lazily the first time someone needs it. Carries
   // through cart edits and survives app restarts, but is rotated on
   // clearCart() so a fresh shopping session starts with a fresh
@@ -17,10 +31,16 @@ interface CartState {
   removeItem: (lineId: string) => void
   updateQuantity: (lineId: string, quantity: number) => void
   clearCart: () => void
+  /** Alias for clearCart — also wipes labelSelections. */
+  clear: () => void
+  /** Remove a line by lineId and prune its label selections. */
+  removeLine: (lineId: string) => void
   total: () => number
   itemCount: () => number
   /** Returns the session id, generating one if it doesn't exist yet. */
   ensureCartSessionId: () => string
+  setLabel: (cupKey: string, selection: CupLabelSelection) => void
+  clearLabel: (cupKey: string) => void
 }
 
 function newSessionId(): string {
@@ -48,6 +68,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       cartSessionId: null,
+      labelSelections: {} as Record<string, CupLabelSelection>,
 
       addItem: (item) =>
         set((state) => {
@@ -89,7 +110,31 @@ export const useCartStore = create<CartState>()(
           }
         }),
 
-      clearCart: () => set({ items: [], cartSessionId: null }),
+      clearCart: () => set({ items: [], cartSessionId: null, labelSelections: {} }),
+
+      clear: () => set({ items: [], cartSessionId: null, labelSelections: {} }),
+
+      removeLine: (lineId) =>
+        set((s) => {
+          const nextSelections: Record<string, CupLabelSelection> = {}
+          for (const [k, v] of Object.entries(s.labelSelections)) {
+            if (!k.startsWith(`${lineId}:`)) nextSelections[k] = v
+          }
+          return {
+            items: s.items.filter((i) => i.lineId !== lineId),
+            labelSelections: nextSelections,
+          }
+        }),
+
+      setLabel: (key, selection) =>
+        set((s) => ({ labelSelections: { ...s.labelSelections, [key]: selection } })),
+
+      clearLabel: (key) =>
+        set((s) => {
+          const next = { ...s.labelSelections }
+          delete next[key]
+          return { labelSelections: next }
+        }),
 
       total: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
 
@@ -124,3 +169,8 @@ export const useCartStore = create<CartState>()(
     },
   ),
 )
+
+/** Alias exported under the plan-canonical name so new modules can import
+ *  `useCart` while legacy code keeps `useCartStore`. Both reference the same
+ *  store instance. */
+export const useCart = useCartStore
