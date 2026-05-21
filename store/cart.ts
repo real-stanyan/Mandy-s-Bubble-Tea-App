@@ -63,6 +63,35 @@ export function buildLineId(variationId: string, modifiers: CartModifier[]): str
   return `${variationId}::${modKey}`
 }
 
+// Exported for unit testing — see store/cart-migration.test.ts. Returns
+// the post-migration state shape that the persist middleware will hydrate
+// the store with. Keeps the existing v1→v2 normalization (legacy raw
+// `items` get a synthesized lineId) AND adds v2→v3 (initialize
+// labelSelections to {}; v3 inputs pass labelSelections through).
+export function createMigrate(state: unknown, fromVersion: number): CartState {
+  const s = (state ?? {}) as Partial<CartState> & { items?: Partial<CartItem>[] }
+
+  // v1 → v2 normalization (preserved): synthesize lineId on each item.
+  const rawItems = s.items ?? []
+  const items: CartItem[] = rawItems.map((i) => {
+    const modifiers = (i.modifiers ?? []) as CartModifier[]
+    const lineId = i.lineId ?? buildLineId(i.variationId ?? '', modifiers)
+    return { ...i, modifiers, lineId } as CartItem
+  })
+
+  // v2 → v3: introduce labelSelections; preserve if v3 already.
+  const labelSelections =
+    fromVersion >= 3 && s.labelSelections ? s.labelSelections : {}
+
+  return {
+    items,
+    labelSelections,
+    cartSessionId: s.cartSessionId ?? newSessionId(),
+    isOpen: false,
+    hydrated: true,
+  } as unknown as CartState
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
@@ -151,21 +180,8 @@ export const useCartStore = create<CartState>()(
     {
       name: 'mandys-cart',
       storage: createJSONStorage(() => AsyncStorage),
-      // Migrate pre-modifier cart entries so existing sessions don't crash.
-      migrate: (state: unknown) => {
-        const s = state as { items?: Partial<CartItem>[] } | undefined
-        if (!s?.items) return s as CartState
-        return {
-          ...s,
-          items: s.items.map((i) => {
-            const modifiers = (i.modifiers ?? []) as CartModifier[]
-            const lineId =
-              i.lineId ?? buildLineId(i.variationId ?? '', modifiers)
-            return { ...i, modifiers, lineId } as CartItem
-          }),
-        } as CartState
-      },
-      version: 2,
+      migrate: (state, version) => createMigrate(state, version) as CartState,
+      version: 3,
     },
   ),
 )
