@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/api'
-import type { SvgPath } from './cartToSlots'
+import type { SvgPath } from './types'
 
 export interface UploadResult { doodleId: string }
 

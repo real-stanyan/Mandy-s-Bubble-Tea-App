@@ -1,7 +1,8 @@
 import type { CartItem } from '@/types/square'
 import { pickDefaultForCup } from './pool'
 
-export type SvgPath = { d: string; stroke: string; width: number }
+import type { SvgPath } from './types'
+export type { SvgPath } from './types'
 
 export type DoodleSlot = {
   lineId: string
