@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SvgXml } from 'react-native-svg'
+import { Image as ExpoImage } from 'expo-image'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { DoodleModal } from './DoodleModal'
 import type { DoodleSlot, SvgPath } from '@/lib/doodle/cartToSlots'
-import { POOL } from '@/lib/doodle/pool'
+import { GALLERY_MANIFEST } from '@/lib/doodle/gallery-manifest.generated'
 import { T, FONT, RADIUS } from '@/constants/theme'
 
 interface Props {
@@ -27,42 +28,54 @@ function pathsToInlineSvg(paths: SvgPath[]): string {
 }
 
 function CupPreview({ slot }: { slot: DoodleSlot }) {
-  // AI submissions are surprise-mode — no preview image, just a
-  // sparkle placeholder. The aiDoodleId is set as soon as /ai-submit
-  // returns; the actual Doubao result is revealed only on the
-  // printed cup.
-  if (slot.aiDoodleId) {
+  const s = slot.selection
+  if (s.kind === 'preset') {
+    return (
+      <ExpoImage
+        source={GALLERY_MANIFEST[s.hash]}
+        style={styles.preview}
+        contentFit="contain"
+      />
+    )
+  }
+  if (s.kind === 'photo') {
+    return (
+      <Image source={{ uri: s.previewUrl }} style={styles.preview} resizeMode="cover" />
+    )
+  }
+  if (s.kind === 'ai') {
+    // AI submissions are surprise-mode — no preview image until generation
+    // completes. The actual Doubao result is revealed only on the printed cup.
+    if (s.previewUri) {
+      return <Image source={{ uri: s.previewUri }} style={styles.preview} resizeMode="cover" />
+    }
+    if (s.aiDoodleId) {
+      return (
+        <View style={[styles.preview, styles.surprisePreview]}>
+          <Text style={styles.surpriseEmoji}>✨</Text>
+          <Text style={styles.surpriseLabel}>Surprise{'\n'}on your cup</Text>
+        </View>
+      )
+    }
     return (
       <View style={[styles.preview, styles.surprisePreview]}>
-        <Text style={styles.surpriseEmoji}>✨</Text>
-        <Text style={styles.surpriseLabel}>Surprise{'\n'}on your cup</Text>
+        <ActivityIndicator />
       </View>
     )
   }
-  if (slot.uploadedPreviewUrl) {
-    return (
-      <Image source={{ uri: slot.uploadedPreviewUrl }} style={styles.preview} resizeMode="cover" />
-    )
-  }
-  if ((slot.userPaths?.length ?? 0) > 0) {
-    return (
-      <View style={styles.preview}>
-        <SvgXml xml={pathsToInlineSvg(slot.userPaths!)} width="100%" height="100%" />
-      </View>
-    )
-  }
-  const preset = POOL.find((p) => p.key === slot.defaultKey) ?? POOL[0]
+  // kind === 'draw'
   return (
     <View style={styles.preview}>
-      <SvgXml xml={preset.svg} width="100%" height="100%" />
+      <SvgXml xml={pathsToInlineSvg(s.paths)} width="100%" height="100%" />
     </View>
   )
 }
 
 function sourceBadge(slot: DoodleSlot): string {
-  if (slot.aiDoodleId) return '✨ AI'
-  if (slot.uploadedDoodleId) return '📷 Photo'
-  if ((slot.userPaths?.length ?? 0) > 0) return '✏️ Drawn'
+  const s = slot.selection
+  if (s.kind === 'ai') return '✨ AI'
+  if (s.kind === 'photo') return '📷 Photo'
+  if (s.kind === 'draw') return '✏️ Drawn'
   return '🎨 Preset'
 }
 
@@ -78,10 +91,7 @@ export function DoodleSection({ slots, onSlotChange }: Props) {
         contentContainerStyle={styles.row}
       >
         {slots.map((slot, i) => {
-          const isCustom =
-            !!slot.aiDoodleId ||
-            !!slot.uploadedDoodleId ||
-            (slot.userPaths?.length ?? 0) > 0
+          const isCustom = slot.selection.kind !== 'preset'
           return (
             <Pressable
               key={`${slot.lineId}:${slot.cupIdx}`}
