@@ -2,7 +2,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { PanResponder, StyleSheet, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
-import type { SvgPath } from '@/lib/doodle/cartToSlots'
+import type { SvgPath } from '@/lib/doodle/types'
 
 // Square 400×400 vector canvas — matches the server-side cup-label middle
 // band geometry (472×472 dots ≈ 40mm × 40mm on a 300 DPI Zebra ZD410).

@@ -38,5 +38,3 @@ export function cartToSlots(
   }
   return slots
 }
-
-export type { SvgPath } from './types' // back-compat re-export (deleted in T14)
