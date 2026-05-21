@@ -15,9 +15,9 @@ describe('planSync', () => {
     const manifest: SyncManifest = { hashes: ['aaa', 'bbb', 'ccc'] }
     const plan = planSync(manifest, '/web/public/cup-label/gallery', '/app/assets/cup-label/gallery')
     expect(plan).toEqual([
-      { from: '/web/public/cup-label/gallery/aaa/preview.png', to: '/app/assets/cup-label/gallery/aaa.png', hash: 'aaa' },
-      { from: '/web/public/cup-label/gallery/bbb/preview.png', to: '/app/assets/cup-label/gallery/bbb.png', hash: 'bbb' },
-      { from: '/web/public/cup-label/gallery/ccc/preview.png', to: '/app/assets/cup-label/gallery/ccc.png', hash: 'ccc' },
+      { from: '/web/public/cup-label/gallery/aaa/color.png', to: '/app/assets/cup-label/gallery/aaa.png', hash: 'aaa' },
+      { from: '/web/public/cup-label/gallery/bbb/color.png', to: '/app/assets/cup-label/gallery/bbb.png', hash: 'bbb' },
+      { from: '/web/public/cup-label/gallery/ccc/color.png', to: '/app/assets/cup-label/gallery/ccc.png', hash: 'ccc' },
     ])
   })
 

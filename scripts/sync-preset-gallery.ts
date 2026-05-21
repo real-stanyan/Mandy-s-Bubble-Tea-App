@@ -3,7 +3,8 @@
 //
 // Sync the web preset-sticker gallery into the app:
 //   1. Read <web-repo>/public/cup-label/gallery/manifest.json
-//   2. Copy each <hash>/preview.png to assets/cup-label/gallery/<hash>.png
+//   2. Copy each <hash>/color.png (color preview, not binarized.png which
+//      is the B&W ZPL print artifact) to assets/cup-label/gallery/<hash>.png
 //   3. Regenerate lib/doodle/gallery-manifest.generated.ts (require map)
 //
 // Default source: ~/Github/mandys_bubble_tea (override via WEB_REPO_PATH).
@@ -34,7 +35,7 @@ export function planSync(
     throw new Error('manifest.hashes must be an array of strings')
   }
   return manifest.hashes.map((hash) => ({
-    from: path.posix.join(webGalleryDir, hash, 'preview.png'),
+    from: path.posix.join(webGalleryDir, hash, 'color.png'),
     to: path.posix.join(appAssetsDir, `${hash}.png`),
     hash,
   }))
