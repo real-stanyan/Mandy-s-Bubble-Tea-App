@@ -44,7 +44,7 @@ export function planSync(
 export function generateManifestModule(hashes: readonly string[]): string {
   const sorted = [...hashes].sort()
   const entries = sorted
-    .map((h) => `  '${h}': require('../assets/cup-label/gallery/${h}.png'),`)
+    .map((h) => `  '${h}': require('../../assets/cup-label/gallery/${h}.png'),`)
     .join('\n')
   const list = sorted.map((h) => `  '${h}',`).join('\n')
 

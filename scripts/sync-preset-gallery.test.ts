@@ -35,9 +35,9 @@ describe('generateManifestModule', () => {
     // Sorted alphabetically for stable diffs
     const reqLines = out.match(/require\('[^']+'\)/g) ?? []
     expect(reqLines).toEqual([
-      "require('../assets/cup-label/gallery/aaa.png')",
-      "require('../assets/cup-label/gallery/mmm.png')",
-      "require('../assets/cup-label/gallery/zzz.png')",
+      "require('../../assets/cup-label/gallery/aaa.png')",
+      "require('../../assets/cup-label/gallery/mmm.png')",
+      "require('../../assets/cup-label/gallery/zzz.png')",
     ])
   })
 
