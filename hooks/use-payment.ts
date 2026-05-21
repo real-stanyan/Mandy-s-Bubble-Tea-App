@@ -5,9 +5,14 @@ interface PaymentParams {
   sourceId?: string
   orderId: string
   verificationToken?: string
-  doodleIds?: Record<string, string>
-  doodleDefaults?: Record<string, string>
+  /** cupKey → hash for preset_sticker selections */
+  presetStickerHashes?: Record<string, string>
+  /** cupKey → uploadedDoodleId for photo selections */
+  uploadedDoodleIds?: Record<string, string>
+  /** cupKey → aiDoodleId for AI selections (server-resolved, never null) */
   aiDoodleIds?: Record<string, string>
+  /** cupKey → userDoodleId for draw selections (server-resolved, never null) */
+  userDoodleIds?: Record<string, string>
 }
 
 interface PaymentResult {
