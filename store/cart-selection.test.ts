@@ -37,7 +37,7 @@ describe('useCart label selections', () => {
     expect(useCart.getState().labelSelections).toEqual({})
   })
 
-  it('removeLine prunes labelSelections matching the lineId prefix', () => {
+  it('removeItem prunes labelSelections matching the lineId prefix', () => {
     useCart.setState({
       items: [{ ...baseItem, lineId: 'LINE_A', quantity: 2 }],
       labelSelections: {
@@ -46,11 +46,29 @@ describe('useCart label selections', () => {
         'LINE_B:0': { kind: 'preset', hash: 'h3' },
       },
     })
-    useCart.getState().removeLine('LINE_A')
+    useCart.getState().removeItem('LINE_A')
     const s = useCart.getState().labelSelections
     expect(s['LINE_A:0']).toBeUndefined()
     expect(s['LINE_A:1']).toBeUndefined()
     expect(s['LINE_B:0']).toEqual({ kind: 'preset', hash: 'h3' })
+  })
+
+  it('updateQuantity prunes labelSelections for cupIdx >= new quantity', () => {
+    useCart.setState({
+      items: [{ ...baseItem, lineId: 'LINE_A', quantity: 3 }],
+      labelSelections: {
+        'LINE_A:0': { kind: 'preset', hash: 'h1' },
+        'LINE_A:1': { kind: 'preset', hash: 'h2' },
+        'LINE_A:2': { kind: 'preset', hash: 'h3' },
+        'LINE_B:0': { kind: 'preset', hash: 'h4' },
+      },
+    })
+    useCart.getState().updateQuantity('LINE_A', 2)
+    const s = useCart.getState().labelSelections
+    expect(s['LINE_A:0']).toEqual({ kind: 'preset', hash: 'h1' })
+    expect(s['LINE_A:1']).toEqual({ kind: 'preset', hash: 'h2' })
+    expect(s['LINE_A:2']).toBeUndefined()
+    expect(s['LINE_B:0']).toEqual({ kind: 'preset', hash: 'h4' })
   })
 })
 

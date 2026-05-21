@@ -46,6 +46,7 @@ import {
 import type { CartItem, CartModifier } from '@/types/square'
 import { cartToSlots, type DoodleSlot } from '@/lib/doodle/cartToSlots'
 import { DoodleSection } from '@/components/doodle/DoodleSection'
+import { uploadDoodle } from '@/lib/doodle/uploadDoodle'
 
 type PayMethod = 'card' | 'apple' | 'google'
 
@@ -328,7 +329,21 @@ export default function CheckoutScreen() {
         }
       }
 
-      const selectionMaps = buildPaymentSelections(labelSelections)
+      // Upload any draw doodles whose paths haven't been persisted yet.
+      // Run all uploads in parallel; abort the whole pay flow if any fails.
+      const drawUploads = slots
+        .filter((slot) => slot.selection.kind === 'draw' && slot.selection.userDoodleId === null && slot.selection.paths.length > 0)
+      if (drawUploads.length > 0) {
+        await Promise.all(
+          drawUploads.map(async (slot) => {
+            const s = slot.selection as Extract<typeof slot.selection, { kind: 'draw' }>
+            const { doodleId } = await uploadDoodle(s.paths)
+            setLabel(slot.cupKey, { ...s, userDoodleId: doodleId })
+          }),
+        )
+      }
+
+      const selectionMaps = buildPaymentSelections(useCartStore.getState().labelSelections)
       const result = await pay({
         sourceId: nonce,
         orderId,

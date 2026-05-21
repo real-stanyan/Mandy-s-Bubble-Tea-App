@@ -33,8 +33,6 @@ interface CartState {
   clearCart: () => void
   /** Alias for clearCart — also wipes labelSelections. */
   clear: () => void
-  /** Remove a line by lineId and prune its label selections. */
-  removeLine: (lineId: string) => void
   total: () => number
   itemCount: () => number
   /** Returns the session id, generating one if it doesn't exist yet. */
@@ -123,37 +121,50 @@ export const useCartStore = create<CartState>()(
         }),
 
       removeItem: (lineId) =>
-        set((state) => ({
-          items: state.items.filter((i) => i.lineId !== lineId),
-        })),
+        set((state) => {
+          const nextSelections: Record<string, CupLabelSelection> = {}
+          for (const [k, v] of Object.entries(state.labelSelections)) {
+            if (!k.startsWith(`${lineId}:`)) nextSelections[k] = v
+          }
+          return {
+            items: state.items.filter((i) => i.lineId !== lineId),
+            labelSelections: nextSelections,
+          }
+        }),
 
       updateQuantity: (lineId, quantity) =>
         set((state) => {
           if (quantity <= 0) {
-            return { items: state.items.filter((i) => i.lineId !== lineId) }
+            const nextSelections: Record<string, CupLabelSelection> = {}
+            for (const [k, v] of Object.entries(state.labelSelections)) {
+              if (!k.startsWith(`${lineId}:`)) nextSelections[k] = v
+            }
+            return {
+              items: state.items.filter((i) => i.lineId !== lineId),
+              labelSelections: nextSelections,
+            }
+          }
+          // Prune label selections for cup indices that no longer exist
+          const nextSelections: Record<string, CupLabelSelection> = {}
+          for (const [k, v] of Object.entries(state.labelSelections)) {
+            if (k.startsWith(`${lineId}:`)) {
+              const cupIdx = parseInt(k.split(':').pop()!, 10)
+              if (cupIdx < quantity) nextSelections[k] = v
+            } else {
+              nextSelections[k] = v
+            }
           }
           return {
             items: state.items.map((i) =>
               i.lineId === lineId ? { ...i, quantity } : i,
             ),
+            labelSelections: nextSelections,
           }
         }),
 
       clearCart: () => set({ items: [], cartSessionId: null, labelSelections: {} }),
 
       clear: () => set({ items: [], cartSessionId: null, labelSelections: {} }),
-
-      removeLine: (lineId) =>
-        set((s) => {
-          const nextSelections: Record<string, CupLabelSelection> = {}
-          for (const [k, v] of Object.entries(s.labelSelections)) {
-            if (!k.startsWith(`${lineId}:`)) nextSelections[k] = v
-          }
-          return {
-            items: s.items.filter((i) => i.lineId !== lineId),
-            labelSelections: nextSelections,
-          }
-        }),
 
       setLabel: (key, selection) =>
         set((s) => ({ labelSelections: { ...s.labelSelections, [key]: selection } })),
