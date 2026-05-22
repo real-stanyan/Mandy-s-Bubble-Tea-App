@@ -14,6 +14,7 @@ import { Image } from 'expo-image'
 import { Stack, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCartStore } from '@/store/cart'
+import { buildPaymentSelections } from '@/lib/doodle/build-payment-selections'
 import { useCreateOrder } from '@/hooks/use-create-order'
 import { usePayment } from '@/hooks/use-payment'
 import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
@@ -43,6 +44,9 @@ import {
   startGooglePayPayment,
 } from '@/lib/square-payment'
 import type { CartItem, CartModifier } from '@/types/square'
+import { cartToSlots, type DoodleSlot } from '@/lib/doodle/cartToSlots'
+import { DoodleSection } from '@/components/doodle/DoodleSection'
+import { uploadDoodle } from '@/lib/doodle/uploadDoodle'
 
 type PayMethod = 'card' | 'apple' | 'google'
 
@@ -70,6 +74,8 @@ export default function CheckoutScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const items = useCartStore((s) => s.items)
+  const labelSelections = useCartStore((s) => s.labelSelections)
+  const setLabel = useCartStore((s) => s.setLabel)
   const total = useCartStore((s) => s.total())
   const clearCart = useCartStore((s) => s.clearCart)
 
@@ -99,6 +105,27 @@ export default function CheckoutScreen() {
     totalCents: number
     starsEarned: number
   } | null>(null)
+
+  const slots = useMemo(
+    () => cartToSlots(items, labelSelections),
+    [items, labelSelections],
+  )
+
+  const handleSlotChange = (_slotIdx: number, next: DoodleSlot) => {
+    setLabel(next.cupKey, next.selection)
+  }
+
+  const allLabeled = useMemo(() => {
+    return slots.every((slot) => {
+      const s = slot.selection
+      if (s.kind === 'ai' && s.aiDoodleId === null) return false
+      // draw with userDoodleId === null is fine — handlePay uploads paths
+      // before submitting payment. Blocking here is a chicken-and-egg:
+      // user can never click Pay to trigger the upload.
+      if (s.kind === 'draw' && s.paths.length === 0) return false
+      return true
+    })
+  }, [slots])
 
   const loyaltyBalance = loyalty?.balance ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
@@ -305,7 +332,26 @@ export default function CheckoutScreen() {
         }
       }
 
-      const result = await pay({ sourceId: nonce, orderId })
+      // Upload any draw doodles whose paths haven't been persisted yet.
+      // Run all uploads in parallel; abort the whole pay flow if any fails.
+      const drawUploads = slots
+        .filter((slot) => slot.selection.kind === 'draw' && slot.selection.userDoodleId === null && slot.selection.paths.length > 0)
+      if (drawUploads.length > 0) {
+        await Promise.all(
+          drawUploads.map(async (slot) => {
+            const s = slot.selection as Extract<typeof slot.selection, { kind: 'draw' }>
+            const { doodleId } = await uploadDoodle(s.paths)
+            setLabel(slot.cupKey, { ...s, userDoodleId: doodleId })
+          }),
+        )
+      }
+
+      const selectionMaps = buildPaymentSelections(useCartStore.getState().labelSelections)
+      const result = await pay({
+        sourceId: nonce,
+        orderId,
+        ...selectionMaps,
+      })
 
       // Save order items for track/history screens before clearing cart
       await AsyncStorage.setItem('mbt:lastOrder:items', JSON.stringify(items))
@@ -336,7 +382,7 @@ export default function CheckoutScreen() {
 
   const isLoading = orderLoading || payLoading || processing
   const acceptance = useOrderAcceptance()
-  const payDisabled = isLoading || !acceptance.accepting
+  const payDisabled = isLoading || !acceptance.accepting || !allLabeled
 
   if (authLoading && !profile) {
     return (
@@ -388,6 +434,7 @@ export default function CheckoutScreen() {
         <InlineHeader onBack={handleBack} total={displayedTotal} />
         <StoreBlock />
         <PickupTimeBlock />
+        <DoodleSection slots={slots} onSlotChange={handleSlotChange} />
         <OrderItemsBlock items={items} />
         <RewardsBlock
           stars={loyaltyBalance}
