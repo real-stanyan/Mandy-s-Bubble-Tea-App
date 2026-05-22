@@ -8,12 +8,11 @@ describe('buildPaymentSelections', () => {
       'A:1': { kind: 'preset', hash: 'h2' },
     })
     expect(r.presetStickerHashes).toEqual({ 'A:0': 'h1', 'A:1': 'h2' })
-    expect(r.uploadedDoodleIds).toEqual({})
     expect(r.aiDoodleIds).toEqual({})
-    expect(r.userDoodleIds).toEqual({})
+    expect(r.doodleIds).toEqual({})
   })
 
-  it('mixed kinds → 4 maps each populated correctly', () => {
+  it('mixed kinds → 3 maps each populated correctly (photo merges into aiDoodleIds)', () => {
     const r = buildPaymentSelections({
       'A:0': { kind: 'preset', hash: 'h1' },
       'A:1': { kind: 'photo', uploadedDoodleId: 'up-1', previewUrl: 'p1' },
@@ -21,9 +20,9 @@ describe('buildPaymentSelections', () => {
       'B:1': { kind: 'draw', userDoodleId: 'd-1', pathCount: 3, paths: [] },
     } as Record<string, CupLabelSelection>)
     expect(r.presetStickerHashes).toEqual({ 'A:0': 'h1' })
-    expect(r.uploadedDoodleIds).toEqual({ 'A:1': 'up-1' })
-    expect(r.aiDoodleIds).toEqual({ 'B:0': 'ai-1' })
-    expect(r.userDoodleIds).toEqual({ 'B:1': 'd-1' })
+    // photo + ai BOTH go into aiDoodleIds — server treats them identically
+    expect(r.aiDoodleIds).toEqual({ 'A:1': 'up-1', 'B:0': 'ai-1' })
+    expect(r.doodleIds).toEqual({ 'B:1': 'd-1' })
   })
 
   it('AI pending (aiDoodleId === null) → not included in aiDoodleIds', () => {
@@ -33,18 +32,17 @@ describe('buildPaymentSelections', () => {
     expect(r.aiDoodleIds).toEqual({})
   })
 
-  it('draw pending (userDoodleId === null) → not included in userDoodleIds', () => {
+  it('draw pending (userDoodleId === null) → not included in doodleIds', () => {
     const r = buildPaymentSelections({
       'A:0': { kind: 'draw', userDoodleId: null, pathCount: 0, paths: [] },
     })
-    expect(r.userDoodleIds).toEqual({})
+    expect(r.doodleIds).toEqual({})
   })
 
-  it('empty selections → all 4 maps empty', () => {
+  it('empty selections → all 3 maps empty', () => {
     const r = buildPaymentSelections({})
     expect(r.presetStickerHashes).toEqual({})
-    expect(r.uploadedDoodleIds).toEqual({})
     expect(r.aiDoodleIds).toEqual({})
-    expect(r.userDoodleIds).toEqual({})
+    expect(r.doodleIds).toEqual({})
   })
 })

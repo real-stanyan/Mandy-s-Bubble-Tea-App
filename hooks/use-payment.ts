@@ -1,25 +1,35 @@
 import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
 
+// Mirror web /api/payment PaymentBody:
+//   ~/Github/mandys_bubble_tea/src/app/api/payment/route.ts
+// Field names MUST match — server's isValidBody silently drops unknown
+// fields (no schema error), which masks bugs as "tarot fallback printed
+// instead of user's cup label". Don't invent new field names here without
+// adding them to the web route first.
 interface PaymentParams {
   sourceId?: string
   orderId: string
   verificationToken?: string
-  /** cupKey → hash for preset_sticker selections */
+  /** cupKey → md5/named hash from public/cup-label/gallery */
   presetStickerHashes?: Record<string, string>
-  /** cupKey → uploadedDoodleId for photo selections */
-  uploadedDoodleIds?: Record<string, string>
-  /** cupKey → aiDoodleId for AI selections (server-resolved, never null) */
+  /** cupKey → aiDoodleId. Server treats photo uploads and AI generations
+   *  identically — both land here as pre-uploaded image references. */
   aiDoodleIds?: Record<string, string>
-  /** cupKey → userDoodleId for draw selections (server-resolved, never null) */
-  userDoodleIds?: Record<string, string>
+  /** cupKey → doodleId for drawn doodles (uploaded via /api/doodle/upload) */
+  doodleIds?: Record<string, string>
 }
 
 interface PaymentResult {
   ok: boolean
   paymentId?: string
+  status?: string
   loyaltyAccrued?: boolean
   welcomeDiscountConsumed?: boolean
+  welcomeDiscountConsumedCount?: number
+  welcomeDrinksRemaining?: number
+  igFollowDiscountConsumed?: boolean
+  igFollowDrinksRemaining?: number
   payment?: unknown
 }
 
