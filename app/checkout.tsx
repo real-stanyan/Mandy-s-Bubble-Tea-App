@@ -119,7 +119,10 @@ export default function CheckoutScreen() {
     return slots.every((slot) => {
       const s = slot.selection
       if (s.kind === 'ai' && s.aiDoodleId === null) return false
-      if (s.kind === 'draw' && s.userDoodleId === null) return false
+      // draw with userDoodleId === null is fine — handlePay uploads paths
+      // before submitting payment. Blocking here is a chicken-and-egg:
+      // user can never click Pay to trigger the upload.
+      if (s.kind === 'draw' && s.paths.length === 0) return false
       return true
     })
   }, [slots])
