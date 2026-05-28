@@ -11,10 +11,13 @@ import { T, TYPE, RADIUS } from '@/constants/theme';
 // Shown to everyone (no auth gate); gated in index.tsx by
 // FRAGRANCE_BLIND_BOX_PROMO — flip that to retire it.
 
+// Background-removed cut-outs so each hanging tag shows in full on the
+// gradient. w/h preserve each tag's aspect ratio; laid out as a left→right
+// fan (negative marginLeft for a slight overlap) so all three read clearly.
 const TAGS = [
-  { src: require('@/assets/promo/fragrance-tags/cherry.png'), rotate: '-8deg', top: 4, right: 30 },
-  { src: require('@/assets/promo/fragrance-tags/black-opium.png'), rotate: '7deg', top: 42, right: 2 },
-  { src: require('@/assets/promo/fragrance-tags/new-car.png'), rotate: '-4deg', top: 80, right: 34 },
+  { src: require('@/assets/promo/fragrance-tags/black-opium.png'), w: 94, h: 117, rotate: '-10deg', ml: 0, z: 1 },
+  { src: require('@/assets/promo/fragrance-tags/ocean.png'), w: 75, h: 117, rotate: '0deg', ml: -16, z: 3 },
+  { src: require('@/assets/promo/fragrance-tags/crisp-apple.png'), w: 105, h: 117, rotate: '10deg', ml: -16, z: 2 },
 ] as const;
 
 export function FragranceBlindBox() {
@@ -105,28 +108,33 @@ export function FragranceBlindBox() {
             </View>
           </View>
 
-          {/* Fanned blind-box teaser — 3 of the 10 tag designs */}
-          <View style={{ width: 120, position: 'relative' }}>
+          {/* Fanned blind-box teaser — 3 hanging tags, background removed
+              so each shows in full, fanned left→right on the gradient. */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              alignSelf: 'center',
+            }}
+          >
             {TAGS.map((t, i) => (
               <View
                 key={i}
                 style={{
-                  position: 'absolute',
-                  top: t.top,
-                  right: t.right,
+                  marginLeft: t.ml,
+                  zIndex: t.z,
                   transform: [{ rotate: t.rotate }],
-                  borderRadius: 10,
                   shadowColor: 'rgba(42,30,20,1)',
-                  shadowOpacity: 0.25,
-                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.28,
+                  shadowOffset: { width: 0, height: 6 },
                   shadowRadius: 8,
-                  elevation: 4,
+                  elevation: 5,
                 }}
               >
                 <Image
                   source={t.src}
-                  style={{ width: 74, height: 74, borderRadius: 10 }}
-                  contentFit="cover"
+                  style={{ width: t.w, height: t.h }}
+                  contentFit="contain"
                 />
               </View>
             ))}
