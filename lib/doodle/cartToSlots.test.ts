@@ -32,26 +32,19 @@ describe('cartToSlots', () => {
     expect(slots[0]!.selection).toEqual(sel)
   })
 
-  it('fills default preset selection from gallery when none provided', () => {
+  it('leaves selection null (surprise tarot card) when none provided', () => {
+    // Cup labels are optional: an untouched cup carries no selection and the
+    // server prints a random tarot card for it. We must NOT synthesize a
+    // gallery sticker here — doing so made the picker look mandatory and
+    // overrode the tarot fallback.
     const slots = cartToSlots([item({ lineId: 'A', quantity: 1 })], {})
-    expect(slots[0]!.selection?.kind).toBe('preset')
-    if (slots[0]!.selection?.kind === 'preset') {
-      expect(slots[0]!.selection.hash).toMatch(/^[0-9a-f]{32}$|^Screenshot|^sticker_|^hat_/)
-    }
+    expect(slots[0]!.selection).toBeNull()
   })
 
-  it('default is deterministic by lineId+cupIdx', () => {
-    const a = cartToSlots([item({ lineId: 'STABLE', quantity: 1 })], {})
-    const b = cartToSlots([item({ lineId: 'STABLE', quantity: 1 })], {})
-    expect(a[0]!.selection).toEqual(b[0]!.selection)
-  })
-
-  it('different lineIds get (usually) different default hashes', () => {
-    const a = cartToSlots([item({ lineId: 'LINE_A', quantity: 1 })], {})
-    const b = cartToSlots([item({ lineId: 'LINE_B', quantity: 1 })], {})
-    if (a[0]!.selection?.kind === 'preset' && b[0]!.selection?.kind === 'preset') {
-      expect(a[0]!.selection.hash).not.toBe(b[0]!.selection.hash)
-    }
+  it('leaves every untouched cup null, keeps only explicit picks', () => {
+    const sel: CupLabelSelection = { kind: 'preset', hash: 'manual-hash' }
+    const slots = cartToSlots([item({ lineId: 'A', quantity: 3 })], { 'A:1': sel })
+    expect(slots.map((s) => s.selection)).toEqual([null, sel, null])
   })
 
   it('drinkName is preserved from cart item', () => {

@@ -30,6 +30,15 @@ function pathsToInlineSvg(paths: SvgPath[]): string {
 
 function CupPreview({ slot }: { slot: DoodleSlot }) {
   const s = slot.selection
+  if (s === null) {
+    // No pick yet → prints a random surprise tarot card.
+    return (
+      <View style={[styles.preview, styles.surprisePreview]}>
+        <Text style={styles.surpriseEmoji}>🔮</Text>
+        <Text style={styles.surpriseLabel}>Surprise{'\n'}tarot card</Text>
+      </View>
+    )
+  }
   if (s.kind === 'preset') {
     return (
       <ExpoImage
@@ -74,10 +83,11 @@ function CupPreview({ slot }: { slot: DoodleSlot }) {
 
 function sourceBadge(slot: DoodleSlot): string {
   const s = slot.selection
+  if (s === null) return '🔮 Surprise'
   if (s.kind === 'ai') return '✨ AI'
   if (s.kind === 'photo') return '📷 Photo'
   if (s.kind === 'draw') return '✏️ Drawn'
-  return '🎨 Preset'
+  return '🎨 Gallery'
 }
 
 export function DoodleSection({ slots, onSlotChange }: Props) {
@@ -85,14 +95,17 @@ export function DoodleSection({ slots, onSlotChange }: Props) {
   if (slots.length === 0) return null
 
   return (
-    <CardBlock eyebrow="Cup labels" title="Doodle each cup (optional)">
+    <CardBlock eyebrow="Cup labels" title="Optional · surprise me 🔮">
+      <Text style={styles.hint}>
+        Leave a cup as is for a random tarot card 🔮, or tap to choose your own design.
+      </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
       >
         {slots.map((slot, i) => {
-          const isCustom = slot.selection.kind !== 'preset'
+          const isCustom = slot.selection != null
           return (
             <Pressable
               key={`${slot.lineId}:${slot.cupIdx}`}
@@ -124,6 +137,14 @@ export function DoodleSection({ slots, onSlotChange }: Props) {
 }
 
 const styles = StyleSheet.create({
+  hint: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    fontFamily: FONT.sans,
+    fontSize: 12,
+    lineHeight: 16,
+    color: T.ink2,
+  },
   row: { paddingHorizontal: 16, paddingBottom: 14, gap: 10 },
   cup: {
     width: 132,

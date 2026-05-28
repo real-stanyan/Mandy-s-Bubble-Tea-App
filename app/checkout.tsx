@@ -76,6 +76,7 @@ export default function CheckoutScreen() {
   const items = useCartStore((s) => s.items)
   const labelSelections = useCartStore((s) => s.labelSelections)
   const setLabel = useCartStore((s) => s.setLabel)
+  const clearLabel = useCartStore((s) => s.clearLabel)
   const total = useCartStore((s) => s.total())
   const clearCart = useCartStore((s) => s.clearCart)
 
@@ -112,12 +113,15 @@ export default function CheckoutScreen() {
   )
 
   const handleSlotChange = (_slotIdx: number, next: DoodleSlot) => {
-    setLabel(next.cupKey, next.selection)
+    if (next.selection) setLabel(next.cupKey, next.selection)
+    else clearLabel(next.cupKey)
   }
 
   const allLabeled = useMemo(() => {
     return slots.every((slot) => {
       const s = slot.selection
+      // null = surprise tarot card (optional, always fine to pay).
+      if (s === null) return true
       if (s.kind === 'ai' && s.aiDoodleId === null) return false
       // draw with userDoodleId === null is fine — handlePay uploads paths
       // before submitting payment. Blocking here is a chicken-and-egg:
@@ -335,7 +339,7 @@ export default function CheckoutScreen() {
       // Upload any draw doodles whose paths haven't been persisted yet.
       // Run all uploads in parallel; abort the whole pay flow if any fails.
       const drawUploads = slots
-        .filter((slot) => slot.selection.kind === 'draw' && slot.selection.userDoodleId === null && slot.selection.paths.length > 0)
+        .filter((slot) => slot.selection?.kind === 'draw' && slot.selection.userDoodleId === null && slot.selection.paths.length > 0)
       if (drawUploads.length > 0) {
         await Promise.all(
           drawUploads.map(async (slot) => {

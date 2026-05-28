@@ -42,16 +42,21 @@ const TABS: Array<{ key: Tab; label: string; emoji: string }> = [
   { key: 'photo', label: 'Photo', emoji: '📷' },
 ]
 
-/** Which mode's result the cup will actually print, derived from selection union. */
+/** Which mode's result the cup will actually print, derived from selection
+ *  union. `null` selection (surprise) has no active mode — defaults the
+ *  *view* to the gallery tab but no tab is marked active. */
 function activeModeFor(slot: DoodleSlot): Tab {
-  const kind = slot.selection.kind
-  if (kind === 'ai') return 'ai'
-  if (kind === 'photo') return 'photo'
-  if (kind === 'draw') return 'draw'
+  const s = slot.selection
+  if (s === null) return 'preset'
+  if (s.kind === 'ai') return 'ai'
+  if (s.kind === 'photo') return 'photo'
+  if (s.kind === 'draw') return 'draw'
   return 'preset'
 }
 
 function activeSummary(slot: DoodleSlot, active: Tab): string {
+  // No pick yet → prints a random surprise tarot card.
+  if (slot.selection === null) return '🔮 Random tarot card'
   if (active === 'ai') {
     const s = slot.selection
     const prompt = s.kind === 'ai' ? s.prompt : ''
@@ -100,20 +105,22 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   const safeIdx = Math.min(Math.max(idx, 0), slots.length - 1)
   const slot = slots[safeIdx]!
   const activeMode = useMemo(() => activeModeFor(slot), [slot])
+  const isSurprise = slot.selection === null
 
   // Extract draw paths from selection (draw tab needs them)
   const paths: SvgPath[] =
-    slot.selection.kind === 'draw' ? slot.selection.paths : []
+    slot.selection?.kind === 'draw' ? slot.selection.paths : []
 
   // Cart store actions
   const setLabel = useCartStore((s) => s.setLabel)
+  const clearLabel = useCartStore((s) => s.clearLabel)
   const ensureCartSessionId = useCartStore((s) => s.ensureCartSessionId)
 
   // When the active slot changes, reset transient UI state and snap the
   // view tab to whatever the cup's currently using.
   useEffect(() => {
     const s = slot.selection
-    setPromptDraft(s.kind === 'ai' ? s.prompt : '')
+    setPromptDraft(s?.kind === 'ai' ? s.prompt : '')
     setAiError(null)
     setUploadError(null)
     setAiSourceLocalUri(null)
@@ -125,7 +132,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   const setPaths = (next: SvgPath[]) => {
     setLabel(slot.cupKey, {
       kind: 'draw',
-      userDoodleId: slot.selection.kind === 'draw' ? slot.selection.userDoodleId : null,
+      userDoodleId: slot.selection?.kind === 'draw' ? slot.selection.userDoodleId : null,
       pathCount: next.length,
       paths: next,
     })
@@ -140,6 +147,12 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
     // Close picker on select — mirrors UX on other tabs
     onClose()
   }, [setLabel, slot.cupKey, onClose])
+
+  // Drop this cup's pick → it falls back to a random surprise tarot card.
+  const handleSurprise = useCallback(() => {
+    clearLabel(slot.cupKey)
+    onClose()
+  }, [clearLabel, slot.cupKey, onClose])
 
   // Slot-keying must match the server-side enqueue:
   //   `${clientLineId}:${cupIdx}` (see web's lib/cup-label/client-line-id.ts).
@@ -169,8 +182,10 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
       onClose()
     } catch (e) {
       setAiError(e instanceof Error ? e.message : 'AI submit failed')
-      // Revert optimistic write on failure
-      setLabel(slot.cupKey, slot.selection)
+      // Revert optimistic write on failure — back to the prior pick, or
+      // the surprise default if the cup was untouched.
+      if (slot.selection) setLabel(slot.cupKey, slot.selection)
+      else clearLabel(slot.cupKey)
     } finally {
       setAiGenerating(false)
     }
@@ -213,20 +228,8 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   }
 
   const handleUploadClear = () => {
-    // Revert to deterministic preset default by clearing to a preset
-    const s = slot.selection
-    if (s.kind === 'photo') {
-      // Remove photo — parent DoodleSection will re-derive default via cartToSlots
-      // For now, reset to the slot's current hash if it was previously a preset,
-      // or keep as-is and let the parent handle re-default on next render.
-      // The simplest safe action: go back to a preset with an empty placeholder.
-      // The cart store doesn't have a clearLabel here, but we can set a fresh preset.
-      // We don't have the deterministic hash here — caller/parent will re-derive.
-      // Use slot.cupKey to clear back to kind:'preset' with hash from GALLERY_HASHES[0].
-      // This is acceptable: cartToSlots will recompute the deterministic default
-      // the next time the parent re-derives slots from cart state.
-      setLabel(slot.cupKey, { kind: 'preset', hash: GALLERY_HASHES[0]! })
-    }
+    // Remove the photo → fall back to a random surprise tarot card.
+    if (slot.selection?.kind === 'photo') clearLabel(slot.cupKey)
   }
 
   const handleDone = () => onClose()
@@ -235,12 +238,12 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   const goNext = () => setIdx(Math.min(slots.length - 1, safeIdx + 1))
 
   // Derive photo display values from selection
-  const photoUploadedId = slot.selection.kind === 'photo' ? slot.selection.uploadedDoodleId : null
-  const photoPreviewUrl = slot.selection.kind === 'photo' ? slot.selection.previewUrl : null
+  const photoUploadedId = slot.selection?.kind === 'photo' ? slot.selection.uploadedDoodleId : null
+  const photoPreviewUrl = slot.selection?.kind === 'photo' ? slot.selection.previewUrl : null
 
   // Derive AI display values from selection
-  const aiDoodleId = slot.selection.kind === 'ai' ? slot.selection.aiDoodleId : null
-  const aiPrompt = slot.selection.kind === 'ai' ? slot.selection.prompt : ''
+  const aiDoodleId = slot.selection?.kind === 'ai' ? slot.selection.aiDoodleId : null
+  const aiPrompt = slot.selection?.kind === 'ai' ? slot.selection.prompt : ''
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
@@ -268,7 +271,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
         <View style={styles.tabBar}>
           {TABS.map(t => {
             const viewing = viewTab === t.key
-            const isActive = activeMode === t.key
+            const isActive = !isSurprise && activeMode === t.key
             return (
               <Pressable
                 key={t.key}
@@ -299,10 +302,22 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
         >
           {viewTab === 'preset' && (
             <View>
-              <Text style={styles.sectionHint}>Tap a tile to set this cup's label.</Text>
+              <Pressable
+                onPress={handleSurprise}
+                style={[styles.surpriseBtn, isSurprise && styles.surpriseBtnActive]}
+              >
+                <Text
+                  style={[styles.surpriseBtnText, isSurprise && styles.surpriseBtnTextActive]}
+                >
+                  🔮 Surprise me — random tarot card{isSurprise ? '  ·  current' : ''}
+                </Text>
+              </Pressable>
+              <Text style={styles.sectionHint}>
+                Optional — leave it for a surprise, or tap a tile to choose your own.
+              </Text>
               <View style={styles.presetGrid}>
                 {GALLERY_HASHES.map((hash) => {
-                  const selected = slot.selection.kind === 'preset' && slot.selection.hash === hash
+                  const selected = slot.selection?.kind === 'preset' && slot.selection.hash === hash
                   return (
                     <Pressable
                       key={hash}
@@ -552,6 +567,16 @@ const styles = StyleSheet.create({
   sectionHint: {
     fontFamily: FONT.sans, fontSize: 12, color: T.ink2, marginBottom: 12,
   },
+  surpriseBtn: {
+    paddingVertical: 12, paddingHorizontal: 14, borderRadius: RADIUS.small,
+    borderWidth: 1, borderColor: T.brand, borderStyle: 'dashed',
+    backgroundColor: T.card, marginBottom: 12, alignItems: 'center',
+  },
+  surpriseBtnActive: { backgroundColor: T.paper },
+  surpriseBtnText: {
+    fontFamily: FONT.sans, fontSize: 13, fontWeight: '700', color: T.brand,
+  },
+  surpriseBtnTextActive: { color: T.brand },
   tools: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, alignItems: 'center',
   },
