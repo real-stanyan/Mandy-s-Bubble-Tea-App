@@ -6,10 +6,12 @@ import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner';
 import { HomeLoyaltyHero } from '@/components/home/HomeLoyaltyHero';
 import { YourUsual } from '@/components/home/YourUsual';
 import { DailySpecial } from '@/components/home/DailySpecial';
+import { FragranceBlindBox } from '@/components/home/FragranceBlindBox';
 import { CategoriesStrip } from '@/components/home/CategoriesStrip';
 import { HotPicks } from '@/components/home/HeroCarousel';
 import { StoreCard } from '@/components/home/StoreCard';
 import { T } from '@/constants/theme';
+import { FRAGRANCE_BLIND_BOX_PROMO } from '@/lib/constants';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -25,6 +27,7 @@ export default function HomeScreen() {
         <HomeLoyaltyHero />
         <YourUsual />
         <DailySpecial />
+        {FRAGRANCE_BLIND_BOX_PROMO && <FragranceBlindBox />}
         <CategoriesStrip />
         <HotPicks />
         <StoreCard />
