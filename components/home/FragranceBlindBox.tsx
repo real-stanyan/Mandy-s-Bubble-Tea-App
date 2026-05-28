@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,20 +9,39 @@ import { T, TYPE, RADIUS } from '@/constants/theme';
 // Limited-time campaign card: "Buy 2 drinks, get a fragrance-tag blind
 // box." Marketing only — the blind box is handed out in-store, so this
 // just links to the menu. Mirrors DailySpecial's peach-gradient treatment.
-// Shown to everyone (no auth gate); gated in index.tsx by
-// FRAGRANCE_BLIND_BOX_PROMO — flip that to retire it.
+// Gated in index.tsx by FRAGRANCE_BLIND_BOX_PROMO.
+//
+// Tags are uniform background-removed, string-stripped square crops. We
+// show 5 of the 10 designs, re-shuffled each time the screen mounts.
 
-// Background-removed cut-outs so each hanging tag shows in full on the
-// gradient. w/h preserve each tag's aspect ratio; laid out as a left→right
-// fan (negative marginLeft for a slight overlap) so all three read clearly.
-const TAGS = [
-  { src: require('@/assets/promo/fragrance-tags/black-opium.png'), w: 94, h: 117, rotate: '-10deg', ml: 0, z: 1 },
-  { src: require('@/assets/promo/fragrance-tags/ocean.png'), w: 75, h: 117, rotate: '0deg', ml: -16, z: 3 },
-  { src: require('@/assets/promo/fragrance-tags/crisp-apple.png'), w: 105, h: 117, rotate: '10deg', ml: -16, z: 2 },
-] as const;
+const POOL = [
+  require('@/assets/promo/fragrance-tags/black-opium.png'),
+  require('@/assets/promo/fragrance-tags/cedarwood.png'),
+  require('@/assets/promo/fragrance-tags/cherry.png'),
+  require('@/assets/promo/fragrance-tags/crisp-apple.png'),
+  require('@/assets/promo/fragrance-tags/freesia.png'),
+  require('@/assets/promo/fragrance-tags/ocean.png'),
+  require('@/assets/promo/fragrance-tags/rose.png'),
+  require('@/assets/promo/fragrance-tags/sandalwood.png'),
+];
+
+const SHOW = 5;
+const TILE = 62;
+const ROT = ['-16deg', '-8deg', '0deg', '8deg', '16deg'];
+const Z = [1, 2, 3, 2, 1];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export function FragranceBlindBox() {
   const router = useRouter();
+  const tags = useMemo(() => shuffle(POOL).slice(0, SHOW), []);
 
   return (
     <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
@@ -39,105 +59,101 @@ export function FragranceBlindBox() {
             borderWidth: 1,
             borderColor: 'rgba(141,85,36,0.12)',
             padding: 22,
-            minHeight: 180,
-            flexDirection: 'row',
             overflow: 'hidden',
           }}
         >
-          <View style={{ flex: 1, paddingRight: 6, justifyContent: 'space-between' }}>
-            <View>
-              <View
-                style={{
-                  alignSelf: 'flex-start',
-                  paddingHorizontal: 9,
-                  paddingVertical: 3,
-                  borderRadius: 4,
-                  backgroundColor: T.ink,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: 'JetBrainsMono_700Bold',
-                    fontSize: 10,
-                    letterSpacing: 1.3,
-                    color: T.cream,
-                  }}
-                >
-                  LIMITED · WHILE STOCKS LAST
-                </Text>
-              </View>
-              <Text
-                style={{
-                  marginTop: 10,
-                  fontFamily: 'Fraunces_500Medium',
-                  fontSize: 24,
-                  lineHeight: 26,
-                  letterSpacing: -0.5,
-                  color: T.ink,
-                }}
-              >
-                {'2 drinks,\n'}
-                <Text style={{ fontFamily: 'Fraunces_500Medium', fontStyle: 'italic' }}>
-                  one surprise
-                </Text>
-              </Text>
-              <Text
-                style={[TYPE.body, { marginTop: 8, color: T.ink2, lineHeight: 18, maxWidth: 185 }]}
-              >
-                Buy any 2 drinks, get a fragrance-tag blind box — 10 designs, 10 scents.
-              </Text>
-            </View>
-
+          <View>
             <View
               style={{
                 alignSelf: 'flex-start',
-                marginTop: 14,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 999,
-                backgroundColor: T.brand,
+                paddingHorizontal: 9,
+                paddingVertical: 3,
+                borderRadius: 4,
+                backgroundColor: T.ink,
               }}
             >
-              <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: T.cream }}>
-                Order now
+              <Text
+                style={{
+                  fontFamily: 'JetBrainsMono_700Bold',
+                  fontSize: 10,
+                  letterSpacing: 1.3,
+                  color: T.cream,
+                }}
+              >
+                LIMITED · WHILE STOCKS LAST
               </Text>
-              <Icon name="arrow" color={T.cream} size={12} />
             </View>
+            <Text
+              style={{
+                marginTop: 10,
+                fontFamily: 'Fraunces_500Medium',
+                fontSize: 24,
+                lineHeight: 26,
+                letterSpacing: -0.5,
+                color: T.ink,
+              }}
+            >
+              {'2 drinks, '}
+              <Text style={{ fontFamily: 'Fraunces_500Medium', fontStyle: 'italic' }}>
+                one surprise
+              </Text>
+            </Text>
+            <Text style={[TYPE.body, { marginTop: 8, color: T.ink2, lineHeight: 18 }]}>
+              Buy any 2 drinks, get a fragrance-tag blind box — 10 designs, 10 scents.
+            </Text>
           </View>
 
-          {/* Fanned blind-box teaser — 3 hanging tags, background removed
-              so each shows in full, fanned left→right on the gradient. */}
+          {/* Blind-box teaser — 5 random uniform tags, fanned. */}
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'flex-end',
-              alignSelf: 'center',
+              justifyContent: 'center',
+              marginTop: 18,
             }}
           >
-            {TAGS.map((t, i) => (
+            {tags.map((src, i) => (
               <View
                 key={i}
                 style={{
-                  marginLeft: t.ml,
-                  zIndex: t.z,
-                  transform: [{ rotate: t.rotate }],
+                  marginLeft: i === 0 ? 0 : -20,
+                  zIndex: Z[i],
+                  transform: [{ rotate: ROT[i] }],
+                  borderRadius: 12,
+                  backgroundColor: '#fff',
                   shadowColor: 'rgba(42,30,20,1)',
-                  shadowOpacity: 0.28,
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowRadius: 8,
+                  shadowOpacity: 0.26,
+                  shadowOffset: { width: 0, height: 5 },
+                  shadowRadius: 7,
                   elevation: 5,
                 }}
               >
                 <Image
-                  source={t.src}
-                  style={{ width: t.w, height: t.h }}
-                  contentFit="contain"
+                  source={src}
+                  style={{ width: TILE, height: TILE, borderRadius: 12 }}
+                  contentFit="cover"
                 />
               </View>
             ))}
+          </View>
+
+          <View
+            style={{
+              alignSelf: 'center',
+              marginTop: 18,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 16,
+              paddingVertical: 9,
+              borderRadius: 999,
+              backgroundColor: T.brand,
+            }}
+          >
+            <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: T.cream }}>
+              Order now
+            </Text>
+            <Icon name="arrow" color={T.cream} size={12} />
           </View>
         </LinearGradient>
       </Pressable>
