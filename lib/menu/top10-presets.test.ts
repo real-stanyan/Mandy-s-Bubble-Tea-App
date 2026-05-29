@@ -24,7 +24,10 @@ describe('top10-presets', () => {
   })
   it('displayNameFor renames only inside top-10', () => {
     expect(displayNameFor('top-10', 'Original Milk Tea')).toBe('Original Milk Tea Trio (Pearl, Grass Jelly & Pudding)')
+    expect(displayNameFor('top-10', 'Taro Milk Tea')).toBe('Taro Milk Tea (with Pudding)')
+    expect(displayNameFor('top-10', 'Brown Sugar Milk Tea')).toBe('Brown Sugar Milk Tea (with Pearls)')
     expect(displayNameFor('milk-tea', 'Original Milk Tea')).toBe('Original Milk Tea')
+    expect(displayNameFor('milk-tea', 'Taro Milk Tea')).toBe('Taro Milk Tea')
   })
   it('isLockedToppingName trims + case-insensitive', () => {
     expect(isLockedToppingName(' pudding ', ['Pudding'])).toBe(true)
