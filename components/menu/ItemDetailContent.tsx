@@ -18,7 +18,7 @@ import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
 import { T, TYPE, RADIUS } from '@/constants/theme'
 import { isBestseller } from '@/components/menu/bestsellers'
-import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierIds } from '@/lib/menu/top10-presets'
+import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierIds, imageSourceFor } from '@/lib/menu/top10-presets'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
@@ -306,6 +306,8 @@ export function ItemDetailContent({
   const lockedToppings = lockedToppingsFor(categorySlug ?? undefined, item.itemData?.name ?? '')
   const isLocked = (modName: string) => isLockedToppingName(modName, lockedToppings)
   const shownName = displayNameFor(categorySlug ?? undefined, item.itemData?.name ?? '')
+  const customHero = imageSourceFor(categorySlug ?? undefined, item.itemData?.name ?? '')
+  const heroSource = customHero ?? (item.imageUrl ? { uri: item.imageUrl } : null)
 
   const variations = item.itemData?.variations ?? []
   const baselineVariation =
@@ -339,9 +341,9 @@ export function ItemDetailContent({
   return (
     <View style={styles.container}>
       <ScrollComponent>
-        {item.imageUrl ? (
+        {heroSource ? (
           <Image
-            source={{ uri: item.imageUrl }}
+            source={heroSource}
             style={styles.hero}
             contentFit="cover"
             contentPosition="center"

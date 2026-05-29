@@ -23,7 +23,7 @@ import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
-import { displayNameFor } from '@/lib/menu/top10-presets'
+import { displayNameFor, imageSourceFor } from '@/lib/menu/top10-presets'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
@@ -420,6 +420,8 @@ const ProductRow = memo(function ProductRow({
 }) {
   const rawName = item.itemData?.name ?? 'Unknown'
   const name = displayNameFor(categorySlug ?? undefined, rawName) || rawName
+  const customImage = imageSourceFor(categorySlug ?? undefined, rawName)
+  const imageSource = customImage ?? (item.imageUrl ? { uri: item.imageUrl } : null)
   const firstVariation = item.itemData?.variations?.[0]
   const price = firstVariation?.itemVariationData?.priceMoney?.amount
   const variationName = firstVariation?.itemVariationData?.name
@@ -440,9 +442,9 @@ const ProductRow = memo(function ProductRow({
       disabled={soldOut}
       activeOpacity={0.6}
     >
-      {item.imageUrl ? (
+      {imageSource ? (
         <Image
-          source={{ uri: item.imageUrl }}
+          source={imageSource}
           style={styles.rowImage}
           contentFit="cover"
           contentPosition="center"

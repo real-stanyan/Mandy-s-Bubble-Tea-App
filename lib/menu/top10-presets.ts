@@ -9,11 +9,18 @@
 // names below were verified byte-for-byte against the PRODUCTION catalog on
 // 2026-05-29; a Square rename would make the matching topping a safe no-op.
 
+import type { ImageSourcePropType } from "react-native";
+import { TOP10_IMAGE_SOURCES } from "./top10-images";
+
 export const TOP10_CATEGORY_SLUG = "top-10";
 
 export type Top10Preset = {
   lockedToppings: string[];
   displayName?: string;
+  // Slug of a TOP-10-only product photo. Resolved to a bundled require source
+  // by imageSourceFor() below. When absent, the drink keeps its normal Square
+  // catalog image. Kept in sync with the web config of the same name.
+  image?: string;
 };
 
 type ModifierListLike = { id: string; modifiers: { id: string; name: string }[] };
@@ -22,30 +29,37 @@ const TOP10_PRESETS: Record<string, Top10Preset> = {
   "brown sugar milk tea": {
     lockedToppings: ["Pearls"],
     displayName: "Brown Sugar Milk Tea (with Pearls)",
+    image: "brown-sugar-milk-tea",
   },
   "chocolate frappe": {
     lockedToppings: ["Chocolate Popping (New)"],
     displayName: "Chocolate Frappe (with Choc Popping)",
+    image: "chocolate-frappe",
   },
   "lychee iced green tea": {
     lockedToppings: ["Lychee Jelly"],
     displayName: "Lychee Iced Green Tea (with Lychee Jelly)",
+    image: "lychee-iced-green-tea",
   },
   "mango slushy": {
     lockedToppings: ["Mango Jelly"],
     displayName: "Mango Slushy (with Mango Jelly)",
+    image: "mango-slushy",
   },
   "original milk tea": {
     lockedToppings: ["Pearls", "Herbal Jelly", "Pudding"],
     displayName: "Original Milk Tea Trio (Pearl, Grass Jelly & Pudding)",
+    image: "original-milk-tea",
   },
   "red dragon fruit slushy": {
     lockedToppings: ["Aloe Vera"],
     displayName: "Red Dragon Fruit Slushy (with Aloe Vera)",
+    image: "red-dragon-fruit-slushy",
   },
   "taro milk tea": {
     lockedToppings: ["Pudding"],
     displayName: "Taro Milk Tea (with Pudding)",
+    image: "taro-milk-tea",
   },
 };
 
@@ -71,6 +85,26 @@ export function displayNameFor(
 ): string {
   if (categorySlug !== TOP10_CATEGORY_SLUG) return itemName;
   return getTop10Preset(itemName)?.displayName ?? itemName;
+}
+
+// Slug of the TOP-10-only product photo, or null when this drink has no
+// override (or is being viewed outside TOP 10). Shared, platform-agnostic.
+export function imageSlugFor(
+  categorySlug: string | undefined,
+  itemName: string,
+): string | null {
+  if (categorySlug !== TOP10_CATEGORY_SLUG) return null;
+  return getTop10Preset(itemName)?.image ?? null;
+}
+
+// App resolver: bundled require source for the override image, or null to fall
+// back to the Square catalog image (rendered via { uri }).
+export function imageSourceFor(
+  categorySlug: string | undefined,
+  itemName: string,
+): ImageSourcePropType | null {
+  const slug = imageSlugFor(categorySlug, itemName);
+  return slug ? TOP10_IMAGE_SOURCES[slug] ?? null : null;
 }
 
 export function isLockedToppingName(

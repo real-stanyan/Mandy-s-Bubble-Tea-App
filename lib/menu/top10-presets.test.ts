@@ -3,6 +3,8 @@ import {
   getTop10Preset,
   lockedToppingsFor,
   displayNameFor,
+  imageSlugFor,
+  imageSourceFor,
   lockedModifierIds,
   isLockedToppingName,
 } from './top10-presets'
@@ -28,6 +30,23 @@ describe('top10-presets', () => {
     expect(displayNameFor('top-10', 'Brown Sugar Milk Tea')).toBe('Brown Sugar Milk Tea (with Pearls)')
     expect(displayNameFor('milk-tea', 'Original Milk Tea')).toBe('Original Milk Tea')
     expect(displayNameFor('milk-tea', 'Taro Milk Tea')).toBe('Taro Milk Tea')
+  })
+  it('imageSlugFor returns override slug only inside top-10', () => {
+    expect(imageSlugFor('top-10', 'Brown Sugar Milk Tea')).toBe('brown-sugar-milk-tea')
+    expect(imageSlugFor('top-10', 'Taro Milk Tea')).toBe('taro-milk-tea')
+    expect(imageSlugFor('milk-tea', 'Brown Sugar Milk Tea')).toBeNull()
+    expect(imageSlugFor('top-10', 'Lemon Black Tea')).toBeNull()
+  })
+  it('imageSourceFor resolves a bundled source for preset items, null otherwise', () => {
+    expect(imageSourceFor('top-10', 'Mango Slushy')).not.toBeNull()
+    expect(imageSourceFor('frozen', 'Mango Slushy')).toBeNull()
+    expect(imageSourceFor('top-10', 'Lemon Black Tea')).toBeNull()
+  })
+  it('all 7 curated drinks ship both a rename and an image', () => {
+    for (const n of ['Brown Sugar Milk Tea', 'Chocolate Frappe', 'Lychee Iced Green Tea', 'Mango Slushy', 'Original Milk Tea', 'Red Dragon Fruit Slushy', 'Taro Milk Tea']) {
+      expect(imageSlugFor('top-10', n)).not.toBeNull()
+      expect(displayNameFor('top-10', n)).not.toBe(n)
+    }
   })
   it('isLockedToppingName trims + case-insensitive', () => {
     expect(isLockedToppingName(' pudding ', ['Pudding'])).toBe(true)
