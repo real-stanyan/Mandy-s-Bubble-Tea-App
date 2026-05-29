@@ -23,6 +23,7 @@ import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
+import { displayNameFor } from '@/lib/menu/top10-presets'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
@@ -417,7 +418,8 @@ const ProductRow = memo(function ProductRow({
   item: CatalogItem
   categorySlug?: string
 }) {
-  const name = item.itemData?.name ?? 'Unknown'
+  const rawName = item.itemData?.name ?? 'Unknown'
+  const name = displayNameFor(categorySlug ?? undefined, rawName) || rawName
   const firstVariation = item.itemData?.variations?.[0]
   const price = firstVariation?.itemVariationData?.priceMoney?.amount
   const variationName = firstVariation?.itemVariationData?.name
