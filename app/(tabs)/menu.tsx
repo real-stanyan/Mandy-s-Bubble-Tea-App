@@ -229,7 +229,9 @@ export default function MenuScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 20 }).current
 
   const renderItem = useCallback(
-    ({ item }: { item: CatalogItem }) => <ProductRow item={item} />,
+    ({ item, section }: { item: CatalogItem; section: MenuSection }) => (
+      <ProductRow item={item} categorySlug={resolveCategorySlug(section.category.name)} />
+    ),
     [],
   )
 
@@ -408,7 +410,13 @@ const SectionHeader = memo(function SectionHeader({
   )
 })
 
-const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
+const ProductRow = memo(function ProductRow({
+  item,
+  categorySlug,
+}: {
+  item: CatalogItem
+  categorySlug?: string
+}) {
   const name = item.itemData?.name ?? 'Unknown'
   const firstVariation = item.itemData?.variations?.[0]
   const price = firstVariation?.itemVariationData?.priceMoney?.amount
@@ -420,7 +428,7 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
   const openSheet = () => {
     if (soldOut) return
     Haptics.selectionAsync()
-    useItemSheetStore.getState().open(item.id)
+    useItemSheetStore.getState().open(item.id, categorySlug ?? null)
   }
 
   return (
