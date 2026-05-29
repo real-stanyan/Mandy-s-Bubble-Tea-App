@@ -23,7 +23,7 @@ import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
-import { displayNameFor, imageSourceFor } from '@/lib/menu/top10-presets'
+import { displayNameFor, imageSourceFor, TOP10_CATEGORY_SLUG } from '@/lib/menu/top10-presets'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
@@ -423,7 +423,11 @@ const ProductRow = memo(function ProductRow({
   const customImage = imageSourceFor(categorySlug ?? undefined, rawName)
   const imageSource = customImage ?? (item.imageUrl ? { uri: item.imageUrl } : null)
   const firstVariation = item.itemData?.variations?.[0]
-  const price = firstVariation?.itemVariationData?.priceMoney?.amount
+  const rawPrice = firstVariation?.itemVariationData?.priceMoney?.amount
+  // Inside TOP 10 the locked toppings are mandatory, so show base + surcharge.
+  const surcharge =
+    categorySlug === TOP10_CATEGORY_SLUG ? item.itemData?.top10SurchargeCents ?? 0 : 0
+  const price = rawPrice != null ? Number(rawPrice) + surcharge : undefined
   const variationName = firstVariation?.itemVariationData?.name
   const showVariationSubtitle =
     variationName && variationName.toLowerCase() !== 'regular'

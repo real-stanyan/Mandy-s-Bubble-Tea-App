@@ -18,7 +18,7 @@ import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
 import { T, TYPE, RADIUS } from '@/constants/theme'
 import { isBestseller } from '@/components/menu/bestsellers'
-import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierIds, imageSourceFor } from '@/lib/menu/top10-presets'
+import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierIds, imageSourceFor, lockedToppingsPriceCents } from '@/lib/menu/top10-presets'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
@@ -317,6 +317,16 @@ export function ItemDetailContent({
   const baselineAmount = Number(
     baselineVariation?.itemVariationData?.priceMoney?.amount ?? 0,
   )
+  // Inside TOP 10 the locked toppings are mandatory → headline price shows the
+  // real starting price (base + locked toppings).
+  const lockedSurcharge = lockedToppingsPriceCents(
+    categorySlug ?? undefined,
+    item.itemData?.name ?? '',
+    modifierLists.flatMap((ml) =>
+      ml.modifiers.map((m) => ({ name: m.name, priceCents: Number(m.priceCents ?? 0) })),
+    ),
+  )
+  const headlineAmount = baselineAmount + lockedSurcharge
   const baseCents = Number(selectedVariation?.itemVariationData?.priceMoney?.amount ?? 0)
   const modifierCents = modifierLists.reduce((sum, ml) => {
     const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
@@ -364,8 +374,8 @@ export function ItemDetailContent({
             <Text style={[TYPE.screenTitleLg, styles.titleText, { color: T.ink }]} numberOfLines={2}>
               {shownName}
             </Text>
-            {baselineAmount > 0 ? (
-              <Text style={styles.headlinePrice}>{formatPrice(baselineAmount)}</Text>
+            {headlineAmount > 0 ? (
+              <Text style={styles.headlinePrice}>{formatPrice(headlineAmount)}</Text>
             ) : null}
           </View>
           {item.itemData?.description ? (

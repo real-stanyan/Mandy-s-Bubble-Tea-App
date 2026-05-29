@@ -5,6 +5,7 @@ import {
   displayNameFor,
   imageSlugFor,
   imageSourceFor,
+  lockedToppingsPriceCents,
   lockedModifierIds,
   isLockedToppingName,
 } from './top10-presets'
@@ -47,6 +48,18 @@ describe('top10-presets', () => {
       expect(imageSlugFor('top-10', n)).not.toBeNull()
       expect(displayNameFor('top-10', n)).not.toBe(n)
     }
+  })
+  it('lockedToppingsPriceCents sums matched locked modifier prices inside top-10', () => {
+    const mods = [
+      { name: 'Pearls', priceCents: 80 },
+      { name: 'Herbal Jelly', priceCents: 80 },
+      { name: 'Pudding', priceCents: 80 },
+    ]
+    expect(lockedToppingsPriceCents('top-10', 'Brown Sugar Milk Tea', mods)).toBe(80)
+    expect(lockedToppingsPriceCents('top-10', 'Original Milk Tea', mods)).toBe(240)
+    expect(lockedToppingsPriceCents('milk-tea', 'Brown Sugar Milk Tea', mods)).toBe(0)
+    expect(lockedToppingsPriceCents('top-10', 'Lemon Black Tea', mods)).toBe(0)
+    expect(lockedToppingsPriceCents('top-10', 'Brown Sugar Milk Tea', [])).toBe(0)
   })
   it('isLockedToppingName trims + case-insensitive', () => {
     expect(isLockedToppingName(' pudding ', ['Pudding'])).toBe(true)

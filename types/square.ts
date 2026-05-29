@@ -39,6 +39,9 @@ export interface CatalogItem {
     description?: string
     categories?: Array<{ id: string; name?: string }>
     variations?: CatalogItemVariation[]
+    /** Cents the locked TOP 10 toppings add on top of base price (0 / absent
+     *  for non-TOP-10 drinks). Set by the backend /api/catalog payload. */
+    top10SurchargeCents?: number
   }
 }
 
