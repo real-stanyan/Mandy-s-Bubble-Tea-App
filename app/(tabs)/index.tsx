@@ -24,10 +24,10 @@ export default function HomeScreen() {
       >
         <PublicHolidayBanner />
         <HomeHeader />
+        {FRAGRANCE_BLIND_BOX_PROMO && <FragranceBlindBox />}
         <HomeLoyaltyHero />
         <YourUsual />
         <DailySpecial />
-        {FRAGRANCE_BLIND_BOX_PROMO && <FragranceBlindBox />}
         <CategoriesStrip />
         <HotPicks />
         <StoreCard />
