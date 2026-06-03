@@ -334,6 +334,8 @@ export default function CheckoutScreen() {
         if (phSurchargeCents > 0) amountCents += phSurchargeCents
         if (platformFeeCents > 0) amountCents += platformFeeCents
         if (surchargeCents > 0) amountCents += surchargeCents
+        const deliveryFeeAddCents = deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote)
+        if (deliveryFeeAddCents > 0) amountCents += deliveryFeeAddCents
       }
 
       let nonce: string | undefined
