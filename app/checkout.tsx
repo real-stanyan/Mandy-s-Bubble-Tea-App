@@ -246,6 +246,7 @@ export default function CheckoutScreen() {
   const phSurchargeCents = isFreeRedeem || !phActive
     ? 0
     : publicHolidaySurcharge(total)
+  const deliveryFeeCents = deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote)
   const displayedTotal = Math.max(
     total
       - rewardDiscountCents
@@ -254,7 +255,7 @@ export default function CheckoutScreen() {
       + surchargeCents
       + platformFeeCents
       + phSurchargeCents
-      + deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote),
+      + deliveryFeeCents,
     0,
   )
 
@@ -335,8 +336,7 @@ export default function CheckoutScreen() {
         if (phSurchargeCents > 0) amountCents += phSurchargeCents
         if (platformFeeCents > 0) amountCents += platformFeeCents
         if (surchargeCents > 0) amountCents += surchargeCents
-        const deliveryFeeAddCents = deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote)
-        if (deliveryFeeAddCents > 0) amountCents += deliveryFeeAddCents
+        if (deliveryFeeCents > 0) amountCents += deliveryFeeCents
       }
 
       let nonce: string | undefined
@@ -538,7 +538,7 @@ export default function CheckoutScreen() {
                 }
               : null
           }
-          deliveryAddOnCents={deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote)}
+          deliveryAddOnCents={deliveryFeeCents}
         />
         {(error || orderError || payError) && (
           <Text style={styles.errorText}>{error || orderError || payError}</Text>
