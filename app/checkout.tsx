@@ -253,7 +253,8 @@ export default function CheckoutScreen() {
       - (igFollowDiscountForSummary?.amountCents ?? 0)
       + surchargeCents
       + platformFeeCents
-      + phSurchargeCents,
+      + phSurchargeCents
+      + deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote),
     0,
   )
 
