@@ -9,6 +9,15 @@ interface CreateOrderParams {
   applyLoyaltyReward?: boolean
   loyaltyRewardCount?: number
   note?: string
+  fulfillmentType?: 'PICKUP' | 'DELIVERY'
+  delivery?: {
+    address: string
+    lat: number
+    lng: number
+    unit?: string
+    driverNote?: string
+    postcode?: string
+  }
 }
 
 interface CreateOrderResult {
@@ -35,6 +44,8 @@ export function useCreateOrder(): CreateOrderHook {
     applyLoyaltyReward,
     loyaltyRewardCount,
     note,
+    fulfillmentType,
+    delivery,
   }: CreateOrderParams): Promise<CreateOrderResult> => {
     setLoading(true)
     setError(null)
@@ -71,6 +82,8 @@ export function useCreateOrder(): CreateOrderHook {
           applyLoyaltyReward: !!applyLoyaltyReward,
           loyaltyRewardCount: loyaltyRewardCount ?? 0,
           note: note?.trim() ? note.trim() : undefined,
+          fulfillmentType: fulfillmentType ?? 'PICKUP',
+          ...(fulfillmentType === 'DELIVERY' && delivery ? { delivery } : {}),
         }),
       })
 
