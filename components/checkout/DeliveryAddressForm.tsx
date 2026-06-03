@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { T, FONT, RADIUS } from '@/constants/theme'
 import { isDeliverablePostcode, DELIVERABLE_POSTCODES } from '@/lib/delivery'
 import { placesAutocomplete, placeDetails, type Prediction } from '@/lib/places-client'
 import type { DeliveryAddress } from '@/store/cart'
@@ -80,6 +81,7 @@ export function DeliveryAddressForm({ value, onChange, defaultPhone }: Props) {
           value={query}
           onChangeText={handleAddressInput}
           placeholder="Start typing your address…"
+          placeholderTextColor={T.ink3}
           style={styles.input}
           autoCorrect={false}
           testID="delivery-address"
@@ -110,6 +112,7 @@ export function DeliveryAddressForm({ value, onChange, defaultPhone }: Props) {
           value={value.postcode}
           onChangeText={(t) => onChange({ postcode: t.replace(/[^0-9]/g, '').slice(0, 4) })}
           placeholder="4215"
+          placeholderTextColor={T.ink3}
           keyboardType="number-pad"
           maxLength={4}
           style={styles.input}
@@ -130,6 +133,7 @@ export function DeliveryAddressForm({ value, onChange, defaultPhone }: Props) {
           value={value.unit}
           onChangeText={(t) => onChange({ unit: t })}
           placeholder="Unit 2"
+          placeholderTextColor={T.ink3}
           style={styles.input}
         />
       </Field>
@@ -139,6 +143,7 @@ export function DeliveryAddressForm({ value, onChange, defaultPhone }: Props) {
           value={value.driverNote}
           onChangeText={(t) => onChange({ driverNote: t.slice(0, 120) })}
           placeholder="Gate code, landmark…"
+          placeholderTextColor={T.ink3}
           multiline
           style={[styles.input, styles.multiline]}
         />
@@ -149,6 +154,7 @@ export function DeliveryAddressForm({ value, onChange, defaultPhone }: Props) {
           value={phone}
           onChangeText={setPhone}
           placeholder="0404 978 238"
+          placeholderTextColor={T.ink3}
           keyboardType="phone-pad"
           style={styles.input}
         />
@@ -169,33 +175,35 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 const styles = StyleSheet.create({
   wrap: { gap: 12, marginTop: 8 },
   field: { gap: 4 },
-  label: { fontSize: 12, fontWeight: '600', color: '#3A3A3A' },
+  label: { fontFamily: FONT.sans, fontSize: 12.5, fontWeight: '600', color: T.ink2 },
   input: {
     borderWidth: 1,
-    borderColor: '#D8D2C7',
-    borderRadius: 10,
+    borderColor: T.line,
+    borderRadius: RADIUS.small,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    fontFamily: FONT.sans,
     fontSize: 14,
-    backgroundColor: '#fff',
+    color: T.ink,
+    backgroundColor: T.paper,
   },
   multiline: { minHeight: 60, textAlignVertical: 'top' },
-  ok: { fontSize: 12, color: '#3F7A3F', marginTop: 2 },
-  warn: { fontSize: 12, color: '#B07A1E', marginTop: 2 },
+  ok: { fontFamily: FONT.sans, fontSize: 12, color: T.greenDark, marginTop: 2 },
+  warn: { fontFamily: FONT.sans, fontSize: 12, color: '#B07A1E', marginTop: 2 },
   dropdown: {
     borderWidth: 1,
-    borderColor: '#E5DED3',
-    borderRadius: 10,
+    borderColor: T.line,
+    borderRadius: RADIUS.small,
     marginTop: 4,
     maxHeight: 180,
-    backgroundColor: '#fff',
+    backgroundColor: T.paper,
     overflow: 'hidden',
   },
   predRow: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#EFEAE1',
+    borderBottomColor: T.line,
   },
-  predText: { fontSize: 13, color: '#3A3A3A' },
+  predText: { fontFamily: FONT.sans, fontSize: 13, color: T.ink },
 })
