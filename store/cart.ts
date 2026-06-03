@@ -4,6 +4,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { CartItem, CartModifier } from '@/types/square'
 import type { SvgPath } from '@/lib/doodle/types'
 
+export type DeliveryAddress = {
+  address: string
+  lat: number
+  lng: number
+  unit: string
+  driverNote: string
+  postcode: string
+}
+
+const EMPTY_ADDRESS: DeliveryAddress = {
+  address: '',
+  lat: 0,
+  lng: 0,
+  unit: '',
+  driverNote: '',
+  postcode: '',
+}
+
 export type CupLabelSelection =
   | { kind: 'preset'; hash: string }
   | { kind: 'photo'; uploadedDoodleId: string; previewUrl: string }
@@ -27,6 +45,8 @@ interface CartState {
   // + cup_idx in a different cart gets a new AI image, not the one
   // baked in last week. See web /api/cup-label/ai-submit.
   cartSessionId: string | null
+  fulfillmentType: 'PICKUP' | 'DELIVERY'
+  deliveryAddress: DeliveryAddress
   addItem: (item: Omit<CartItem, 'quantity' | 'lineId'>) => void
   removeItem: (lineId: string) => void
   updateQuantity: (lineId: string, quantity: number) => void
@@ -39,6 +59,8 @@ interface CartState {
   ensureCartSessionId: () => string
   setLabel: (cupKey: string, selection: CupLabelSelection) => void
   clearLabel: (cupKey: string) => void
+  setFulfillmentType: (t: 'PICKUP' | 'DELIVERY') => void
+  setDeliveryAddress: (patch: Partial<DeliveryAddress>) => void
 }
 
 function newSessionId(): string {
@@ -96,6 +118,8 @@ export const useCartStore = create<CartState>()(
       items: [],
       cartSessionId: null,
       labelSelections: {} as Record<string, CupLabelSelection>,
+      fulfillmentType: 'PICKUP' as const,
+      deliveryAddress: { ...EMPTY_ADDRESS },
 
       addItem: (item) =>
         set((state) => {
@@ -162,9 +186,9 @@ export const useCartStore = create<CartState>()(
           }
         }),
 
-      clearCart: () => set({ items: [], cartSessionId: null, labelSelections: {} }),
+      clearCart: () => set({ items: [], cartSessionId: null, labelSelections: {}, fulfillmentType: 'PICKUP', deliveryAddress: { ...EMPTY_ADDRESS } }),
 
-      clear: () => set({ items: [], cartSessionId: null, labelSelections: {} }),
+      clear: () => set({ items: [], cartSessionId: null, labelSelections: {}, fulfillmentType: 'PICKUP', deliveryAddress: { ...EMPTY_ADDRESS } }),
 
       setLabel: (key, selection) =>
         set((s) => ({ labelSelections: { ...s.labelSelections, [key]: selection } })),
@@ -175,6 +199,11 @@ export const useCartStore = create<CartState>()(
           delete next[key]
           return { labelSelections: next }
         }),
+
+      setFulfillmentType: (t) => set({ fulfillmentType: t }),
+
+      setDeliveryAddress: (patch) =>
+        set((s) => ({ deliveryAddress: { ...s.deliveryAddress, ...patch } })),
 
       total: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
 
@@ -193,6 +222,12 @@ export const useCartStore = create<CartState>()(
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (state, version) => createMigrate(state, version) as CartState,
       version: 3,
+      partialize: (s) => ({
+        items: s.items,
+        labelSelections: s.labelSelections,
+        cartSessionId: s.cartSessionId,
+        fulfillmentType: s.fulfillmentType,
+      }),
     },
   ),
 )

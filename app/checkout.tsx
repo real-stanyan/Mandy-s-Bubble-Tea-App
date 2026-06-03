@@ -14,6 +14,11 @@ import { Image } from 'expo-image'
 import { Stack, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCartStore } from '@/store/cart'
+import { FulfillmentSelector } from '@/components/checkout/FulfillmentSelector'
+import { DeliveryAddressForm } from '@/components/checkout/DeliveryAddressForm'
+import { DeliveryQuoteCard } from '@/components/checkout/DeliveryQuoteCard'
+import { useDeliveryQuote } from '@/hooks/use-delivery-quote'
+import { deliveryAddOnCents, deliveryFeesPending, feeValueText } from '@/lib/delivery'
 import { buildPaymentSelections } from '@/lib/doodle/build-payment-selections'
 import { useCreateOrder } from '@/hooks/use-create-order'
 import { usePayment } from '@/hooks/use-payment'
@@ -79,6 +84,15 @@ export default function CheckoutScreen() {
   const clearLabel = useCartStore((s) => s.clearLabel)
   const total = useCartStore((s) => s.total())
   const clearCart = useCartStore((s) => s.clearCart)
+  const fulfillmentType = useCartStore((s) => s.fulfillmentType)
+  const setFulfillmentType = useCartStore((s) => s.setFulfillmentType)
+  const deliveryAddress = useCartStore((s) => s.deliveryAddress)
+  const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress)
+  const quote = useDeliveryQuote({
+    fulfillment: fulfillmentType,
+    address: deliveryAddress,
+    drinksSubtotalCents: total,
+  })
 
   const {
     profile,
@@ -232,6 +246,7 @@ export default function CheckoutScreen() {
   const phSurchargeCents = isFreeRedeem || !phActive
     ? 0
     : publicHolidaySurcharge(total)
+  const deliveryFeeCents = deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote)
   const displayedTotal = Math.max(
     total
       - rewardDiscountCents
@@ -239,7 +254,8 @@ export default function CheckoutScreen() {
       - (igFollowDiscountForSummary?.amountCents ?? 0)
       + surchargeCents
       + platformFeeCents
-      + phSurchargeCents,
+      + phSurchargeCents
+      + deliveryFeeCents,
     0,
   )
 
@@ -277,6 +293,18 @@ export default function CheckoutScreen() {
         applyLoyaltyReward: rewardCount > 0,
         loyaltyRewardCount: rewardCount,
         note,
+        fulfillmentType,
+        delivery:
+          fulfillmentType === 'DELIVERY'
+            ? {
+                address: deliveryAddress.address,
+                lat: deliveryAddress.lat,
+                lng: deliveryAddress.lng,
+                unit: deliveryAddress.unit || undefined,
+                driverNote: deliveryAddress.driverNote || undefined,
+                postcode: deliveryAddress.postcode || undefined,
+              }
+            : undefined,
       })
 
       let amountCents = total
@@ -308,6 +336,7 @@ export default function CheckoutScreen() {
         if (phSurchargeCents > 0) amountCents += phSurchargeCents
         if (platformFeeCents > 0) amountCents += platformFeeCents
         if (surchargeCents > 0) amountCents += surchargeCents
+        if (deliveryFeeCents > 0) amountCents += deliveryFeeCents
       }
 
       let nonce: string | undefined
@@ -386,7 +415,8 @@ export default function CheckoutScreen() {
 
   const isLoading = orderLoading || payLoading || processing
   const acceptance = useOrderAcceptance()
-  const payDisabled = isLoading || !acceptance.accepting || !allLabeled
+  const deliveryReady = fulfillmentType !== 'DELIVERY' || quote.kind === 'ok'
+  const payDisabled = isLoading || !acceptance.accepting || !allLabeled || !deliveryReady
 
   if (authLoading && !profile) {
     return (
@@ -436,8 +466,26 @@ export default function CheckoutScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 130 }}
       >
         <InlineHeader onBack={handleBack} total={displayedTotal} />
-        <StoreBlock />
-        <PickupTimeBlock />
+        <FulfillmentSelector
+          value={fulfillmentType}
+          onChange={setFulfillmentType}
+          drinksSubtotalCents={total}
+        />
+        {fulfillmentType === 'PICKUP' ? (
+          <>
+            <StoreBlock />
+            <PickupTimeBlock />
+          </>
+        ) : (
+          <>
+            <DeliveryAddressForm
+              value={deliveryAddress}
+              onChange={setDeliveryAddress}
+              defaultPhone={profile?.phone_e164}
+            />
+            <DeliveryQuoteCard quote={quote} />
+          </>
+        )}
         <DoodleSection slots={slots} onSlotChange={handleSlotChange} />
         <OrderItemsBlock items={items} />
         <RewardsBlock
@@ -481,6 +529,16 @@ export default function CheckoutScreen() {
           surcharge={surchargeCents}
           platformFee={platformFeeCents}
           phSurcharge={phSurchargeCents}
+          delivery={
+            fulfillmentType === 'DELIVERY'
+              ? {
+                  pending: deliveryFeesPending(fulfillmentType, isFreeRedeem, quote.kind),
+                  feeCents: quote.kind === 'ok' ? quote.feeCents : 0,
+                  serviceFeeCents: quote.kind === 'ok' ? quote.serviceFeeCents : 0,
+                }
+              : null
+          }
+          deliveryAddOnCents={deliveryFeeCents}
         />
         {(error || orderError || payError) && (
           <Text style={styles.errorText}>{error || orderError || payError}</Text>
@@ -796,6 +854,8 @@ function SummaryBlock({
   surcharge,
   platformFee: platformFeeAmt,
   phSurcharge,
+  delivery,
+  deliveryAddOnCents: deliveryAddOnCentsAmt,
 }: {
   subtotal: number
   welcome: { amountCents: number; percentage: number; coveredCount: number } | null
@@ -805,11 +865,13 @@ function SummaryBlock({
   surcharge: number
   platformFee: number
   phSurcharge: number
+  delivery?: { pending: boolean; feeCents: number; serviceFeeCents: number } | null
+  deliveryAddOnCents?: number
 }) {
   const discountTotal =
     (welcome?.amountCents ?? 0) + (igFollow?.amountCents ?? 0) + rewardDiscount
   const total = Math.max(
-    subtotal - discountTotal + surcharge + platformFeeAmt + phSurcharge,
+    subtotal - discountTotal + surcharge + platformFeeAmt + phSurcharge + (deliveryAddOnCentsAmt ?? 0),
     0,
   )
   return (
@@ -857,6 +919,12 @@ function SummaryBlock({
           muted
         />
       )}
+      {delivery && (
+        <>
+          <SummaryTextRow label="Delivery Fee" value={feeValueText(delivery.pending, delivery.feeCents)} />
+          <SummaryTextRow label="Service Fee (5%)" value={feeValueText(delivery.pending, delivery.serviceFeeCents)} />
+        </>
+      )}
       <View style={styles.summaryDivider} />
       <SummaryRow label="Total" amountCents={total} bold />
     </View>
@@ -896,6 +964,18 @@ function SummaryRow({
       >
         {sign}
         {formatPrice(abs)}
+      </Text>
+    </View>
+  )
+}
+
+function SummaryTextRow({ label, value }: { label: string; value: string }) {
+  const isFree = value === 'FREE'
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={[styles.summaryLabel, styles.summaryLabelMuted]}>{label}</Text>
+      <Text style={[styles.summaryValue, styles.summaryValueMuted, isFree && { color: '#3F7A3F' }]}>
+        {value}
       </Text>
     </View>
   )
