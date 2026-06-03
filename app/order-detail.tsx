@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -13,6 +13,10 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { OrderComplaintSection } from '@/components/account/OrderComplaintSection'
 import { Icon, type IconName } from '@/components/brand/Icon'
+import { TrackingMap, type TrackingMapHandle } from '@/components/delivery/TrackingMap'
+import { FreshnessBar } from '@/components/delivery/FreshnessBar'
+import { useDeliveryTracking } from '@/hooks/use-delivery-tracking'
+import { DELIVERY_DRIVER } from '@/lib/delivery'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import { useOrdersStore, type OrderHistoryLineModifier } from '@/store/orders'
 
@@ -179,15 +183,42 @@ export default function OrderDetailScreen() {
   }, [refreshOrders])
 
   const referenceId = storeOrder?.referenceId ?? params.referenceId ?? ''
+  const isDelivery = (referenceId ?? '').toUpperCase().startsWith('DE')
   const createdAt = storeOrder?.createdAt ?? params.createdAt ?? ''
   const state = storeOrder?.state ?? params.state ?? ''
   const fulfillmentState = storeOrder?.fulfillmentState ?? null
   const totalCents = storeOrder?.totalCents ?? params.totalCents ?? '0'
 
+  const isTerminal = state === 'COMPLETED' || state === 'CANCELED'
+  const { tracking } = useDeliveryTracking(orderId, isDelivery && !isTerminal)
+  const mapRef = useRef<TrackingMapHandle>(null)
+  useEffect(() => {
+    if (tracking) mapRef.current?.update(tracking)
+  }, [tracking])
+  const outForDelivery = isDelivery && !!tracking
+  const hasDriver = !!tracking && tracking.driverLat != null && tracking.driverLng != null
+
   const displayState = resolveDisplayState(state, fulfillmentState)
   const stateInfo = STATE_CONFIG[displayState] ?? STATE_CONFIG.COMPLETED
   const pickupNumber = referenceId
     || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
+
+  let headerTitle = stateInfo.title
+  let headerSubtitle = stateInfo.subtitle
+  if (isDelivery) {
+    if (outForDelivery) {
+      headerTitle = 'Out for Delivery'
+      headerSubtitle = 'Your driver is on the way to your address.'
+    } else if (displayState === 'COMPLETED') {
+      headerTitle = 'Delivered'
+      headerSubtitle = 'Your order has been delivered. Enjoy your tea!'
+    } else if (displayState === 'CANCELED') {
+      /* keep stateInfo */
+    } else {
+      headerTitle = 'Order In Progress'
+      headerSubtitle = 'Our tea masters are crafting your order.'
+    }
+  }
 
   const items = storeOrder
     ? storeOrder.lineItems.map((l) => ({
@@ -227,11 +258,11 @@ export default function OrderDetailScreen() {
         <Icon name={stateInfo.icon} size={36} color="#fff" />
       </View>
 
-      <Text style={[styles.title, { color: stateInfo.color }]}>{stateInfo.title}</Text>
-      <Text style={styles.subtitle}>{stateInfo.subtitle}</Text>
+      <Text style={[styles.title, { color: stateInfo.color }]}>{headerTitle}</Text>
+      <Text style={styles.subtitle}>{headerSubtitle}</Text>
 
       <View style={styles.pickupCard}>
-        <Text style={styles.pickupLabel}>PICKUP NUMBER</Text>
+        <Text style={styles.pickupLabel}>{isDelivery ? 'ORDER NUMBER' : 'PICKUP NUMBER'}</Text>
         <Text style={styles.pickupNumber}>{pickupNumber}</Text>
       </View>
 
@@ -246,6 +277,41 @@ export default function OrderDetailScreen() {
         </View>
       </View>
 
+      {outForDelivery && tracking ? (
+        <View style={styles.trackWrap}>
+          <TrackingMap ref={mapRef} initial={tracking} />
+          <View style={styles.freshnessFloat}>
+            <FreshnessBar hasDriver={hasDriver} locationUpdatedAt={tracking.locationUpdatedAt} />
+          </View>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Out for Delivery!</Text>
+            <Text style={styles.sheetSub}>Your driver is on the way to your address.</Text>
+            <View style={styles.driverCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.driverName}>{DELIVERY_DRIVER.name}</Text>
+                <Text style={styles.driverRole}>On the way with your order</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.callBtn}
+                onPress={() => Linking.openURL(`tel:${DELIVERY_DRIVER.phone}`)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.callText}>Call</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.sheetRow}>
+              <View>
+                <Text style={styles.sheetMeta}>ORDER NUMBER</Text>
+                <Text style={[styles.sheetMetaVal, { color: T.brand }]}>{pickupNumber}</Text>
+              </View>
+              <View>
+                <Text style={styles.sheetMeta}>ETA</Text>
+                <Text style={styles.sheetMetaVal}>~15–25 min</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : (
       <TouchableOpacity
         style={styles.mapCard}
         onPress={openMapsNavigation}
@@ -276,6 +342,7 @@ export default function OrderDetailScreen() {
           <Icon name="arrow" size={20} color={T.brand} />
         </View>
       </TouchableOpacity>
+      )}
 
       {items.length > 0 && (
         <View style={styles.summarySection}>
@@ -536,4 +603,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: T.ink,
   },
+
+  trackWrap: { marginTop: 16, width: '100%', height: 460, borderRadius: RADIUS.card, overflow: 'hidden', borderWidth: 1, borderColor: T.line, backgroundColor: '#E8E5DE' },
+  freshnessFloat: { position: 'absolute', top: 12, left: 12 },
+  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: T.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 10 },
+  sheetTitle: { fontFamily: 'Fraunces_500Medium', fontSize: 18, color: T.ink },
+  sheetSub: { ...TYPE.body, fontSize: 13, color: T.ink3 },
+  driverCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: T.bg, borderRadius: 14, padding: 12 },
+  driverName: { ...TYPE.bodyStrong, fontSize: 15, color: T.ink },
+  driverRole: { ...TYPE.body, fontSize: 12, color: T.ink3, marginTop: 2 },
+  callBtn: { backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10 },
+  callText: { color: '#fff', fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  sheetRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  sheetMeta: { ...TYPE.eyebrow, fontSize: 10, color: T.ink3 },
+  sheetMetaVal: { fontFamily: 'Fraunces_500Medium', fontSize: 16, color: T.ink, marginTop: 2 },
 })
