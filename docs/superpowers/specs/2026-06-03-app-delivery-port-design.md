@@ -39,6 +39,11 @@ Zustand cart (AsyncStorage), and the native **Square Mobile Payments SDK** (paym
    route**, no Google Maps SDK key.
 3. **Scope:** full experience — fulfillment selector + address form + quote + DE order + live
    tracking.
+4. **Palette:** use the app's existing brown brand palette (`BRAND.color = #8D5524`,
+   `accentColor = #FFF9F0`, existing `colors`/`styles` tokens), NOT web's brick-red `#C43A10`.
+   Functionality, layout, and copy match web; colors stay native to the app for visual
+   consistency with the rest of the app (tabs / menu / current checkout). The Leaflet tracking
+   map keeps web's emoji pins but uses `BRAND.color` for the store/driver pin rings.
 
 ## Architecture
 
@@ -75,7 +80,8 @@ Zustand cart (AsyncStorage), and the native **Square Mobile Payments SDK** (paym
 ### App: UI (native, copy/layout aligned to web)
 - `components/checkout/FulfillmentSelector.tsx` — Pickup/Delivery two-button toggle. Delivery
   disabled below `MIN_ORDER_CENTS` showing "Add $X to enable"; eligible shows
-  "Delivery · free over $35"; active style brick-red border + cream fill (`#C43A10` / `#F5E6C8`).
+  "Delivery · free over $35"; active style uses the app brand color border + accent fill
+  (`BRAND.color` / `BRAND.accentColor`).
 - `components/checkout/DeliveryAddressForm.tsx` — Address (autocomplete dropdown) + Postcode
   (4-digit, instant "✓ In our delivery zone" / "Sorry, we only deliver to 4211, 4214, …") + Unit
   (optional) + Note for driver (≤120 chars) + Phone (prefilled from profile).
