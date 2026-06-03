@@ -40,3 +40,52 @@ export function deliverySubtitle(drinksSubtotalCents: number): string {
   const remaining = MIN_ORDER_CENTS - drinksSubtotalCents
   return `Add ${formatPrice(remaining)} to enable`
 }
+
+export type FulfillmentType = 'PICKUP' | 'DELIVERY'
+
+export type QuoteState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'ok'; feeCents: number; serviceFeeCents: number }
+  | { kind: 'error'; message: string }
+
+// Verbatim from web checkout/page.tsx reason map.
+const REASON_COPY: Record<string, string> = {
+  out_of_zone: "Sorry, we don't deliver to that postcode",
+  closed: 'Delivery hours: 10:30am–10:30pm',
+  min_order: 'Add more to qualify for delivery',
+  auth: 'Sign in to get a delivery quote',
+  invalid_body: 'Address looks invalid — try a fuller address',
+  invalid_json: 'Address looks invalid — try a fuller address',
+}
+
+export function quoteReasonCopy(reason: string): string {
+  return REASON_COPY[reason] ?? 'Delivery unavailable'
+}
+
+// "—" while a quote is pending, "FREE" at $0, else the formatted amount.
+export function feeValueText(pending: boolean, cents: number): string {
+  if (pending) return '—'
+  if (cents === 0) return 'FREE'
+  return formatPrice(cents)
+}
+
+export function deliveryFeesPending(
+  fulfillment: FulfillmentType,
+  isFreeRedeem: boolean,
+  quoteKind: QuoteState['kind'],
+): boolean {
+  return fulfillment === 'DELIVERY' && !isFreeRedeem && quoteKind !== 'ok'
+}
+
+// Cents to add to the order total for delivery (fee + 5% service), only when a
+// quote has resolved and the order isn't fully covered by a reward.
+export function deliveryAddOnCents(
+  fulfillment: FulfillmentType,
+  isFreeRedeem: boolean,
+  quote: QuoteState,
+): number {
+  if (fulfillment !== 'DELIVERY' || isFreeRedeem) return 0
+  if (quote.kind !== 'ok') return 0
+  return quote.feeCents + quote.serviceFeeCents
+}
