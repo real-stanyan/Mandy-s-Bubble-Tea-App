@@ -12,7 +12,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useCartStore } from '@/store/cart'
-import { isUnfinished, type OrderHistoryItem } from '@/store/orders'
+import { effectiveOrderState, isUnfinished, type OrderHistoryItem } from '@/store/orders'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { Icon } from '@/components/brand/Icon'
 import { T, FONT } from '@/constants/theme'
@@ -28,12 +28,9 @@ import type { TimelineStatus } from '@/components/orders/StatusTimeline'
 import { reorder } from '@/components/orders/reorder'
 
 function timelineStatusFor(order: OrderHistoryItem): TimelineStatus {
-  if (order.state === 'OPEN' && order.fulfillmentState === 'PREPARED') {
-    return 'READY'
-  }
-  if (order.state === 'OPEN') {
-    return 'PREPARING'
-  }
+  const eff = effectiveOrderState(order.state, order.fulfillmentState)
+  if (eff === 'READY') return 'READY'
+  if (eff === 'OPEN') return 'PREPARING'
   return 'OPEN'
 }
 

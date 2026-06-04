@@ -18,7 +18,11 @@ import { FreshnessBar } from '@/components/delivery/FreshnessBar'
 import { useDeliveryTracking } from '@/hooks/use-delivery-tracking'
 import { DELIVERY_DRIVER } from '@/lib/delivery'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
-import { useOrdersStore, type OrderHistoryLineModifier } from '@/store/orders'
+import {
+  effectiveOrderState,
+  useOrdersStore,
+  type OrderHistoryLineModifier,
+} from '@/store/orders'
 
 function groupModifiers(
   mods: OrderHistoryLineModifier[],
@@ -105,9 +109,11 @@ const STATE_CONFIG: Record<string, StateInfo> = {
   },
 }
 
+// Customer-visible state lives on the fulfillment for self-delivery orders
+// (driver flips PREPARED/COMPLETED while order.state stays OPEN until staff
+// close the ticket in POS) — shared mapping in store/orders.ts.
 function resolveDisplayState(state: string | null | undefined, fulfillmentState: string | null | undefined) {
-  if (state === 'OPEN' && fulfillmentState === 'PREPARED') return 'READY'
-  return state ?? 'COMPLETED'
+  return effectiveOrderState(state ?? null, fulfillmentState ?? null) || 'COMPLETED'
 }
 
 function formatDate(iso: string | null): string {
@@ -157,8 +163,13 @@ export default function OrderDetailScreen() {
   // true would re-subscribe useFocusEffect mid-render and double-fire
   // refreshOrders, making the native header back button drop taps.
   const isTerminalRef = useRef(false)
-  isTerminalRef.current =
-    storeOrder?.state === 'COMPLETED' || storeOrder?.state === 'CANCELED'
+  {
+    const eff = effectiveOrderState(
+      storeOrder?.state ?? null,
+      storeOrder?.fulfillmentState ?? null,
+    )
+    isTerminalRef.current = eff === 'COMPLETED' || eff === 'CANCELED'
+  }
   useFocusEffect(
     useCallback(() => {
       refreshOrders()
@@ -189,7 +200,8 @@ export default function OrderDetailScreen() {
   const fulfillmentState = storeOrder?.fulfillmentState ?? null
   const totalCents = storeOrder?.totalCents ?? params.totalCents ?? '0'
 
-  const isTerminal = state === 'COMPLETED' || state === 'CANCELED'
+  const displayState = resolveDisplayState(state, fulfillmentState)
+  const isTerminal = displayState === 'COMPLETED' || displayState === 'CANCELED'
   const { tracking } = useDeliveryTracking(orderId, isDelivery && !isTerminal)
   const mapRef = useRef<TrackingMapHandle>(null)
   useEffect(() => {
@@ -198,7 +210,6 @@ export default function OrderDetailScreen() {
   const outForDelivery = isDelivery && !!tracking
   const hasDriver = !!tracking && tracking.driverLat != null && tracking.driverLng != null
 
-  const displayState = resolveDisplayState(state, fulfillmentState)
   const stateInfo = STATE_CONFIG[displayState] ?? STATE_CONFIG.COMPLETED
   const pickupNumber = referenceId
     || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
@@ -376,11 +387,11 @@ export default function OrderDetailScreen() {
         </View>
       )}
 
-      {state === 'COMPLETED' && (
+      {displayState === 'COMPLETED' && (
         <OrderComplaintSection
           orderId={orderId}
           pickupNumber={pickupNumber}
-          orderState={state}
+          orderState={displayState}
         />
       )}
 

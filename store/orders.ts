@@ -37,8 +37,28 @@ export interface OrderHistoryItem {
 // Unfinished = Square order still OPEN (covers both IN PROGRESS and READY,
 // since "READY" is OPEN + fulfillmentState=PREPARED). COMPLETED and CANCELED
 // are terminal states that belong in Past Orders.
-export function isUnfinished(order: Pick<OrderHistoryItem, 'state'>): boolean {
-  return order.state === 'OPEN'
+// Self-delivery caveat: the driver app completes the *fulfillment*
+// (COMPLETED) but the Square order itself stays OPEN until staff close the
+// ticket in POS — so a COMPLETED fulfillment counts as finished too.
+export function isUnfinished(
+  order: Pick<OrderHistoryItem, 'state' | 'fulfillmentState'>,
+): boolean {
+  return order.state === 'OPEN' && order.fulfillmentState !== 'COMPLETED'
+}
+
+// Single source of truth for the customer-visible order state. Square keeps
+// order.state OPEN while staff (or the driver app) advance the fulfillment,
+// so the lifecycle the customer cares about lives on the fulfillment:
+//   OPEN + PREPARED  → READY     (at the counter / out for delivery)
+//   OPEN + COMPLETED → COMPLETED (picked up / delivered, ticket not yet
+//                                 closed in POS)
+export function effectiveOrderState(
+  state: string | null,
+  fulfillmentState: string | null,
+): string {
+  if (state === 'OPEN' && fulfillmentState === 'COMPLETED') return 'COMPLETED'
+  if (state === 'OPEN' && fulfillmentState === 'PREPARED') return 'READY'
+  return state ?? ''
 }
 
 interface OrdersState {
