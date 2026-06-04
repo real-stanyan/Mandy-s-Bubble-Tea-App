@@ -89,3 +89,13 @@ export function deliveryAddOnCents(
   if (quote.kind !== 'ok') return 0
   return quote.feeCents + quote.serviceFeeCents
 }
+
+// ETA copy for the live tracking sheet. Prefers the server's Google
+// Directions duration (re-routed as the driver moves); falls back to the
+// static range when no route is available yet.
+export function etaText(etaSeconds: number | null | undefined): string {
+  if (etaSeconds == null || !Number.isFinite(etaSeconds) || etaSeconds <= 0) {
+    return '~15–25 min'
+  }
+  return `~${Math.max(1, Math.ceil(etaSeconds / 60))} min`
+}

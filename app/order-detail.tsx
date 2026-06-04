@@ -17,7 +17,7 @@ import { Icon, type IconName } from '@/components/brand/Icon'
 import { TrackingMap, type TrackingMapHandle } from '@/components/delivery/TrackingMap'
 import { FreshnessBar } from '@/components/delivery/FreshnessBar'
 import { useDeliveryTracking } from '@/hooks/use-delivery-tracking'
-import { DELIVERY_DRIVER } from '@/lib/delivery'
+import { DELIVERY_DRIVER, etaText } from '@/lib/delivery'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import {
   effectiveOrderState,
@@ -298,7 +298,7 @@ export default function OrderDetailScreen() {
             </View>
             <View>
               <Text style={styles.sheetMeta}>ETA</Text>
-              <Text style={styles.sheetMetaVal}>~15–25 min</Text>
+              <Text style={styles.sheetMetaVal}>{etaText(tracking.etaSeconds)}</Text>
             </View>
           </View>
           {items.length > 0 ? (

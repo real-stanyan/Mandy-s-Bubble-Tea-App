@@ -33,6 +33,7 @@ import {
   feeValueText,
   deliveryFeesPending,
   deliveryAddOnCents,
+  etaText,
 } from './delivery'
 
 describe('quote reason copy (verbatim from web)', () => {
@@ -67,5 +68,17 @@ describe('fee display', () => {
     expect(deliveryAddOnCents('DELIVERY', true, ok)).toBe(0)
     expect(deliveryAddOnCents('PICKUP', false, ok)).toBe(0)
     expect(deliveryAddOnCents('DELIVERY', false, { kind: 'loading' })).toBe(0)
+  })
+})
+
+describe('etaText', () => {
+  it('formats live Directions seconds as whole minutes (ceil, floor 1)', () => {
+    expect(etaText(610)).toBe('~11 min')
+    expect(etaText(30)).toBe('~1 min')
+  })
+  it('falls back to the static range when unavailable', () => {
+    expect(etaText(null)).toBe('~15–25 min')
+    expect(etaText(undefined)).toBe('~15–25 min')
+    expect(etaText(0)).toBe('~15–25 min')
   })
 })

@@ -12,6 +12,10 @@ export type Tracking = {
   driverLng: number | null
   driverHeading: number | null
   locationUpdatedAt: string | null
+  // Driving route driver→destination ([lat, lng] points) + ETA seconds,
+  // resolved server-side via Google Directions (cached on the dispatch row).
+  route?: [number, number][] | null
+  etaSeconds?: number | null
 }
 
 export type TrackingMapHandle = { update: (t: Tracking) => void }
@@ -28,7 +32,7 @@ var map=L.map('map',{zoomControl:false,scrollWheelZoom:false});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
 function pin(emoji,ring){return L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],
   html:'<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9999px;background:#fff;border:2px solid '+ring+';box-shadow:0 2px 6px rgba(0,0,0,.25);font-size:18px;line-height:1">'+emoji+'</div>'});}
-var storeM=null,destM=null,driverM=null,anim=null,cur={};
+var storeM=null,destM=null,driverM=null,routeL=null,anim=null,cur={};
 function pts(){var a=[[cur.storeLat,cur.storeLng]];
   if(cur.destLat!=null&&cur.destLng!=null)a.push([cur.destLat,cur.destLng]);
   if(cur.driverLat!=null&&cur.driverLng!=null)a.push([cur.driverLat,cur.driverLng]);return a;}
@@ -37,6 +41,10 @@ function fit(){var p=pts();if(p.length===1){map.setView(p[0],15);return;}
   map.fitBounds(L.latLngBounds(p).pad(0.3),{maxZoom:16,paddingTopLeft:[30,40],paddingBottomRight:[30,bp]});}
 window.updateTracking=function(t){
   cur=t;
+  if(t.route&&t.route.length>1){
+    if(!routeL){routeL=L.polyline(t.route,{color:PRIMARY,weight:4,opacity:0.8,lineCap:'round',lineJoin:'round'}).addTo(map);}
+    else{routeL.setLatLngs(t.route);}
+  }else if(routeL){map.removeLayer(routeL);routeL=null;}
   if(!storeM){storeM=L.marker([t.storeLat,t.storeLng],{icon:pin('🧋',PRIMARY)}).addTo(map).bindTooltip("Mandy's");}
   if(t.destLat!=null&&t.destLng!=null&&!destM){destM=L.marker([t.destLat,t.destLng],{icon:pin('🏠','#5B7A52')}).addTo(map).bindTooltip('Your address');}
   if(t.driverLat!=null&&t.driverLng!=null){
