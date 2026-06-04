@@ -173,7 +173,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 12, marginTop: 8 },
+  wrap: { gap: 12, marginTop: 8, marginHorizontal: 16 },
   field: { gap: 4 },
   label: { fontFamily: FONT.sans, fontSize: 12.5, fontWeight: '600', color: T.ink2 },
   input: {

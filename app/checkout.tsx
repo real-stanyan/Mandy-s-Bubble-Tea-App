@@ -466,6 +466,19 @@ export default function CheckoutScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 130 }}
       >
         <InlineHeader onBack={handleBack} total={displayedTotal} />
+        <Image
+          source={
+            fulfillmentType === 'PICKUP'
+              ? require('@/assets/images/checkout-hero-pickup.webp')
+              : require('@/assets/images/checkout-hero-delivery.webp')
+          }
+          style={styles.fulfillmentHero}
+          contentFit="cover"
+          transition={250}
+          accessibilityLabel={
+            fulfillmentType === 'PICKUP' ? 'Pickup at the counter' : 'Delivery to your door'
+          }
+        />
         <FulfillmentSelector
           value={fulfillmentType}
           onChange={setFulfillmentType}
@@ -1204,6 +1217,13 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 999,
     backgroundColor: '#fff',
+  },
+  fulfillmentHero: {
+    width: '100%',
+    marginTop: 4,
+    marginBottom: 12,
+    aspectRatio: 1.85,
+    backgroundColor: T.card,
   },
   notesInput: {
     minHeight: 64,

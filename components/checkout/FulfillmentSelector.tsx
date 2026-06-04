@@ -54,7 +54,7 @@ function Option({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  row: { flexDirection: 'row', gap: 12, marginBottom: 8, marginHorizontal: 16 },
   option: {
     flex: 1, borderWidth: 1.5, borderColor: '#E5DED3', borderRadius: 14,
     paddingVertical: 12, paddingHorizontal: 14, backgroundColor: '#fff',

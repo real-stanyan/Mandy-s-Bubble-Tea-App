@@ -27,7 +27,7 @@ export function DeliveryQuoteCard({ quote }: { quote: QuoteState }) {
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, padding: 12, marginTop: 8 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, padding: 12, marginTop: 8, marginHorizontal: 16 },
   neutral: { backgroundColor: '#F5F1EA' },
   ok: { backgroundColor: '#EAF3EA' },
   error: { backgroundColor: '#FBEFE0' },
