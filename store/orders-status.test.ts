@@ -2,7 +2,7 @@
 // needed for these pure helpers, so stub it out.
 jest.mock('@/lib/api', () => ({ apiFetch: jest.fn() }))
 
-import { effectiveOrderState, isUnfinished } from './orders'
+import { effectiveOrderState, isDeliveryOrder, isUnfinished } from './orders'
 
 // Dogfood fixture 2026-06-04: driver marked a self-delivery order picked up
 // then delivered (fulfillment → PREPARED → COMPLETED), but the Square order
@@ -48,5 +48,13 @@ describe('isUnfinished', () => {
   it('closed orders are finished', () => {
     expect(isUnfinished({ state: 'COMPLETED', fulfillmentState: null })).toBe(false)
     expect(isUnfinished({ state: 'CANCELED', fulfillmentState: null })).toBe(false)
+  })
+})
+
+describe('isDeliveryOrder', () => {
+  it('detects DE-prefixed reference ids', () => {
+    expect(isDeliveryOrder({ referenceId: 'DE835' })).toBe(true)
+    expect(isDeliveryOrder({ referenceId: 'OL848' })).toBe(false)
+    expect(isDeliveryOrder({ referenceId: null })).toBe(false)
   })
 })

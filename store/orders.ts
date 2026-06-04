@@ -61,6 +61,14 @@ export function effectiveOrderState(
   return state ?? ''
 }
 
+// Self-delivery orders are numbered DE### (vs OL### for pickup) — the DE
+// prefix is the one delivery marker the history endpoint always carries.
+export function isDeliveryOrder(
+  order: Pick<OrderHistoryItem, 'referenceId'>,
+): boolean {
+  return (order.referenceId ?? '').toUpperCase().startsWith('DE')
+}
+
 interface OrdersState {
   orders: OrderHistoryItem[]
   // Cached count of unfinished orders (state === 'OPEN'). Derived fields

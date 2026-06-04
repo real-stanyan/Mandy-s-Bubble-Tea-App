@@ -11,6 +11,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { OrderComplaintSection } from '@/components/account/OrderComplaintSection'
 import { Icon, type IconName } from '@/components/brand/Icon'
 import { TrackingMap, type TrackingMapHandle } from '@/components/delivery/TrackingMap'
@@ -136,6 +137,7 @@ function formatCents(cents: string): string {
 
 export default function OrderDetailScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{
     orderId: string
     referenceId: string
@@ -253,6 +255,66 @@ export default function OrderDetailScreen() {
           }
         })
 
+  // Out for delivery → take over the screen with a full-bleed live map and an
+  // Uber-Eats-style bottom sheet floating on top (mirrors the web
+  // DeliveryTrackingView). The native stack header stays for back navigation.
+  // All other states keep the normal in-flow detail page below.
+  if (outForDelivery && tracking) {
+    return (
+      <View style={styles.trackRoot}>
+        <View style={StyleSheet.absoluteFill}>
+          <TrackingMap ref={mapRef} initial={tracking} />
+        </View>
+
+        <View style={styles.trackFreshness} pointerEvents="none">
+          <FreshnessBar hasDriver={hasDriver} locationUpdatedAt={tracking.locationUpdatedAt} />
+        </View>
+
+        <View style={[styles.trackSheet, { paddingBottom: insets.bottom + 18 }]}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Out for Delivery!</Text>
+          <Text style={styles.sheetSub}>Your driver is on the way to your address.</Text>
+          <View style={styles.driverCard}>
+            <Image
+              source={require('@/assets/images/driver-avatar.png')}
+              style={styles.driverAvatar}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.driverName}>{DELIVERY_DRIVER.name}</Text>
+              <Text style={styles.driverRole}>On the way with your order</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.callBtn}
+              onPress={() => Linking.openURL(`tel:${DELIVERY_DRIVER.phone}`)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.callText}>Call</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.sheetRow}>
+            <View>
+              <Text style={styles.sheetMeta}>ORDER NUMBER</Text>
+              <Text style={[styles.sheetMetaVal, { color: T.brand }]}>{pickupNumber}</Text>
+            </View>
+            <View>
+              <Text style={styles.sheetMeta}>ETA</Text>
+              <Text style={styles.sheetMetaVal}>~15–25 min</Text>
+            </View>
+          </View>
+          {items.length > 0 ? (
+            <ScrollView style={styles.sheetItems} bounces={false}>
+              {items.map((item, i) => (
+                <Text key={i} style={styles.sheetItemLine} numberOfLines={1}>
+                  {item.quantity}× {item.name}
+                </Text>
+              ))}
+            </ScrollView>
+          ) : null}
+        </View>
+      </View>
+    )
+  }
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -288,41 +350,6 @@ export default function OrderDetailScreen() {
         </View>
       </View>
 
-      {outForDelivery && tracking ? (
-        <View style={styles.trackWrap}>
-          <TrackingMap ref={mapRef} initial={tracking} />
-          <View style={styles.freshnessFloat}>
-            <FreshnessBar hasDriver={hasDriver} locationUpdatedAt={tracking.locationUpdatedAt} />
-          </View>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Out for Delivery!</Text>
-            <Text style={styles.sheetSub}>Your driver is on the way to your address.</Text>
-            <View style={styles.driverCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.driverName}>{DELIVERY_DRIVER.name}</Text>
-                <Text style={styles.driverRole}>On the way with your order</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.callBtn}
-                onPress={() => Linking.openURL(`tel:${DELIVERY_DRIVER.phone}`)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.callText}>Call</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.sheetRow}>
-              <View>
-                <Text style={styles.sheetMeta}>ORDER NUMBER</Text>
-                <Text style={[styles.sheetMetaVal, { color: T.brand }]}>{pickupNumber}</Text>
-              </View>
-              <View>
-                <Text style={styles.sheetMeta}>ETA</Text>
-                <Text style={styles.sheetMetaVal}>~15–25 min</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      ) : (
       <TouchableOpacity
         style={styles.mapCard}
         onPress={openMapsNavigation}
@@ -353,7 +380,6 @@ export default function OrderDetailScreen() {
           <Icon name="arrow" size={20} color={T.brand} />
         </View>
       </TouchableOpacity>
-      )}
 
       {items.length > 0 && (
         <View style={styles.summarySection}>
@@ -615,9 +641,31 @@ const styles = StyleSheet.create({
     color: T.ink,
   },
 
-  trackWrap: { marginTop: 16, width: '100%', height: 460, borderRadius: RADIUS.card, overflow: 'hidden', borderWidth: 1, borderColor: T.line, backgroundColor: '#E8E5DE' },
-  freshnessFloat: { position: 'absolute', top: 12, left: 12 },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: T.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 10 },
+  // Full-screen live tracking (below the native stack header) — mirrors web's
+  // DeliveryTrackingView: full-bleed map, freshness chip up top, bottom sheet.
+  trackRoot: { flex: 1, backgroundColor: '#E8E5DE' },
+  trackFreshness: { position: 'absolute', left: 0, right: 0, top: 14, alignItems: 'center' },
+  trackSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: T.paper,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 12,
+  },
+  sheetHandle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: T.line, marginBottom: 2 },
+  driverAvatar: { width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: T.bg2 },
+  sheetItems: { maxHeight: 96, marginTop: 2, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 8 },
+  sheetItemLine: { ...TYPE.body, fontSize: 13, color: T.ink2, marginBottom: 4 },
   sheetTitle: { fontFamily: 'Fraunces_500Medium', fontSize: 18, color: T.ink },
   sheetSub: { ...TYPE.body, fontSize: 13, color: T.ink3 },
   driverCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: T.bg, borderRadius: 14, padding: 12 },
