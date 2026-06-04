@@ -23,6 +23,7 @@ import { buildPaymentSelections } from '@/lib/doodle/build-payment-selections'
 import { useCreateOrder } from '@/hooks/use-create-order'
 import { usePayment } from '@/hooks/use-payment'
 import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
+import { useStoreStatus } from '@/hooks/use-store-status'
 import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
@@ -629,6 +630,7 @@ function SimpleSummaryBlock({ items, total }: { items: CartItem[]; total: number
 }
 
 function StoreBlock() {
+  const status = useStoreStatus()
   return (
     <CardBlock eyebrow="Pickup store" title="Mandy’s — Southport">
       <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 8 }}>
@@ -636,14 +638,23 @@ function StoreBlock() {
           34 Davenport St · Southport QLD 4215
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={styles.openPill}>
-            <View style={styles.openDot} />
-            <Text style={styles.openText}>Open now</Text>
-          </View>
-          <View style={styles.waitPill}>
-            <Icon name="clock" size={11} color={T.ink2} />
-            <Text style={styles.waitText}>~6 min</Text>
-          </View>
+          {status.open ? (
+            <>
+              <View style={styles.openPill}>
+                <View style={styles.openDot} />
+                <Text style={styles.openText}>Open now</Text>
+              </View>
+              <View style={styles.waitPill}>
+                <Icon name="clock" size={11} color={T.ink2} />
+                <Text style={styles.waitText}>~6 min</Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.closedPill}>
+              <View style={styles.closedDot} />
+              <Text style={styles.closedText}>Closed · Opens {status.nextLabel}</Text>
+            </View>
+          )}
         </View>
       </View>
     </CardBlock>
@@ -651,7 +662,13 @@ function StoreBlock() {
 }
 
 function PickupTimeBlock() {
-  return <CardBlock eyebrow="Pickup time" title="ASAP · ~6 min" />
+  const status = useStoreStatus()
+  return (
+    <CardBlock
+      eyebrow="Pickup time"
+      title={status.open ? 'ASAP · ~6 min' : `Opens ${status.nextLabel}`}
+    />
+  )
 }
 
 function OrderItemsBlock({ items }: { items: CartItem[] }) {
@@ -1074,6 +1091,27 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: T.greenDark,
+  },
+  closedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: T.bg2,
+  },
+  closedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: T.ink4,
+  },
+  closedText: {
+    fontFamily: FONT.sans,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: T.ink3,
   },
   waitPill: {
     flexDirection: 'row',
