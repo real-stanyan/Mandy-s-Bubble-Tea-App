@@ -21,6 +21,8 @@ import { pickAndUploadImage, pickImageBase64 } from '@/lib/doodle/uploadImage'
 import type { DoodleSlot } from '@/lib/doodle/cartToSlots'
 import type { SvgPath } from '@/lib/doodle/types'
 import { GALLERY_HASHES, GALLERY_MANIFEST } from '@/lib/doodle/gallery-manifest.generated'
+import { fetchGallery, presetImageSource } from '@/lib/doodle/gallery-remote'
+import type { RemotePreset } from '@/lib/doodle/gallery-remote'
 import { T, FONT, RADIUS } from '@/constants/theme'
 
 interface Props {
@@ -100,6 +102,24 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   // promotes that tab to active; switching tabs without acting only
   // changes the view, not the active mode.
   const [viewTab, setViewTab] = useState<Tab>('preset')
+
+  // Remote gallery: merged builtin + uploaded presets fetched at runtime.
+  // Falls back to bundled GALLERY_HASHES if fetch fails (offline safe).
+  const [remotePresets, setRemotePresets] = useState<RemotePreset[] | null>(null)
+  useEffect(() => {
+    if (!visible) return
+    fetchGallery().then((presets) => {
+      if (presets.length > 0) setRemotePresets(presets)
+    })
+  }, [visible])
+
+  // Build the gallery list: if remote fetch succeeded use it; otherwise fall
+  // back to the bundled GALLERY_HASHES shaped as RemotePreset objects.
+  const galleryPresets: RemotePreset[] = remotePresets ?? GALLERY_HASHES.map((hash) => ({
+    hash,
+    thumbUrl: '',
+    source: 'builtin' as const,
+  }))
 
   if (slots.length === 0) return null
   const safeIdx = Math.min(Math.max(idx, 0), slots.length - 1)
@@ -316,16 +336,16 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
                 Optional — leave it for a surprise, or tap a tile to choose your own.
               </Text>
               <View style={styles.presetGrid}>
-                {GALLERY_HASHES.map((hash) => {
-                  const selected = slot.selection?.kind === 'preset' && slot.selection.hash === hash
+                {galleryPresets.map((item) => {
+                  const selected = slot.selection?.kind === 'preset' && slot.selection.hash === item.hash
                   return (
                     <Pressable
-                      key={hash}
-                      onPress={() => handlePickPreset(hash)}
+                      key={item.hash}
+                      onPress={() => handlePickPreset(item.hash)}
                       style={[styles.presetTile, selected && styles.presetTileActive]}
                     >
                       <Image
-                        source={GALLERY_MANIFEST[hash]}
+                        source={presetImageSource(item)}
                         style={{ width: '100%', height: '100%' }}
                         contentFit="contain"
                       />
