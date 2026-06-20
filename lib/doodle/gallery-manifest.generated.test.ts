@@ -2,8 +2,8 @@
 import { GALLERY_MANIFEST, GALLERY_HASHES } from './gallery-manifest.generated'
 
 describe('gallery-manifest.generated', () => {
-  it('exports exactly 185 entries', () => {
-    expect(GALLERY_HASHES).toHaveLength(185)
+  it('exports exactly 225 entries', () => {
+    expect(GALLERY_HASHES).toHaveLength(225)
   })
 
   it('GALLERY_MANIFEST and GALLERY_HASHES are aligned 1:1', () => {
