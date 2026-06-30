@@ -16,7 +16,7 @@ export const LOYALTY = {
 // ---- Limited-time campaigns ----
 // Home "Buy 2 drinks, get a fragrance-tag blind box" promo. Flip to false
 // to retire the campaign — the home card disappears, no other cleanup.
-export const FRAGRANCE_BLIND_BOX_PROMO = true
+export const FRAGRANCE_BLIND_BOX_PROMO = false
 
 // Map of Square category name → canonical app slug. Keys are the current
 // Square Dashboard category names; slugs flow into home tiles, deep
