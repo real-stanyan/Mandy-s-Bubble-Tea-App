@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "23",
+      "buildNumber": "22",
       "bundleIdentifier": "com.mandysbubbletea.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
