@@ -54,7 +54,10 @@ import {
   startCardPayment,
   startApplePayPayment,
   startGooglePayPayment,
+  PAYMENT_SHEET_TIMEOUT,
 } from '@/lib/square-payment'
+import { reportPaymentStep } from '@/lib/client-log'
+import { clearOrderNonce } from '@/lib/order-nonce'
 import type { CartItem, CartModifier } from '@/types/square'
 import { cartToSlots, type DoodleSlot } from '@/lib/doodle/cartToSlots'
 import { DoodleSection } from '@/components/doodle/DoodleSection'
@@ -116,6 +119,12 @@ export default function CheckoutScreen() {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
+  // Non-alarming inline notice (e.g. user closed the payment sheet). Kept
+  // separate from paymentError so it doesn't render in the red error style.
+  const [payNotice, setPayNotice] = useState<string | null>(null)
+  // Square SDK failed to initialize — Pay would silently no-op, so disable
+  // the button and tell the user instead of console.warn-ing into the void.
+  const [squareInitFailed, setSquareInitFailed] = useState(false)
 
   const [payMethod, setPayMethod] = useState<PayMethod>('card')
   const [applePayAvailable, setApplePayAvailable] = useState(false)
@@ -190,6 +199,7 @@ export default function CheckoutScreen() {
         .catch(() => {})
     } catch (e) {
       console.warn('Square SDK init failed:', e)
+      setSquareInitFailed(true)
     }
   }, [profile])
 
@@ -323,6 +333,7 @@ export default function CheckoutScreen() {
     setProcessing(true)
     setError(null)
     setPaymentError(null)
+    setPayNotice(null)
 
     const useWelcome = welcomeAvailable && welcomeCups.length > 0
     const useIgFollow = igFollowDiscount.available && igFollowCups.length > 0
@@ -352,6 +363,7 @@ export default function CheckoutScreen() {
               }
             : undefined,
       })
+      reportPaymentStep({ step: 'create-order', orderId, payMethod })
 
       let amountCents = total
       if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
@@ -368,15 +380,32 @@ export default function CheckoutScreen() {
         )
       }
       if (rewardCount > 0) {
-        const redeemRes = await apiFetch<{
-          ok: boolean
-          updatedAmountCents?: string
-          error?: string
-        }>('/api/loyalty/redeem', {
-          method: 'POST',
-          body: JSON.stringify({ orderId, count: rewardCount }),
-        })
+        let redeemRes: { ok: boolean; updatedAmountCents?: string; error?: string }
+        try {
+          redeemRes = await apiFetch<{
+            ok: boolean
+            updatedAmountCents?: string
+            error?: string
+          }>('/api/loyalty/redeem', {
+            method: 'POST',
+            body: JSON.stringify({ orderId, count: rewardCount }),
+          })
+        } catch (redeemErr) {
+          reportPaymentStep({
+            step: 'redeem-fail',
+            orderId,
+            payMethod,
+            message: redeemErr instanceof Error ? redeemErr.message : String(redeemErr),
+          })
+          throw redeemErr
+        }
         if (!redeemRes.ok) {
+          reportPaymentStep({
+            step: 'redeem-fail',
+            orderId,
+            payMethod,
+            message: redeemRes.error ?? 'Could not redeem reward',
+          })
           throw new Error(redeemRes.error ?? 'Could not redeem reward')
         }
         if (typeof redeemRes.updatedAmountCents === 'string') {
@@ -396,9 +425,34 @@ export default function CheckoutScreen() {
         if (deliveryFeeCents > 0) amountCents += deliveryFeeCents
       }
 
+      // Upload any draw doodles whose paths haven't been persisted yet.
+      // Run all uploads in parallel; abort the whole pay flow if any fails.
+      // Deliberately BEFORE tokenize: a payment nonce is single-use, so a
+      // failed upload after tokenize would burn the nonce and force the
+      // user through the payment sheet again.
+      const drawUploads = slots
+        .filter((slot) => slot.selection?.kind === 'draw' && slot.selection.userDoodleId === null && slot.selection.paths.length > 0)
+      if (drawUploads.length > 0) {
+        await Promise.all(
+          drawUploads.map(async (slot) => {
+            const s = slot.selection as Extract<typeof slot.selection, { kind: 'draw' }>
+            const { doodleId } = await uploadDoodle(s.paths)
+            setLabel(slot.cupKey, { ...s, userDoodleId: doodleId })
+          }),
+        )
+      }
+
       let nonce: string | undefined
       if (!isFreeOrder) {
         const priceDollars = (amountCents / 100).toFixed(2)
+        reportPaymentStep({ step: 'tokenize-start', orderId, payMethod })
+        // If the sheet hasn't settled within 25s, beacon it — that's the
+        // exact signature of the "promise never settles" bug (dropped
+        // native rejection / nil rootViewController no-op) this flow was
+        // hardened against. Cleared as soon as tokenize settles.
+        const pendingTimer = setTimeout(() => {
+          reportPaymentStep({ step: 'tokenize-pending', orderId, payMethod })
+        }, 25_000)
         try {
           switch (payMethod) {
             case 'apple':
@@ -415,33 +469,45 @@ export default function CheckoutScreen() {
         } catch (sdkErr) {
           const msg = sdkErr instanceof Error ? sdkErr.message : String(sdkErr)
           if (msg.includes('cancelled') || msg.includes('canceled')) {
+            // User closed the sheet. Not an error — keep the created order
+            // (the idempotency key reuses it on the next Pay) and show a
+            // calm inline notice instead of the red error dialog.
+            reportPaymentStep({ step: 'tokenize-cancel', orderId, payMethod })
+            setPayNotice(
+              "Payment not completed — nothing was charged. Tap Pay when you're ready.",
+            )
             setProcessing(false)
             return
           }
+          reportPaymentStep({
+            step: msg === PAYMENT_SHEET_TIMEOUT ? 'tokenize-timeout' : 'tokenize-fail',
+            orderId,
+            payMethod,
+            message: msg,
+          })
           throw sdkErr
+        } finally {
+          clearTimeout(pendingTimer)
         }
       }
 
-      // Upload any draw doodles whose paths haven't been persisted yet.
-      // Run all uploads in parallel; abort the whole pay flow if any fails.
-      const drawUploads = slots
-        .filter((slot) => slot.selection?.kind === 'draw' && slot.selection.userDoodleId === null && slot.selection.paths.length > 0)
-      if (drawUploads.length > 0) {
-        await Promise.all(
-          drawUploads.map(async (slot) => {
-            const s = slot.selection as Extract<typeof slot.selection, { kind: 'draw' }>
-            const { doodleId } = await uploadDoodle(s.paths)
-            setLabel(slot.cupKey, { ...s, userDoodleId: doodleId })
-          }),
-        )
-      }
-
       const selectionMaps = buildPaymentSelections(useCartStore.getState().labelSelections)
-      const result = await pay({
-        sourceId: nonce,
-        orderId,
-        ...selectionMaps,
-      })
+      let result: Awaited<ReturnType<typeof pay>>
+      try {
+        result = await pay({
+          sourceId: nonce,
+          orderId,
+          ...selectionMaps,
+        })
+      } catch (payErr) {
+        reportPaymentStep({
+          step: 'pay-fail',
+          orderId,
+          payMethod,
+          message: payErr instanceof Error ? payErr.message : String(payErr),
+        })
+        throw payErr
+      }
 
       // Save order items for track/history screens before clearing cart
       await AsyncStorage.setItem('mbt:lastOrder:items', JSON.stringify(items))
@@ -457,13 +523,21 @@ export default function CheckoutScreen() {
       const totalCents = Math.max(amountCents, 0)
 
       clearCart()
+      // Payment succeeded — rotate the per-checkout idempotency nonce so
+      // the NEXT order gets a fresh identity. Only cleared on success:
+      // failures/cancels keep the nonce so a retry reuses the same order.
+      clearOrderNonce().catch(() => {})
       // Re-hydrate profile/loyalty/welcomeDiscount so the success overlay
       // and home tab show the updated stars + consumed welcome.
       refreshAuth()
       setPlaced({ pickupNumber: pickupRef, totalCents, starsEarned })
     } catch (e) {
-      const message =
+      const raw =
         e instanceof Error ? e.message : 'Something went wrong. Please try again.'
+      const message =
+        raw === PAYMENT_SHEET_TIMEOUT
+          ? "Payment screen didn't respond — nothing was charged. Please try again."
+          : raw
       setPaymentError(message)
     } finally {
       setProcessing(false)
@@ -473,7 +547,8 @@ export default function CheckoutScreen() {
   const isLoading = orderLoading || payLoading || processing
   const acceptance = useOrderAcceptance()
   const deliveryReady = fulfillmentType !== 'DELIVERY' || quote.kind === 'ok'
-  const payDisabled = isLoading || !acceptance.accepting || !allLabeled || !deliveryReady
+  const payDisabled =
+    isLoading || !acceptance.accepting || !allLabeled || !deliveryReady || squareInitFailed
 
   if (authLoading && !profile) {
     return (
@@ -621,6 +696,19 @@ export default function CheckoutScreen() {
       </ScrollView>
 
       <View style={[styles.ctaBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {squareInitFailed && (
+          <View style={styles.noticeBar}>
+            <Text style={styles.noticeText}>
+              Payments couldn&apos;t start on this device. Please close and
+              reopen the app, then try again.
+            </Text>
+          </View>
+        )}
+        {!squareInitFailed && payNotice && (
+          <View style={styles.noticeBar}>
+            <Text style={styles.noticeText}>{payNotice}</Text>
+          </View>
+        )}
         <Pressable
           onPress={handlePay}
           disabled={payDisabled}
@@ -1414,6 +1502,22 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: T.line,
     marginVertical: 4,
+  },
+  noticeBar: {
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.small,
+    borderWidth: 1,
+    borderColor: T.line,
+  },
+  noticeText: {
+    fontFamily: FONT.sans,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: T.ink2,
+    textAlign: 'center',
   },
   errorText: {
     marginHorizontal: 16,

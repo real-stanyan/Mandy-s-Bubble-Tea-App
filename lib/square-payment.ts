@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
+import { reportPaymentStep } from '@/lib/client-log'
 
 // PRODUCTION (release) builds ALWAYS use the production Square credentials
 // below — never sandbox. Only dev builds (__DEV__ === true) may override via
@@ -82,24 +83,139 @@ export async function canUseGooglePay(): Promise<boolean> {
   }
 }
 
+// Watchdog timeouts for the native payment sheets. The SQIP bridge has two
+// known "promise never settles" failure modes:
+//   1. Apple/Google Pay: the native module's returned promise REJECTS (e.g.
+//      merchant config error) but the old code never attached a .catch — the
+//      outer promise stayed pending forever.
+//   2. Card entry: presenting on a nil rootViewController is a silent no-op —
+//      no callback ever fires.
+// Either way the checkout screen's `processing` flag stayed true until the
+// user killed the app, leaving the created order OPEN with no tender. The
+// watchdog guarantees the promise settles; single-settle guard keeps
+// resolve/reject/timeout mutually exclusive.
+//
+// Card entry is 300s (not the wallets' 90s): the user is TYPING card details
+// in the native form, and a timeout while the form is still open creates a
+// fake-success window — the form's own success animation would play while
+// the JS flow already gave up (see the guard.settled check in
+// startCardPayment). 300s only backstops the no-form failure modes (nil
+// rootViewController no-op / dropped native rejection); a real cardholder
+// finishing in under 5 minutes is never interrupted.
+export const CARD_ENTRY_TIMEOUT_MS = 300_000
+export const WALLET_TIMEOUT_MS = 90_000
+export const PAYMENT_SHEET_TIMEOUT = 'PAYMENT_SHEET_TIMEOUT'
+
+type SettleGuard = {
+  resolve: (nonce: string) => void
+  reject: (error: Error) => void
+  /** True once resolve/reject/timeout has fired — later callbacks must not
+   *  present success to the user (fake-success window). */
+  readonly settled: boolean
+}
+
+function createSettleGuard(
+  resolve: (nonce: string) => void,
+  reject: (error: Error) => void,
+  timeoutMs: number,
+  /** Called when the native flow tries to settle AFTER the guard already
+   *  settled (usually: watchdog fired, sheet answered late). Observability
+   *  only — must never throw or block (reportPaymentStep guarantees that). */
+  onLateSettle?: () => void,
+): SettleGuard {
+  let settled = false
+  const timer = setTimeout(() => {
+    if (settled) return
+    settled = true
+    reject(new Error(PAYMENT_SHEET_TIMEOUT))
+  }, timeoutMs)
+  const settleOnce = <T>(fn: (v: T) => void) => (v: T) => {
+    if (settled) {
+      onLateSettle?.()
+      return
+    }
+    settled = true
+    clearTimeout(timer)
+    fn(v)
+  }
+  return {
+    resolve: settleOnce(resolve),
+    reject: settleOnce(reject),
+    get settled() {
+      return settled
+    },
+  }
+}
+
+/** Fire-and-forget 'tokenize-late-settle' beacon — the signature of "the
+ *  sheet answered after the watchdog gave up". */
+function reportLateSettle(payMethod: 'card' | 'apple' | 'google') {
+  reportPaymentStep({
+    step: 'tokenize-late-settle',
+    payMethod,
+    message: 'payment sheet settled after the watchdog timeout',
+  })
+}
+
+function toError(e: unknown, fallback: string): Error {
+  if (e instanceof Error) return e
+  const msg = typeof e === 'string' && e ? e : fallback
+  return new Error(msg)
+}
+
+/** Attach a rejection handler to the promise a native SQIP call returns (if
+ *  it returns one — the typings say Promise, but stay defensive about the
+ *  bridge). A rejected native promise was previously silently dropped. */
+function guardNativePromise(maybePromise: unknown, guard: SettleGuard, fallback: string) {
+  if (
+    maybePromise &&
+    typeof (maybePromise as Promise<unknown>).catch === 'function'
+  ) {
+    ;(maybePromise as Promise<unknown>).catch((e: unknown) =>
+      guard.reject(toError(e, fallback))
+    )
+  }
+}
+
 /**
  * Open the native card entry form and return a payment nonce.
  */
 export function startCardPayment(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const { SQIPCardEntry } = loadSqip()
-    SQIPCardEntry.startCardEntryFlow(
-      false, // don't collect postal code (AU)
-      async (cardDetails) => {
-        if (cardDetails.nonce) {
-          return { success: true, onCardEntryComplete: () => resolve(cardDetails.nonce!) }
-        }
-        return { success: false, errorMessage: 'No nonce returned' }
-      },
-      () => {
-        reject(new Error('Card entry cancelled'))
-      }
+    const guard = createSettleGuard(resolve, reject, CARD_ENTRY_TIMEOUT_MS, () =>
+      reportLateSettle('card'),
     )
+    try {
+      const { SQIPCardEntry } = loadSqip()
+      const nativePromise = SQIPCardEntry.startCardEntryFlow(
+        false, // don't collect postal code (AU)
+        async (cardDetails) => {
+          // Fake-success window: if the watchdog already rejected, the native
+          // form may still be open in front of the user. Returning success
+          // here would play the form's success animation and dismiss it —
+          // while the JS flow already gave up (guard.resolve is a no-op) —
+          // so the user walks away believing they paid. Fail the form
+          // instead so it shows an explicit error.
+          if (guard.settled) {
+            reportLateSettle('card')
+            return {
+              success: false,
+              errorMessage: 'Payment timed out — please tap Pay again',
+            }
+          }
+          if (cardDetails.nonce) {
+            return { success: true, onCardEntryComplete: () => guard.resolve(cardDetails.nonce!) }
+          }
+          return { success: false, errorMessage: 'No nonce returned' }
+        },
+        () => {
+          guard.reject(new Error('Card entry cancelled'))
+        }
+      )
+      guardNativePromise(nativePromise, guard, 'Card entry failed')
+    } catch (e) {
+      guard.reject(toError(e, 'Card entry failed'))
+    }
   })
 }
 
@@ -109,36 +225,46 @@ export function startCardPayment(): Promise<string> {
  */
 export function startApplePayPayment(priceDollars: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const { SQIPApplePay, PaymentType, ApplePayNonceSuccessState } = loadSqip()
-    SQIPApplePay.requestApplePayNonce(
-      {
-        price: priceDollars,
-        summaryLabel: "Mandy's Bubble Tea",
-        countryCode: 'AU',
-        currencyCode: 'AUD',
-        paymentType: PaymentType.PaymentTypeFinal,
-      },
-      async (cardDetails) => {
-        if (cardDetails.nonce) {
-          resolve(cardDetails.nonce)
-          return { state: ApplePayNonceSuccessState.Succeeded }
-        }
-        return {
-          state: ApplePayNonceSuccessState.Failure,
-          errorMessage: 'No nonce returned',
-        }
-      },
-      (error) => {
-        reject(new Error(error.message || 'Apple Pay failed'))
-      },
-      (status, errorMessage) => {
-        if (status === ApplePayNonceSuccessState.Canceled) {
-          reject(new Error('Apple Pay cancelled'))
-        } else if (status === ApplePayNonceSuccessState.Failure) {
-          reject(new Error(errorMessage || 'Apple Pay failed'))
-        }
-      }
+    const guard = createSettleGuard(resolve, reject, WALLET_TIMEOUT_MS, () =>
+      reportLateSettle('apple'),
     )
+    try {
+      const { SQIPApplePay, PaymentType, ApplePayNonceSuccessState } = loadSqip()
+      const nativePromise = SQIPApplePay.requestApplePayNonce(
+        {
+          price: priceDollars,
+          summaryLabel: "Mandy's Bubble Tea",
+          countryCode: 'AU',
+          currencyCode: 'AUD',
+          paymentType: PaymentType.PaymentTypeFinal,
+        },
+        async (cardDetails) => {
+          if (cardDetails.nonce) {
+            guard.resolve(cardDetails.nonce)
+            return { state: ApplePayNonceSuccessState.Succeeded }
+          }
+          return {
+            state: ApplePayNonceSuccessState.Failure,
+            errorMessage: 'No nonce returned',
+          }
+        },
+        (error) => {
+          guard.reject(new Error(error.message || 'Apple Pay failed'))
+        },
+        (status, errorMessage) => {
+          if (status === ApplePayNonceSuccessState.Canceled) {
+            guard.reject(new Error('Apple Pay cancelled'))
+          } else if (status === ApplePayNonceSuccessState.Failure) {
+            guard.reject(new Error(errorMessage || 'Apple Pay failed'))
+          }
+        }
+      )
+      // THE main bug: this native promise rejects on e.g. merchant/config
+      // errors, and nothing was listening — checkout hung forever.
+      guardNativePromise(nativePromise, guard, 'Apple Pay failed')
+    } catch (e) {
+      guard.reject(toError(e, 'Apple Pay failed'))
+    }
   })
 }
 
@@ -148,27 +274,36 @@ export function startApplePayPayment(priceDollars: string): Promise<string> {
  */
 export function startGooglePayPayment(priceDollars: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const { SQIPGooglePay, GooglePayPriceStatus } = loadSqip()
-    SQIPGooglePay.requestGooglePayNonce(
-      {
-        price: priceDollars,
-        currencyCode: 'AUD',
-        priceStatus: GooglePayPriceStatus.TotalPriceStatusFinal,
-      },
-      (cardDetails) => {
-        if (cardDetails.nonce) {
-          resolve(cardDetails.nonce)
-        } else {
-          reject(new Error('No nonce returned'))
-        }
-      },
-      (error) => {
-        reject(new Error(error.message || 'Google Pay failed'))
-      },
-      () => {
-        reject(new Error('Google Pay cancelled'))
-      }
+    const guard = createSettleGuard(resolve, reject, WALLET_TIMEOUT_MS, () =>
+      reportLateSettle('google'),
     )
+    try {
+      const { SQIPGooglePay, GooglePayPriceStatus } = loadSqip()
+      const nativePromise = SQIPGooglePay.requestGooglePayNonce(
+        {
+          price: priceDollars,
+          currencyCode: 'AUD',
+          priceStatus: GooglePayPriceStatus.TotalPriceStatusFinal,
+        },
+        (cardDetails) => {
+          if (cardDetails.nonce) {
+            guard.resolve(cardDetails.nonce)
+          } else {
+            guard.reject(new Error('No nonce returned'))
+          }
+        },
+        (error) => {
+          guard.reject(new Error(error.message || 'Google Pay failed'))
+        },
+        () => {
+          guard.reject(new Error('Google Pay cancelled'))
+        }
+      )
+      // Same dropped-rejection bug as Apple Pay — see above.
+      guardNativePromise(nativePromise, guard, 'Google Pay failed')
+    } catch (e) {
+      guard.reject(toError(e, 'Google Pay failed'))
+    }
   })
 }
 

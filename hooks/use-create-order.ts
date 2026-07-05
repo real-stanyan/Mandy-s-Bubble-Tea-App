@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { getOrderNonce, deriveIdempotencyKey } from '@/lib/order-nonce'
 import type { CartItem, Order } from '@/types/square'
 
 interface CreateOrderParams {
@@ -69,22 +70,39 @@ export function useCreateOrder(): CreateOrderHook {
         }
       })
 
+      // Order body WITHOUT idempotencyKey — the key is derived FROM this
+      // body (sha256(nonce|body)), mirroring the web checkout, so a retry
+      // of the identical order reuses the original OPEN order server-side
+      // while any cart change yields a fresh key.
+      const orderBody = {
+        lines,
+        applyWelcomeDiscount: !!applyWelcomeDiscount,
+        applyIgFollowDiscount: !!applyIgFollowDiscount,
+        applyLoyaltyReward: !!applyLoyaltyReward,
+        loyaltyRewardCount: loyaltyRewardCount ?? 0,
+        note: note?.trim() ? note.trim() : undefined,
+        fulfillmentType: fulfillmentType ?? 'PICKUP',
+        ...(fulfillmentType === 'DELIVERY' && delivery ? { delivery } : {}),
+      }
+
+      let idempotencyKey: string | undefined
+      try {
+        const nonce = await getOrderNonce()
+        idempotencyKey = await deriveIdempotencyKey(nonce, orderBody)
+      } catch {
+        // Fail-open: a missing key just restores the old no-dedupe
+        // behaviour server-side; never block order creation on it.
+      }
+
       const orderRes = await apiFetch<{
         ok: boolean
         orderId: string
         order: Order
       }>('/api/orders', {
         method: 'POST',
-        body: JSON.stringify({
-          lines,
-          applyWelcomeDiscount: !!applyWelcomeDiscount,
-          applyIgFollowDiscount: !!applyIgFollowDiscount,
-          applyLoyaltyReward: !!applyLoyaltyReward,
-          loyaltyRewardCount: loyaltyRewardCount ?? 0,
-          note: note?.trim() ? note.trim() : undefined,
-          fulfillmentType: fulfillmentType ?? 'PICKUP',
-          ...(fulfillmentType === 'DELIVERY' && delivery ? { delivery } : {}),
-        }),
+        body: JSON.stringify(
+          idempotencyKey ? { ...orderBody, idempotencyKey } : orderBody,
+        ),
       })
 
       return { orderId: orderRes.orderId, order: orderRes.order }
