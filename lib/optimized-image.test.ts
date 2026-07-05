@@ -7,6 +7,7 @@ import {
   IMG_THUMB,
   imageUriFor,
   optimizedImageUrl,
+  prefetchableThumbUrls,
   shouldFallback,
   SQUARE_IMAGE_HEADERS,
 } from './optimized-image'
@@ -88,6 +89,25 @@ describe('fallback policy (imageUriFor / shouldFallback)', () => {
   it('never falls back when there is nothing to fall back to (pass-through URLs)', () => {
     const supabase = 'https://example.supabase.co/x.png'
     expect(shouldFallback(supabase, IMG_THUMB, false)).toBe(false)
+  })
+})
+
+describe('prefetchableThumbUrls', () => {
+  it('returns optimized URLs for Square hosts and skips null/undefined', () => {
+    const out = prefetchableThumbUrls([PROD_URL, null, undefined, SQUARECDN_URL])
+    expect(out).toHaveLength(2)
+    for (const u of out) expect(u).toContain('/_next/image?')
+  })
+
+  it('never emits pass-through URLs — prefetching a raw original would bulk-download ~1.5MB PNGs', () => {
+    const supabase = 'https://example.supabase.co/x.png'
+    expect(prefetchableThumbUrls([supabase, 'not a url', ''])).toEqual([])
+    // Simulated kill-switch/pass-through: whatever optimizedImageUrl leaves
+    // unchanged must be excluded, so the guard is structural, not flag-reading.
+    for (const raw of [supabase, 'not a url']) {
+      expect(optimizedImageUrl(raw, IMG_THUMB)).toBe(raw) // precondition
+      expect(prefetchableThumbUrls([raw])).toEqual([])
+    }
   })
 })
 

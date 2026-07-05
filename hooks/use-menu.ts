@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Image } from 'expo-image'
 import { apiFetch } from '@/lib/api'
-import {
-  IMG_THUMB,
-  optimizedImageUrl,
-  SQUARE_IMAGE_HEADERS,
-} from '@/lib/optimized-image'
+import { prefetchableThumbUrls, SQUARE_IMAGE_HEADERS } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 interface MenuSnapshot {
@@ -65,9 +61,10 @@ let prefetchedThumbs = false
 
 function prefetchThumbs(items: CatalogItem[]) {
   if (prefetchedThumbs) return
-  const urls = items.flatMap((item) =>
-    item.imageUrl ? [optimizedImageUrl(item.imageUrl, IMG_THUMB)] : [],
-  )
+  // Only optimizer-rewritten URLs: if the kill-switch is off (or a URL
+  // passes through for any reason) prefetching would bulk-download ~90
+  // full-size PNGs (~126MB total) — strictly worse than today's lazy loading.
+  const urls = prefetchableThumbUrls(items.map((item) => item.imageUrl))
   if (urls.length === 0) return
   prefetchedThumbs = true
   Image.prefetch(urls, {

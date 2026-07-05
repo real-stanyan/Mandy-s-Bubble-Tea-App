@@ -78,3 +78,17 @@ export function imageUriFor(rawUrl: string, w: number, failed: boolean): string 
 export function shouldFallback(rawUrl: string, w: number, failed: boolean): boolean {
   return !failed && optimizedImageUrl(rawUrl, w) !== rawUrl
 }
+
+/**
+ * URLs worth prefetching for a list of raw image URLs: only those the
+ * optimizer actually rewrites. Pass-throughs (kill-switch off, non-Square
+ * hosts, malformed URLs) are excluded — prefetching them would bulk-download
+ * full-size originals (~1.5MB each), which lazy loading should absorb instead.
+ */
+export function prefetchableThumbUrls(rawUrls: (string | null | undefined)[]): string[] {
+  return rawUrls.flatMap((raw) => {
+    if (!raw) return []
+    const u = optimizedImageUrl(raw, IMG_THUMB)
+    return u === raw ? [] : [u]
+  })
+}

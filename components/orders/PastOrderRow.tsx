@@ -1,4 +1,6 @@
-import { View, Text, Pressable, StyleSheet, Image } from 'react-native'
+import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { CupArt } from '@/components/brand/CupArt'
 import { Icon } from '@/components/brand/Icon'
 import { hashColor } from '@/components/brand/color'
@@ -42,7 +44,7 @@ export function PastOrderRow({ order, onOpen, onReorder }: Props) {
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}
     >
       {thumbUri ? (
-        <Image source={{ uri: thumbUri }} style={styles.thumb} />
+        <SquareImage url={thumbUri} width={IMG_THUMB} style={styles.thumb} />
       ) : (
         <View style={styles.thumb}>
           <CupArt fill={thumbColor} stroke={T.ink} size={28} />
