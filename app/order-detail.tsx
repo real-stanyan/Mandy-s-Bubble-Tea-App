@@ -13,6 +13,8 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { OrderComplaintSection } from '@/components/account/OrderComplaintSection'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { Icon, type IconName } from '@/components/brand/Icon'
 import { TrackingMap, type TrackingMapHandle } from '@/components/delivery/TrackingMap'
 import { FreshnessBar } from '@/components/delivery/FreshnessBar'
@@ -387,7 +389,7 @@ export default function OrderDetailScreen() {
           {items.map((item, i) => (
             <View key={i} style={styles.summaryRow}>
               {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                <SquareImage url={item.imageUrl} width={IMG_THUMB} style={styles.itemImage} />
               ) : (
                 <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
                   <Text style={{ fontSize: 20 }}>🧋</Text>

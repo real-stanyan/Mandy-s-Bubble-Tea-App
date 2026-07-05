@@ -27,6 +27,8 @@ import { useStoreStatus } from '@/hooks/use-store-status'
 import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { PickupReminderDialog } from '@/components/checkout/PickupReminderDialog'
 import { SignInCard } from '@/components/auth/SignInCard'
 import { Icon } from '@/components/brand/Icon'
@@ -742,10 +744,10 @@ function OrderItemsBlock({ items }: { items: CartItem[] }) {
           >
             <View style={styles.itemThumb}>
               {it.imageUrl ? (
-                <Image
-                  source={{ uri: it.imageUrl }}
+                <SquareImage
+                  url={it.imageUrl}
+                  width={IMG_THUMB}
                   style={StyleSheet.absoluteFill}
-                  contentFit="cover"
                   transition={120}
                 />
               ) : (

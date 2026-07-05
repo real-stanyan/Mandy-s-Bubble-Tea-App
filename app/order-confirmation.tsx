@@ -14,6 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { Icon, type IconName } from '@/components/brand/Icon'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { LOYALTY } from '@/lib/constants'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { apiFetch } from '@/lib/api'
@@ -263,7 +265,7 @@ export default function OrderConfirmationScreen() {
           {orderItems.map((item) => (
             <View key={item.lineId ?? item.variationId} style={styles.summaryRow}>
               {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                <SquareImage url={item.imageUrl} width={IMG_THUMB} style={styles.itemImage} />
               ) : (
                 <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
                   <Text style={{ fontSize: 20 }}>🧋</Text>
