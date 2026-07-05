@@ -13,6 +13,7 @@ import { ItemDetailContent } from './ItemDetailContent'
 
 export function ItemDetailSheet() {
   const itemId = useItemSheetStore((s) => s.itemId)
+  const categorySlug = useItemSheetStore((s) => s.categorySlug)
   const close = useItemSheetStore((s) => s.close)
   const ref = useRef<BottomSheetModal>(null)
   const snapPoints = useMemo(() => ['90%'], [])
@@ -76,7 +77,7 @@ export function ItemDetailSheet() {
         </Pressable>
       </View>
       {itemId ? (
-        <ItemDetailContent itemId={itemId} ScrollComponent={BottomSheetScrollView} />
+        <ItemDetailContent itemId={itemId} categorySlug={categorySlug} ScrollComponent={BottomSheetScrollView} />
       ) : null}
     </BottomSheetModal>
   )

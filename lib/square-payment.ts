@@ -1,8 +1,26 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 
-const SQUARE_APP_ID = 'sq0idp-1IOAOYqjBpdqlMPwxWpqXA'
-const SQUARE_LOCATION_ID = 'LFS3V7YRVTGTK'
+// PRODUCTION (release) builds ALWAYS use the production Square credentials
+// below — never sandbox. Only dev builds (__DEV__ === true) may override via
+// EXPO_PUBLIC_* for sandbox testing.
+//
+// History: build 22 (2026-05-22) changed these to read EXPO_PUBLIC_* directly
+// (`env ?? prod-fallback`). The dev .env.local carries a SANDBOX app id, which
+// leaked into the production build — the native Square SDK then initialized
+// with the sandbox application id (`SQIPCore.setSquareApplicationId`), so
+// SQIPCardEntry could not produce a usable production nonce and every card
+// payment failed BEFORE reaching /api/payment (no Square FAILED record, order
+// left OPEN/NO-TENDER, OL number burned → ticket-number skips). The __DEV__
+// guard makes it impossible for a release build to use sandbox again.
+const PROD_SQUARE_APP_ID = 'sq0idp-1IOAOYqjBpdqlMPwxWpqXA'
+const PROD_SQUARE_LOCATION_ID = 'LFS3V7YRVTGTK'
+const SQUARE_APP_ID = __DEV__
+  ? process.env.EXPO_PUBLIC_SQUARE_APP_ID ?? PROD_SQUARE_APP_ID
+  : PROD_SQUARE_APP_ID
+const SQUARE_LOCATION_ID = __DEV__
+  ? process.env.EXPO_PUBLIC_SQUARE_LOCATION_ID ?? PROD_SQUARE_LOCATION_ID
+  : PROD_SQUARE_LOCATION_ID
 const APPLE_MERCHANT_ID = 'merchant.com.mandysbubbletea.app'
 
 // Expo Go 不含原生模块。在 Expo Go 里 require 会 throw,需要在 dev build / production build 里使用。

@@ -7,7 +7,12 @@ import { T, FONT, SHADOW } from '@/constants/theme'
 import { placedRelative } from '@/components/orders/time'
 import { StatusTimeline, type TimelineStatus } from '@/components/orders/StatusTimeline'
 import { useCatalogImageMap } from '@/hooks/use-catalog-image-map'
-import type { OrderHistoryItem, OrderHistoryLine, OrderHistoryLineModifier } from '@/store/orders'
+import {
+  isDeliveryOrder,
+  type OrderHistoryItem,
+  type OrderHistoryLine,
+  type OrderHistoryLineModifier,
+} from '@/store/orders'
 
 function formatCents(cents: string | number): string {
   const n = typeof cents === 'string' ? Number(cents) / 100 : cents / 100
@@ -62,6 +67,9 @@ interface Props {
 
 export function ActiveOrderCard({ order, status, onTrack }: Props) {
   const ready = status === 'READY'
+  // Delivery orders reuse the READY visual state for "out for delivery" —
+  // copy below switches so the CTA reads as driver tracking, not pickup.
+  const delivery = isDeliveryOrder(order)
   const imageByName = useCatalogImageMap()
 
   const eyebrowColor = ready ? 'rgba(255,255,255,0.75)' : T.brand
@@ -79,7 +87,13 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
       <View style={styles.header}>
         <View style={styles.headerMain}>
           <Text style={[styles.eyebrow, { color: eyebrowColor }]}>
-            {ready ? 'READY FOR PICKUP' : 'IN PROGRESS'}
+            {ready
+              ? delivery
+                ? 'OUT FOR DELIVERY'
+                : 'READY FOR PICKUP'
+              : delivery
+                ? 'DELIVERY · IN PROGRESS'
+                : 'PICKUP · IN PROGRESS'}
           </Text>
           <Text style={[styles.title, { color: textColor }]}>
             Order <Text style={styles.titleRef}>{referenceLabel(order)}</Text>
@@ -94,7 +108,7 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
         <View style={[styles.statusPill, { backgroundColor: pillBg }]}>
           <Icon name="clock" color={pillText} size={12} />
           <Text style={[styles.statusPillText, { color: pillText }]}>
-            {ready ? 'Now' : 'Preparing'}
+            {ready ? (delivery ? 'On the way' : 'Now') : 'Preparing'}
           </Text>
         </View>
       </View>
@@ -159,12 +173,12 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
               { color: ready ? T.greenDark : '#fff' },
             ]}
           >
-            {ready ? 'Show pickup' : 'Track order'}
+            {ready ? (delivery ? 'Track driver' : 'Show pickup') : 'Track order'}
           </Text>
           <Icon
-            name={ready ? 'qr' : 'arrow'}
+            name={ready && !delivery ? 'qr' : 'arrow'}
             color={ready ? T.greenDark : '#fff'}
-            size={ready ? 14 : 12}
+            size={ready && !delivery ? 14 : 12}
           />
         </Pressable>
       </View>

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -11,10 +11,19 @@ import {
   StyleSheet,
 } from 'react-native'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { OrderComplaintSection } from '@/components/account/OrderComplaintSection'
 import { Icon, type IconName } from '@/components/brand/Icon'
+import { TrackingMap, type TrackingMapHandle } from '@/components/delivery/TrackingMap'
+import { FreshnessBar } from '@/components/delivery/FreshnessBar'
+import { useDeliveryTracking } from '@/hooks/use-delivery-tracking'
+import { DELIVERY_DRIVER, etaText } from '@/lib/delivery'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
-import { useOrdersStore, type OrderHistoryLineModifier } from '@/store/orders'
+import {
+  effectiveOrderState,
+  useOrdersStore,
+  type OrderHistoryLineModifier,
+} from '@/store/orders'
 
 function groupModifiers(
   mods: OrderHistoryLineModifier[],
@@ -101,9 +110,11 @@ const STATE_CONFIG: Record<string, StateInfo> = {
   },
 }
 
+// Customer-visible state lives on the fulfillment for self-delivery orders
+// (driver flips PREPARED/COMPLETED while order.state stays OPEN until staff
+// close the ticket in POS) — shared mapping in store/orders.ts.
 function resolveDisplayState(state: string | null | undefined, fulfillmentState: string | null | undefined) {
-  if (state === 'OPEN' && fulfillmentState === 'PREPARED') return 'READY'
-  return state ?? 'COMPLETED'
+  return effectiveOrderState(state ?? null, fulfillmentState ?? null) || 'COMPLETED'
 }
 
 function formatDate(iso: string | null): string {
@@ -126,6 +137,7 @@ function formatCents(cents: string): string {
 
 export default function OrderDetailScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{
     orderId: string
     referenceId: string
@@ -153,8 +165,13 @@ export default function OrderDetailScreen() {
   // true would re-subscribe useFocusEffect mid-render and double-fire
   // refreshOrders, making the native header back button drop taps.
   const isTerminalRef = useRef(false)
-  isTerminalRef.current =
-    storeOrder?.state === 'COMPLETED' || storeOrder?.state === 'CANCELED'
+  {
+    const eff = effectiveOrderState(
+      storeOrder?.state ?? null,
+      storeOrder?.fulfillmentState ?? null,
+    )
+    isTerminalRef.current = eff === 'COMPLETED' || eff === 'CANCELED'
+  }
   useFocusEffect(
     useCallback(() => {
       refreshOrders()
@@ -179,15 +196,42 @@ export default function OrderDetailScreen() {
   }, [refreshOrders])
 
   const referenceId = storeOrder?.referenceId ?? params.referenceId ?? ''
+  const isDelivery = (referenceId ?? '').toUpperCase().startsWith('DE')
   const createdAt = storeOrder?.createdAt ?? params.createdAt ?? ''
   const state = storeOrder?.state ?? params.state ?? ''
   const fulfillmentState = storeOrder?.fulfillmentState ?? null
   const totalCents = storeOrder?.totalCents ?? params.totalCents ?? '0'
 
   const displayState = resolveDisplayState(state, fulfillmentState)
+  const isTerminal = displayState === 'COMPLETED' || displayState === 'CANCELED'
+  const { tracking } = useDeliveryTracking(orderId, isDelivery && !isTerminal)
+  const mapRef = useRef<TrackingMapHandle>(null)
+  useEffect(() => {
+    if (tracking) mapRef.current?.update(tracking)
+  }, [tracking])
+  const outForDelivery = isDelivery && !!tracking
+  const hasDriver = !!tracking && tracking.driverLat != null && tracking.driverLng != null
+
   const stateInfo = STATE_CONFIG[displayState] ?? STATE_CONFIG.COMPLETED
   const pickupNumber = referenceId
     || (orderId ? '#' + orderId.slice(-3).replace(/\D/g, '').padStart(3, '0') : '#000')
+
+  let headerTitle = stateInfo.title
+  let headerSubtitle = stateInfo.subtitle
+  if (isDelivery) {
+    if (outForDelivery) {
+      headerTitle = 'Out for Delivery'
+      headerSubtitle = 'Your driver is on the way to your address.'
+    } else if (displayState === 'COMPLETED') {
+      headerTitle = 'Delivered'
+      headerSubtitle = 'Your order has been delivered. Enjoy your tea!'
+    } else if (displayState === 'CANCELED') {
+      /* keep stateInfo */
+    } else {
+      headerTitle = 'Order In Progress'
+      headerSubtitle = 'Our tea masters are crafting your order.'
+    }
+  }
 
   const items = storeOrder
     ? storeOrder.lineItems.map((l) => ({
@@ -211,6 +255,66 @@ export default function OrderDetailScreen() {
           }
         })
 
+  // Out for delivery → take over the screen with a full-bleed live map and an
+  // Uber-Eats-style bottom sheet floating on top (mirrors the web
+  // DeliveryTrackingView). The native stack header stays for back navigation.
+  // All other states keep the normal in-flow detail page below.
+  if (outForDelivery && tracking) {
+    return (
+      <View style={styles.trackRoot}>
+        <View style={StyleSheet.absoluteFill}>
+          <TrackingMap ref={mapRef} initial={tracking} />
+        </View>
+
+        <View style={styles.trackFreshness} pointerEvents="none">
+          <FreshnessBar hasDriver={hasDriver} locationUpdatedAt={tracking.locationUpdatedAt} />
+        </View>
+
+        <View style={[styles.trackSheet, { paddingBottom: insets.bottom + 18 }]}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Out for Delivery!</Text>
+          <Text style={styles.sheetSub}>Your driver is on the way to your address.</Text>
+          <View style={styles.driverCard}>
+            <Image
+              source={require('@/assets/images/driver-avatar.png')}
+              style={styles.driverAvatar}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.driverName}>{DELIVERY_DRIVER.name}</Text>
+              <Text style={styles.driverRole}>On the way with your order</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.callBtn}
+              onPress={() => Linking.openURL(`tel:${DELIVERY_DRIVER.phone}`)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.callText}>Call</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.sheetRow}>
+            <View>
+              <Text style={styles.sheetMeta}>ORDER NUMBER</Text>
+              <Text style={[styles.sheetMetaVal, { color: T.brand }]}>{pickupNumber}</Text>
+            </View>
+            <View>
+              <Text style={styles.sheetMeta}>ETA</Text>
+              <Text style={styles.sheetMetaVal}>{etaText(tracking.etaSeconds)}</Text>
+            </View>
+          </View>
+          {items.length > 0 ? (
+            <ScrollView style={styles.sheetItems} bounces={false}>
+              {items.map((item, i) => (
+                <Text key={i} style={styles.sheetItemLine} numberOfLines={1}>
+                  {item.quantity}× {item.name}
+                </Text>
+              ))}
+            </ScrollView>
+          ) : null}
+        </View>
+      </View>
+    )
+  }
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -227,11 +331,11 @@ export default function OrderDetailScreen() {
         <Icon name={stateInfo.icon} size={36} color="#fff" />
       </View>
 
-      <Text style={[styles.title, { color: stateInfo.color }]}>{stateInfo.title}</Text>
-      <Text style={styles.subtitle}>{stateInfo.subtitle}</Text>
+      <Text style={[styles.title, { color: stateInfo.color }]}>{headerTitle}</Text>
+      <Text style={styles.subtitle}>{headerSubtitle}</Text>
 
       <View style={styles.pickupCard}>
-        <Text style={styles.pickupLabel}>PICKUP NUMBER</Text>
+        <Text style={styles.pickupLabel}>{isDelivery ? 'ORDER NUMBER' : 'PICKUP NUMBER'}</Text>
         <Text style={styles.pickupNumber}>{pickupNumber}</Text>
       </View>
 
@@ -309,11 +413,11 @@ export default function OrderDetailScreen() {
         </View>
       )}
 
-      {state === 'COMPLETED' && (
+      {displayState === 'COMPLETED' && (
         <OrderComplaintSection
           orderId={orderId}
           pickupNumber={pickupNumber}
-          orderState={state}
+          orderState={displayState}
         />
       )}
 
@@ -536,4 +640,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: T.ink,
   },
+
+  // Full-screen live tracking (below the native stack header) — mirrors web's
+  // DeliveryTrackingView: full-bleed map, freshness chip up top, bottom sheet.
+  trackRoot: { flex: 1, backgroundColor: '#E8E5DE' },
+  trackFreshness: { position: 'absolute', left: 0, right: 0, top: 14, alignItems: 'center' },
+  trackSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: T.paper,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 12,
+  },
+  sheetHandle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: T.line, marginBottom: 2 },
+  driverAvatar: { width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: T.bg2 },
+  sheetItems: { maxHeight: 96, marginTop: 2, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 8 },
+  sheetItemLine: { ...TYPE.body, fontSize: 13, color: T.ink2, marginBottom: 4 },
+  sheetTitle: { fontFamily: 'Fraunces_500Medium', fontSize: 18, color: T.ink },
+  sheetSub: { ...TYPE.body, fontSize: 13, color: T.ink3 },
+  driverCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: T.bg, borderRadius: 14, padding: 12 },
+  driverName: { ...TYPE.bodyStrong, fontSize: 15, color: T.ink },
+  driverRole: { ...TYPE.body, fontSize: 12, color: T.ink3, marginTop: 2 },
+  callBtn: { backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10 },
+  callText: { color: '#fff', fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  sheetRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  sheetMeta: { ...TYPE.eyebrow, fontSize: 10, color: T.ink3 },
+  sheetMetaVal: { fontFamily: 'Fraunces_500Medium', fontSize: 16, color: T.ink, marginTop: 2 },
 })

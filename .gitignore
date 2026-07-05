@@ -48,3 +48,8 @@ android/captures/
 
 # tooling scratch
 .superpowers/
+
+# Detox e2e artifacts (specs are committed)
+artifacts/
+e2e-screenshots/
+ios/build/

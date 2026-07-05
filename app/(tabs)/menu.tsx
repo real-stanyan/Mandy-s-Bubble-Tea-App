@@ -23,6 +23,7 @@ import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
+import { displayNameFor, imageSourceFor, TOP10_CATEGORY_SLUG } from '@/lib/menu/top10-presets'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
@@ -229,7 +230,9 @@ export default function MenuScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 20 }).current
 
   const renderItem = useCallback(
-    ({ item }: { item: CatalogItem }) => <ProductRow item={item} />,
+    ({ item, section }: { item: CatalogItem; section: MenuSection }) => (
+      <ProductRow item={item} categorySlug={resolveCategorySlug(section.category.name)} />
+    ),
     [],
   )
 
@@ -408,10 +411,23 @@ const SectionHeader = memo(function SectionHeader({
   )
 })
 
-const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
-  const name = item.itemData?.name ?? 'Unknown'
+const ProductRow = memo(function ProductRow({
+  item,
+  categorySlug,
+}: {
+  item: CatalogItem
+  categorySlug?: string
+}) {
+  const rawName = item.itemData?.name ?? 'Unknown'
+  const name = displayNameFor(categorySlug ?? undefined, rawName) || rawName
+  const customImage = imageSourceFor(categorySlug ?? undefined, rawName)
+  const imageSource = customImage ?? (item.imageUrl ? { uri: item.imageUrl } : null)
   const firstVariation = item.itemData?.variations?.[0]
-  const price = firstVariation?.itemVariationData?.priceMoney?.amount
+  const rawPrice = firstVariation?.itemVariationData?.priceMoney?.amount
+  // Inside TOP 10 the locked toppings are mandatory, so show base + surcharge.
+  const surcharge =
+    categorySlug === TOP10_CATEGORY_SLUG ? item.itemData?.top10SurchargeCents ?? 0 : 0
+  const price = rawPrice != null ? Number(rawPrice) + surcharge : undefined
   const variationName = firstVariation?.itemVariationData?.name
   const showVariationSubtitle =
     variationName && variationName.toLowerCase() !== 'regular'
@@ -420,7 +436,7 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
   const openSheet = () => {
     if (soldOut) return
     Haptics.selectionAsync()
-    useItemSheetStore.getState().open(item.id)
+    useItemSheetStore.getState().open(item.id, categorySlug ?? null)
   }
 
   return (
@@ -430,9 +446,9 @@ const ProductRow = memo(function ProductRow({ item }: { item: CatalogItem }) {
       disabled={soldOut}
       activeOpacity={0.6}
     >
-      {item.imageUrl ? (
+      {imageSource ? (
         <Image
-          source={{ uri: item.imageUrl }}
+          source={imageSource}
           style={styles.rowImage}
           contentFit="cover"
           contentPosition="center"

@@ -11,7 +11,8 @@
     "lint": "expo lint",
     "test": "jest",
     "postinstall": "node scripts/patch-square-sdk.js",
-    "eas-build-post-install": "node scripts/fix-square-build-phases.js"
+    "eas-build-post-install": "node scripts/fix-square-build-phases.js",
+    "gallery:sync": "tsx scripts/sync-preset-gallery.ts"
   },
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.4.1",
@@ -58,20 +59,30 @@
     "react-native-square-in-app-payments": "^2.0.0",
     "react-native-svg": "^15.15.4",
     "react-native-web": "~0.21.0",
+    "react-native-webview": "13.15.0",
     "react-native-worklets": "0.5.1",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
+    "detox": "^20.50.4",
+    "dotenv": "^17.4.2",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "jest": "^29.7.0",
+    "jest-circus": "^30.4.2",
     "jest-expo": "^55.0.16",
+    "square": "^44.0.1",
+    "tsx": "^4.22.3",
     "typescript": "~5.9.2"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock",
+      "\\.(png|jpg|jpeg|gif|svg|webp|bmp)$": "<rootDir>/__mocks__/fileMock.js"
+    }
   },
   "private": true
 }

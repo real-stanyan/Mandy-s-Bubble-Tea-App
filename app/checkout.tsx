@@ -14,9 +14,16 @@ import { Image } from 'expo-image'
 import { Stack, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCartStore } from '@/store/cart'
+import { FulfillmentSelector } from '@/components/checkout/FulfillmentSelector'
+import { DeliveryAddressForm } from '@/components/checkout/DeliveryAddressForm'
+import { DeliveryQuoteCard } from '@/components/checkout/DeliveryQuoteCard'
+import { useDeliveryQuote } from '@/hooks/use-delivery-quote'
+import { deliveryAddOnCents, deliveryFeesPending, feeValueText } from '@/lib/delivery'
+import { buildPaymentSelections } from '@/lib/doodle/build-payment-selections'
 import { useCreateOrder } from '@/hooks/use-create-order'
 import { usePayment } from '@/hooks/use-payment'
 import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
+import { useStoreStatus } from '@/hooks/use-store-status'
 import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
@@ -34,6 +41,10 @@ import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
 import { pickPromoCups } from '@/lib/promo-cup-pick'
+import { tierFor, type MembershipTier } from '@/lib/membership-tier'
+import { tierCheckoutPreview } from '@/lib/tier-checkout-preview'
+import type { CupRecord } from '@/lib/tier-toppings'
+import { useTierToppings } from '@/hooks/use-tier-toppings'
 import {
   initSquarePayments,
   canUseApplePay,
@@ -43,6 +54,9 @@ import {
   startGooglePayPayment,
 } from '@/lib/square-payment'
 import type { CartItem, CartModifier } from '@/types/square'
+import { cartToSlots, type DoodleSlot } from '@/lib/doodle/cartToSlots'
+import { DoodleSection } from '@/components/doodle/DoodleSection'
+import { uploadDoodle } from '@/lib/doodle/uploadDoodle'
 
 type PayMethod = 'card' | 'apple' | 'google'
 
@@ -70,8 +84,20 @@ export default function CheckoutScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const items = useCartStore((s) => s.items)
+  const labelSelections = useCartStore((s) => s.labelSelections)
+  const setLabel = useCartStore((s) => s.setLabel)
+  const clearLabel = useCartStore((s) => s.clearLabel)
   const total = useCartStore((s) => s.total())
   const clearCart = useCartStore((s) => s.clearCart)
+  const fulfillmentType = useCartStore((s) => s.fulfillmentType)
+  const setFulfillmentType = useCartStore((s) => s.setFulfillmentType)
+  const deliveryAddress = useCartStore((s) => s.deliveryAddress)
+  const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress)
+  const quote = useDeliveryQuote({
+    fulfillment: fulfillmentType,
+    address: deliveryAddress,
+    drinksSubtotalCents: total,
+  })
 
   const {
     profile,
@@ -105,7 +131,36 @@ export default function CheckoutScreen() {
     starsEarned: number
   } | null>(null)
 
+  const slots = useMemo(
+    () => cartToSlots(items, labelSelections),
+    [items, labelSelections],
+  )
+
+  const handleSlotChange = (_slotIdx: number, next: DoodleSlot) => {
+    if (next.selection) setLabel(next.cupKey, next.selection)
+    else clearLabel(next.cupKey)
+  }
+
+  const allLabeled = useMemo(() => {
+    return slots.every((slot) => {
+      const s = slot.selection
+      // null = surprise tarot card (optional, always fine to pay).
+      if (s === null) return true
+      if (s.kind === 'ai' && s.aiDoodleId === null) return false
+      // draw with userDoodleId === null is fine — handlePay uploads paths
+      // before submitting payment. Blocking here is a chicken-and-egg:
+      // user can never click Pay to trigger the upload.
+      if (s.kind === 'draw' && s.paths.length === 0) return false
+      return true
+    })
+  }, [slots])
+
   const loyaltyBalance = loyalty?.balance ?? 0
+  // Membership tier — derived from lifetime points, never stored and never
+  // sent to the server (the orders route recomputes it from Square).
+  const tier = tierFor(loyalty?.lifetimePoints ?? 0)
+  const { remaining: tierToppingsRemaining } = useTierToppings(tier)
+  const toppingsRemaining = tierToppingsRemaining ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
   const canRedeem = perReward > 0 && loyaltyBalance >= perReward
   const welcomeAvailable = welcomeDiscount.available
@@ -189,10 +244,42 @@ export default function CheckoutScreen() {
   const rewardDiscountCents = sortedUnitPrices
     .slice(0, rewardCount)
     .reduce((s, p) => s + p, 0)
+
+  // Build CupRecord[] from cart items — mirrors the server's per-cup
+  // expansion. unitPrice = variation + all modifiers (CartItem.price);
+  // toppingPrices = each modifier's priceCents (0 = included, filtered by
+  // collectPaidToppingUnits). Repeated once per quantity unit.
+  const cups = useMemo<CupRecord[]>(() => {
+    const result: CupRecord[] = []
+    for (const item of items) {
+      const toppingPrices = (item.modifiers ?? []).map((m) => m.priceCents ?? 0)
+      for (let i = 0; i < item.quantity; i++) {
+        result.push({ unitPrice: item.price, toppingPrices })
+      }
+    }
+    return result
+  }, [items])
+
+  // Preview the tier discount + diamond free-topping coverage, mirroring
+  // the server's math in /api/orders so the displayed total (and the
+  // Apple/Google Pay sheet amount) equals the charge.
+  const tierPreview = tierCheckoutPreview({
+    tier,
+    cups,
+    rewardCount,
+    toppingsRemaining,
+    subtotal: total,
+    rewardDiscount: rewardDiscountCents,
+    welcomeDiscount: welcomeDiscountForSummary?.amountCents ?? 0,
+    igFollowDiscount: igFollowDiscountForSummary?.amountCents ?? 0,
+  })
+
   const totalDiscountCents =
     rewardDiscountCents +
     (welcomeDiscountForSummary?.amountCents ?? 0) +
-    (igFollowDiscountForSummary?.amountCents ?? 0)
+    (igFollowDiscountForSummary?.amountCents ?? 0) +
+    tierPreview.toppingCoveredCents +
+    tierPreview.tierDiscountCents
   const isFreeRedeem = rewardCount > 0 && total - totalDiscountCents <= 0
   // Mirrors the SUBTOTAL_PHASE Square service charge in /api/orders:
   // 1.9% of the pre-discount subtotal, floored. Skipped on free redeem
@@ -206,14 +293,18 @@ export default function CheckoutScreen() {
   const phSurchargeCents = isFreeRedeem || !phActive
     ? 0
     : publicHolidaySurcharge(total)
+  const deliveryFeeCents = deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote)
   const displayedTotal = Math.max(
     total
       - rewardDiscountCents
       - (welcomeDiscountForSummary?.amountCents ?? 0)
       - (igFollowDiscountForSummary?.amountCents ?? 0)
+      - tierPreview.toppingCoveredCents
+      - tierPreview.tierDiscountCents
       + surchargeCents
       + platformFeeCents
-      + phSurchargeCents,
+      + phSurchargeCents
+      + deliveryFeeCents,
     0,
   )
 
@@ -268,11 +359,34 @@ export default function CheckoutScreen() {
         applyLoyaltyReward: rewardCount > 0,
         loyaltyRewardCount: rewardCount,
         note,
+        fulfillmentType,
+        delivery:
+          fulfillmentType === 'DELIVERY'
+            ? {
+                address: deliveryAddress.address,
+                lat: deliveryAddress.lat,
+                lng: deliveryAddress.lng,
+                unit: deliveryAddress.unit || undefined,
+                driverNote: deliveryAddress.driverNote || undefined,
+                postcode: deliveryAddress.postcode || undefined,
+              }
+            : undefined,
       })
 
       let amountCents = total
       if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
       if (useIgFollow) amountCents = Math.max(amountCents - igFollowAmount, 0)
+      if (rewardCount === 0) {
+        // Tier discount + diamond free toppings are applied server-side in
+        // /api/orders; mirror them here so the Apple/Google Pay sheet shows
+        // the amount Square will actually capture. When rewardCount > 0 the
+        // /api/loyalty/redeem response below returns updatedAmountCents
+        // which already includes the tier discounts — don't double-apply.
+        amountCents = Math.max(
+          amountCents - tierPreview.toppingCoveredCents - tierPreview.tierDiscountCents,
+          0,
+        )
+      }
       if (rewardCount > 0) {
         const redeemRes = await apiFetch<{
           ok: boolean
@@ -299,6 +413,7 @@ export default function CheckoutScreen() {
         if (phSurchargeCents > 0) amountCents += phSurchargeCents
         if (platformFeeCents > 0) amountCents += platformFeeCents
         if (surchargeCents > 0) amountCents += surchargeCents
+        if (deliveryFeeCents > 0) amountCents += deliveryFeeCents
       }
 
       let nonce: string | undefined
@@ -328,7 +443,26 @@ export default function CheckoutScreen() {
         }
       }
 
-      const result = await pay({ sourceId: nonce, orderId })
+      // Upload any draw doodles whose paths haven't been persisted yet.
+      // Run all uploads in parallel; abort the whole pay flow if any fails.
+      const drawUploads = slots
+        .filter((slot) => slot.selection?.kind === 'draw' && slot.selection.userDoodleId === null && slot.selection.paths.length > 0)
+      if (drawUploads.length > 0) {
+        await Promise.all(
+          drawUploads.map(async (slot) => {
+            const s = slot.selection as Extract<typeof slot.selection, { kind: 'draw' }>
+            const { doodleId } = await uploadDoodle(s.paths)
+            setLabel(slot.cupKey, { ...s, userDoodleId: doodleId })
+          }),
+        )
+      }
+
+      const selectionMaps = buildPaymentSelections(useCartStore.getState().labelSelections)
+      const result = await pay({
+        sourceId: nonce,
+        orderId,
+        ...selectionMaps,
+      })
 
       // Save order items for track/history screens before clearing cart
       await AsyncStorage.setItem('mbt:lastOrder:items', JSON.stringify(items))
@@ -360,7 +494,8 @@ export default function CheckoutScreen() {
 
   const isLoading = orderLoading || payLoading || processing
   const acceptance = useOrderAcceptance()
-  const payDisabled = isLoading || !acceptance.accepting
+  const deliveryReady = fulfillmentType !== 'DELIVERY' || quote.kind === 'ok'
+  const payDisabled = isLoading || !acceptance.accepting || !allLabeled || !deliveryReady
 
   if (authLoading && !profile) {
     return (
@@ -410,8 +545,40 @@ export default function CheckoutScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 130 }}
       >
         <InlineHeader onBack={handleBack} total={displayedTotal} />
-        <StoreBlock />
-        <PickupTimeBlock />
+        <Image
+          source={
+            fulfillmentType === 'PICKUP'
+              ? require('@/assets/images/checkout-hero-pickup.webp')
+              : require('@/assets/images/checkout-hero-delivery.webp')
+          }
+          style={styles.fulfillmentHero}
+          contentFit="cover"
+          transition={250}
+          accessibilityLabel={
+            fulfillmentType === 'PICKUP' ? 'Pickup at the counter' : 'Delivery to your door'
+          }
+        />
+        <FulfillmentSelector
+          value={fulfillmentType}
+          onChange={setFulfillmentType}
+          drinksSubtotalCents={total}
+        />
+        {fulfillmentType === 'PICKUP' ? (
+          <>
+            <StoreBlock />
+            <PickupTimeBlock />
+          </>
+        ) : (
+          <>
+            <DeliveryAddressForm
+              value={deliveryAddress}
+              onChange={setDeliveryAddress}
+              defaultPhone={profile?.phone_e164}
+            />
+            <DeliveryQuoteCard quote={quote} />
+          </>
+        )}
+        <DoodleSection slots={slots} onSlotChange={handleSlotChange} />
         <OrderItemsBlock items={items} />
         <RewardsBlock
           stars={loyaltyBalance}
@@ -451,9 +618,24 @@ export default function CheckoutScreen() {
           igFollow={igFollowDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
           rewardCount={rewardCount}
+          tier={tier}
+          tierDiscountCents={tierPreview.tierDiscountCents}
+          toppingCoveredCents={tierPreview.toppingCoveredCents}
+          toppingCoveredCount={tierPreview.toppingCoveredCount}
+          toppingsRemaining={toppingsRemaining}
           surcharge={surchargeCents}
           platformFee={platformFeeCents}
           phSurcharge={phSurchargeCents}
+          delivery={
+            fulfillmentType === 'DELIVERY'
+              ? {
+                  pending: deliveryFeesPending(fulfillmentType, isFreeRedeem, quote.kind),
+                  feeCents: quote.kind === 'ok' ? quote.feeCents : 0,
+                  serviceFeeCents: quote.kind === 'ok' ? quote.serviceFeeCents : 0,
+                }
+              : null
+          }
+          deliveryAddOnCents={deliveryFeeCents}
         />
         {(error || orderError || payError) && (
           <Text style={styles.errorText}>{error || orderError || payError}</Text>
@@ -531,6 +713,7 @@ function SimpleSummaryBlock({ items, total }: { items: CartItem[]; total: number
 }
 
 function StoreBlock() {
+  const status = useStoreStatus()
   return (
     <CardBlock eyebrow="Pickup store" title="Mandy’s — Southport">
       <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 8 }}>
@@ -538,14 +721,23 @@ function StoreBlock() {
           34 Davenport St · Southport QLD 4215
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={styles.openPill}>
-            <View style={styles.openDot} />
-            <Text style={styles.openText}>Open now</Text>
-          </View>
-          <View style={styles.waitPill}>
-            <Icon name="clock" size={11} color={T.ink2} />
-            <Text style={styles.waitText}>~6 min</Text>
-          </View>
+          {status.open ? (
+            <>
+              <View style={styles.openPill}>
+                <View style={styles.openDot} />
+                <Text style={styles.openText}>Open now</Text>
+              </View>
+              <View style={styles.waitPill}>
+                <Icon name="clock" size={11} color={T.ink2} />
+                <Text style={styles.waitText}>~6 min</Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.closedPill}>
+              <View style={styles.closedDot} />
+              <Text style={styles.closedText}>Closed · Opens {status.nextLabel}</Text>
+            </View>
+          )}
         </View>
       </View>
     </CardBlock>
@@ -553,7 +745,13 @@ function StoreBlock() {
 }
 
 function PickupTimeBlock() {
-  return <CardBlock eyebrow="Pickup time" title="ASAP · ~6 min" />
+  const status = useStoreStatus()
+  return (
+    <CardBlock
+      eyebrow="Pickup time"
+      title={status.open ? 'ASAP · ~6 min' : `Opens ${status.nextLabel}`}
+    />
+  )
 }
 
 function OrderItemsBlock({ items }: { items: CartItem[] }) {
@@ -766,23 +964,41 @@ function SummaryBlock({
   igFollow,
   rewardDiscount,
   rewardCount: rewardCountForSummary,
+  tier,
+  tierDiscountCents,
+  toppingCoveredCents,
+  toppingCoveredCount,
+  toppingsRemaining,
   surcharge,
   platformFee: platformFeeAmt,
   phSurcharge,
+  delivery,
+  deliveryAddOnCents: deliveryAddOnCentsAmt,
 }: {
   subtotal: number
   welcome: { amountCents: number; percentage: number; coveredCount: number } | null
   igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
   rewardCount: number
+  tier: MembershipTier
+  tierDiscountCents: number
+  toppingCoveredCents: number
+  toppingCoveredCount: number
+  toppingsRemaining: number
   surcharge: number
   platformFee: number
   phSurcharge: number
+  delivery?: { pending: boolean; feeCents: number; serviceFeeCents: number } | null
+  deliveryAddOnCents?: number
 }) {
   const discountTotal =
-    (welcome?.amountCents ?? 0) + (igFollow?.amountCents ?? 0) + rewardDiscount
+    (welcome?.amountCents ?? 0) +
+    (igFollow?.amountCents ?? 0) +
+    rewardDiscount +
+    toppingCoveredCents +
+    tierDiscountCents
   const total = Math.max(
-    subtotal - discountTotal + surcharge + platformFeeAmt + phSurcharge,
+    subtotal - discountTotal + surcharge + platformFeeAmt + phSurcharge + (deliveryAddOnCentsAmt ?? 0),
     0,
   )
   return (
@@ -809,6 +1025,20 @@ function SummaryBlock({
           muted
         />
       )}
+      {toppingCoveredCents > 0 && (
+        <SummaryRow
+          label={`Free toppings ×${toppingCoveredCount} (${toppingsRemaining} left this month)`}
+          amountCents={-toppingCoveredCents}
+          muted
+        />
+      )}
+      {tierDiscountCents > 0 && (
+        <SummaryRow
+          label={`${tier === 'diamond' ? 'Diamond' : 'Gold'} Member −5%`}
+          amountCents={-tierDiscountCents}
+          muted
+        />
+      )}
       {phSurcharge > 0 && (
         <SummaryRow
           label={`${PH_SURCHARGE.name} (${PH_SURCHARGE.percentage}%)`}
@@ -829,6 +1059,12 @@ function SummaryBlock({
           amountCents={surcharge}
           muted
         />
+      )}
+      {delivery && (
+        <>
+          <SummaryTextRow label="Delivery Fee" value={feeValueText(delivery.pending, delivery.feeCents)} />
+          <SummaryTextRow label="Service Fee (5%)" value={feeValueText(delivery.pending, delivery.serviceFeeCents)} />
+        </>
       )}
       <View style={styles.summaryDivider} />
       <SummaryRow label="Total" amountCents={total} bold />
@@ -869,6 +1105,18 @@ function SummaryRow({
       >
         {sign}
         {formatPrice(abs)}
+      </Text>
+    </View>
+  )
+}
+
+function SummaryTextRow({ label, value }: { label: string; value: string }) {
+  const isFree = value === 'FREE'
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={[styles.summaryLabel, styles.summaryLabelMuted]}>{label}</Text>
+      <Text style={[styles.summaryValue, styles.summaryValueMuted, isFree && { color: '#3F7A3F' }]}>
+        {value}
       </Text>
     </View>
   )
@@ -954,6 +1202,27 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: T.greenDark,
+  },
+  closedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: T.bg2,
+  },
+  closedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: T.ink4,
+  },
+  closedText: {
+    fontFamily: FONT.sans,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: T.ink3,
   },
   waitPill: {
     flexDirection: 'row',
@@ -1097,6 +1366,13 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 999,
     backgroundColor: '#fff',
+  },
+  fulfillmentHero: {
+    width: '100%',
+    marginTop: 4,
+    marginBottom: 12,
+    aspectRatio: 1.85,
+    backgroundColor: T.card,
   },
   notesInput: {
     minHeight: 64,

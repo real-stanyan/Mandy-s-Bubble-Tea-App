@@ -7,18 +7,47 @@ import { Icon } from '@/components/brand/Icon'
 import { StarCupsRow } from '@/components/brand/StarCupsRow'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
+import type { MembershipTier } from '@/lib/membership-tier'
 import type { LoyaltyAccount } from '@/types/square'
 
 interface Props {
   account: LoyaltyAccount
   starsPerReward?: number
+  tier: MembershipTier
+  nextTier: Exclude<MembershipTier, 'silver'> | null
+  starsToNext: number | null
+  freeToppingsRemaining?: number | null
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
+// Tier-specific card materials — colors mirror the web dark-luxe
+// TIER_VISUALS gradients (web src/components/account/LoyaltyCard.tsx).
+const TIER_VISUALS: Record<
+  MembershipTier,
+  { label: string; gradient: [string, string, ...string[]] }
+> = {
+  silver: {
+    label: 'SILVER',
+    gradient: ['#2c313d', '#485064', '#707a8c', '#414958', '#2d3340'],
+  },
+  gold: {
+    label: 'GOLD',
+    gradient: ['#392a0d', '#654c16', '#c2a045', '#574012', '#322307'],
+  },
+  diamond: {
+    label: 'DIAMOND',
+    gradient: ['#04050a', '#10121d', '#04050a'],
+  },
+}
+
 export const LoyaltyCard = memo(function LoyaltyCard({
   account,
   starsPerReward = LOYALTY.starsForReward,
+  tier,
+  nextTier,
+  starsToNext,
+  freeToppingsRemaining,
 }: Props) {
   const router = useRouter()
   const scale = useSharedValue(1)
@@ -29,6 +58,14 @@ export const LoyaltyCard = memo(function LoyaltyCard({
   const toGo = Math.max(0, goal - currentStars)
   const reached = account.balance >= goal
 
+  const visual = TIER_VISUALS[tier]
+  const tierSubline =
+    tier === 'diamond' && freeToppingsRemaining != null
+      ? `${freeToppingsRemaining} free toppings left this month`
+      : starsToNext != null
+        ? `${starsToNext} stars to ${nextTier === 'gold' ? 'Gold' : 'Diamond'}`
+        : 'Top tier member'
+
   return (
     <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
       <AnimatedPressable
@@ -38,7 +75,7 @@ export const LoyaltyCard = memo(function LoyaltyCard({
         style={[animatedStyle, { borderRadius: RADIUS.card, ...SHADOW.miniCart, shadowColor: T.brandDark }]}
       >
         <LinearGradient
-          colors={[T.brand, T.brandDark]}
+          colors={visual.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={{ borderRadius: RADIUS.card, padding: 22, overflow: 'hidden' }}
@@ -84,12 +121,25 @@ export const LoyaltyCard = memo(function LoyaltyCard({
                 paddingHorizontal: 10,
                 paddingVertical: 6,
                 borderRadius: 999,
-                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.22)',
+                backgroundColor: 'rgba(255,255,255,0.06)',
               }}
             >
-              <Icon name="star" color={T.peach} size={12} />
-              <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: '#fff' }}>
-                Member
+              <Icon
+                name={tier === 'diamond' ? 'gem' : 'star'}
+                color={tier === 'diamond' ? '#8ec5ff' : T.peach}
+                size={12}
+              />
+              <Text
+                style={{
+                  fontFamily: 'Inter_600SemiBold',
+                  fontSize: 10.5,
+                  letterSpacing: 1.6,
+                  color: 'rgba(255,255,255,0.9)',
+                }}
+              >
+                {visual.label}
               </Text>
             </View>
           </View>
@@ -104,16 +154,30 @@ export const LoyaltyCard = memo(function LoyaltyCard({
               justifyContent: 'space-between',
             }}
           >
-            <Text style={[TYPE.body, { color: 'rgba(255,255,255,0.85)', flex: 1, paddingRight: 12 }]}>
-              {reached ? (
-                '🎉 Free drink ready to redeem'
-              ) : (
-                <>
-                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#fff' }}>{toGo}</Text>
-                  {` stars until a free drink`}
-                </>
-              )}
-            </Text>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={[TYPE.body, { color: 'rgba(255,255,255,0.85)' }]}>
+                {reached ? (
+                  '🎉 Free drink ready to redeem'
+                ) : (
+                  <>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#fff' }}>{toGo}</Text>
+                    {` stars until a free drink`}
+                  </>
+                )}
+              </Text>
+              <Text
+                style={{
+                  marginTop: 2,
+                  fontFamily: 'Inter_400Regular',
+                  fontSize: 11,
+                  lineHeight: 15,
+                  letterSpacing: 0.3,
+                  color: 'rgba(255,255,255,0.45)',
+                }}
+              >
+                {tierSubline}
+              </Text>
+            </View>
             <View
               style={{
                 flexDirection: 'row',

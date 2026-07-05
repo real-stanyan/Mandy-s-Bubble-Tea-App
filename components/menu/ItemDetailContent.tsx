@@ -18,6 +18,7 @@ import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
 import { T, TYPE, RADIUS } from '@/constants/theme'
 import { isBestseller } from '@/components/menu/bestsellers'
+import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierIds, imageSourceFor, lockedToppingsPriceCents } from '@/lib/menu/top10-presets'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
@@ -66,12 +67,14 @@ function distinctInList(counts: CountMap): number {
 
 interface Props {
   itemId: string
+  categorySlug?: string | null
   ScrollComponent?: ComponentType<ScrollViewProps> | ComponentType<any>
   onLoaded?: (item: CatalogItem) => void
 }
 
 export function ItemDetailContent({
   itemId,
+  categorySlug,
   ScrollComponent = ScrollView,
   onLoaded,
 }: Props) {
@@ -120,6 +123,14 @@ export function ItemDetailContent({
             ) ?? pool[0]
           setSelectedVariation(baseline)
         }
+        const lockedToppings = lockedToppingsFor(
+          categorySlug ?? undefined,
+          data.item.itemData?.name ?? '',
+        )
+        const lockedIds = lockedModifierIds(
+          mls.map((ml) => ({ id: ml.id, modifiers: ml.modifiers })),
+          lockedToppings,
+        )
         const initial: Record<string, CountMap> = {}
         for (const ml of mls) {
           const defaults = ml.modifiers.filter((m) => m.onByDefault)
@@ -128,6 +139,11 @@ export function ItemDetailContent({
             for (const m of defaults) map[m.id] = 1
             initial[ml.id] = map
           }
+        }
+        for (const { listId, modifierId } of lockedIds) {
+          const map = initial[listId] ?? {}
+          if ((map[modifierId] ?? 0) < 1) map[modifierId] = 1
+          initial[listId] = map
         }
         setSelectedByList(initial)
         onLoadedRef.current?.(data.item)
@@ -140,7 +156,7 @@ export function ItemDetailContent({
     return () => {
       cancelled = true
     }
-  }, [itemId, retryNonce])
+  }, [itemId, retryNonce, categorySlug])
 
   useEffect(
     () => () => {
@@ -160,6 +176,9 @@ export function ItemDetailContent({
 
   const countOf = (listId: string, modifierId: string): number =>
     selectedByList[listId]?.[modifierId] ?? 0
+
+  const isLockedName = (modName: string) =>
+    isLockedToppingName(modName, lockedToppingsFor(categorySlug ?? undefined, item?.itemData?.name ?? ''))
 
   const canIncrement = (list: ModifierList, modifierId: string): boolean => {
     const mod = list.modifiers.find((m) => m.id === modifierId)
@@ -218,6 +237,8 @@ export function ItemDetailContent({
       const next: CountMap = { ...(prev[list.id] ?? {}) }
       const current = next[modifierId] ?? 0
       if (current <= 0) return prev
+      const mod = list.modifiers.find((m) => m.id === modifierId)
+      if (mod && isLockedName(mod.name) && current <= 1) return prev
       next[modifierId] = current - 1
       return { ...prev, [list.id]: next }
     })
@@ -225,7 +246,9 @@ export function ItemDetailContent({
 
   const toggleModifier = (list: ModifierList, modifierId: string) => {
     const current = countOf(list.id, modifierId)
+    const mod = list.modifiers.find((m) => m.id === modifierId)
     if (current > 0) {
+      if (mod && isLockedName(mod.name)) return
       decrementModifier(list, modifierId)
     } else {
       incrementModifier(list, modifierId)
@@ -253,7 +276,7 @@ export function ItemDetailContent({
       addItem({
         id: item.id,
         variationId: selectedVariation.id,
-        name: item.itemData?.name ?? 'Unknown',
+        name: displayNameFor(categorySlug ?? undefined, item.itemData?.name ?? '') || (item.itemData?.name ?? 'Unknown'),
         price: basePrice + modifierTotal,
         imageUrl: item.imageUrl,
         variationName: selectedVariation.itemVariationData?.name,
@@ -280,6 +303,12 @@ export function ItemDetailContent({
     )
   }
 
+  const lockedToppings = lockedToppingsFor(categorySlug ?? undefined, item.itemData?.name ?? '')
+  const isLocked = (modName: string) => isLockedToppingName(modName, lockedToppings)
+  const shownName = displayNameFor(categorySlug ?? undefined, item.itemData?.name ?? '')
+  const customHero = imageSourceFor(categorySlug ?? undefined, item.itemData?.name ?? '')
+  const heroSource = customHero ?? (item.imageUrl ? { uri: item.imageUrl } : null)
+
   const variations = item.itemData?.variations ?? []
   const baselineVariation =
     variations.find(
@@ -288,6 +317,16 @@ export function ItemDetailContent({
   const baselineAmount = Number(
     baselineVariation?.itemVariationData?.priceMoney?.amount ?? 0,
   )
+  // Inside TOP 10 the locked toppings are mandatory → headline price shows the
+  // real starting price (base + locked toppings).
+  const lockedSurcharge = lockedToppingsPriceCents(
+    categorySlug ?? undefined,
+    item.itemData?.name ?? '',
+    modifierLists.flatMap((ml) =>
+      ml.modifiers.map((m) => ({ name: m.name, priceCents: Number(m.priceCents ?? 0) })),
+    ),
+  )
+  const headlineAmount = baselineAmount + lockedSurcharge
   const baseCents = Number(selectedVariation?.itemVariationData?.priceMoney?.amount ?? 0)
   const modifierCents = modifierLists.reduce((sum, ml) => {
     const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
@@ -312,9 +351,9 @@ export function ItemDetailContent({
   return (
     <View style={styles.container}>
       <ScrollComponent>
-        {item.imageUrl ? (
+        {heroSource ? (
           <Image
-            source={{ uri: item.imageUrl }}
+            source={heroSource}
             style={styles.hero}
             contentFit="cover"
             contentPosition="center"
@@ -333,10 +372,10 @@ export function ItemDetailContent({
           ) : null}
           <View style={styles.titleRow}>
             <Text style={[TYPE.screenTitleLg, styles.titleText, { color: T.ink }]} numberOfLines={2}>
-              {item.itemData?.name}
+              {shownName}
             </Text>
-            {baselineAmount > 0 ? (
-              <Text style={styles.headlinePrice}>{formatPrice(baselineAmount)}</Text>
+            {headlineAmount > 0 ? (
+              <Text style={styles.headlinePrice}>{formatPrice(headlineAmount)}</Text>
             ) : null}
           </View>
           {item.itemData?.description ? (
@@ -398,6 +437,7 @@ export function ItemDetailContent({
                     const supportsStepper = !isExclusive
                     const canInc = canIncrement(ml, mod.id)
                     const rowDisabled = count === 0 && !canInc
+                    const locked = isLocked(mod.name)
                     return (
                       <ToppingRow
                         key={mod.id}
@@ -408,6 +448,8 @@ export function ItemDetailContent({
                         canIncrement={canInc}
                         disabled={rowDisabled}
                         soldOut={mod.soldOut === true}
+                        locked={locked}
+                        canDecrement={!(locked && count <= 1)}
                         onIncrement={() => incrementModifier(ml, mod.id)}
                         onDecrement={() => decrementModifier(ml, mod.id)}
                         onToggle={() => toggleModifier(ml, mod.id)}
@@ -661,6 +703,8 @@ function ToppingRow({
   canIncrement,
   disabled,
   soldOut = false,
+  locked = false,
+  canDecrement = true,
   onIncrement,
   onDecrement,
   onToggle,
@@ -672,6 +716,8 @@ function ToppingRow({
   canIncrement: boolean
   disabled: boolean
   soldOut?: boolean
+  locked?: boolean
+  canDecrement?: boolean
   onIncrement: () => void
   onDecrement: () => void
   onToggle: () => void
@@ -697,17 +743,25 @@ function ToppingRow({
         {selected ? <Icon name="check" size={14} color="#fff" /> : null}
       </View>
       <Text style={styles.toppingLabel}>{label}</Text>
+      {locked ? (
+        <View style={styles.includedPill}>
+          <Text style={styles.includedPillText}>INCLUDED</Text>
+        </View>
+      ) : null}
       {soldOut ? (
         <Text style={styles.toppingSoldOut}>Sold out</Text>
       ) : showStepper ? (
         <View style={styles.toppingStepper}>
           <Pressable
             onPress={onDecrement}
+            disabled={!canDecrement}
             accessibilityRole="button"
             accessibilityLabel={`Decrease ${label}`}
+            accessibilityState={{ disabled: !canDecrement }}
             style={({ pressed }) => [
               styles.toppingStepperBtn,
-              pressed && { opacity: 0.5 },
+              !canDecrement && { opacity: 0.35 },
+              pressed && canDecrement && { opacity: 0.5 },
             ]}
           >
             <Text style={styles.toppingStepperMinus}>−</Text>
@@ -1044,6 +1098,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(196,58,16,0.12)',
   },
   requiredPillText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: T.brand,
+    textTransform: 'uppercase',
+  },
+  includedPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(196,58,16,0.12)',
+  },
+  includedPillText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 10,
     letterSpacing: 1.2,

@@ -4,6 +4,9 @@ import { Image } from 'expo-image'
 import { usePathname, useRouter } from 'expo-router'
 import { Icon } from '@/components/brand/Icon'
 import { useCartStore } from '@/store/cart'
+// Customer-visible state mapping (PREPARED→READY, fulfillment COMPLETED→
+// COMPLETED for self-delivery) — shared logic in store/orders.ts.
+import { effectiveOrderState as effectiveState } from '@/store/orders'
 import type { OrderHistoryItem } from '@/hooks/use-order-history'
 import { reorder } from '@/components/orders/reorder'
 import { useCatalogImageMap } from '@/hooks/use-catalog-image-map'
@@ -14,17 +17,6 @@ const STATE_STYLES: Record<string, { label: string; color: string; bg: string }>
   READY: { label: 'READY', color: '#14532d', bg: '#d1fae5' },
   OPEN: { label: 'IN PROGRESS', color: '#9a3412', bg: '#fde4d3' },
   CANCELED: { label: 'CANCELLED', color: '#991b1b', bg: '#fecaca' },
-}
-
-// Promote OPEN orders whose pickup fulfillment is PREPARED to a
-// customer-visible "Ready" state — that's what staff flip to in the
-// Square dashboard when the drink is at the counter.
-function effectiveState(
-  state: string | null,
-  fulfillmentState: string | null,
-): string {
-  if (state === 'OPEN' && fulfillmentState === 'PREPARED') return 'READY'
-  return state ?? ''
 }
 
 function formatDateTime(iso: string | null): string {

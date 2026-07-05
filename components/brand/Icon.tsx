@@ -3,7 +3,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { T } from '@/constants/theme';
 
 export type IconName =
-  | 'bag' | 'bell' | 'pin' | 'star'
+  | 'bag' | 'bell' | 'pin' | 'star' | 'gem'
   | 'arrow' | 'arrowL' | 'plus' | 'check'
   | 'search' | 'close'
   | 'home' | 'cafe' | 'receipt' | 'user'
@@ -57,6 +57,22 @@ export function Icon({ name, color, size, filled }: IconProps) {
       return (
         <Svg width={s} height={s} viewBox="0 0 24 24">
           <Path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2z" fill={c} />
+        </Svg>
+      );
+    }
+    case 'gem': {
+      // Outline gem (mirrors lucide's Gem used by the web tier badge).
+      const c = color ?? T.ink;
+      const s = size ?? 14;
+      return (
+        <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M6 3h12l4 6-10 13L2 9l4-6zM11 3L8 9l4 13 4-13-3-6M2 9h20"
+            stroke={c}
+            strokeWidth={1.7}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </Svg>
       );
     }

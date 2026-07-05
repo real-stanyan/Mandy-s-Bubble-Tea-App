@@ -5,7 +5,7 @@ import { hashColor } from '@/components/brand/color'
 import { T, FONT } from '@/constants/theme'
 import { placedRelative } from '@/components/orders/time'
 import { useCatalogImageMap } from '@/hooks/use-catalog-image-map'
-import type { OrderHistoryItem } from '@/store/orders'
+import { isDeliveryOrder, type OrderHistoryItem } from '@/store/orders'
 
 function formatCents(cents: string): string {
   const n = Number(cents) / 100
@@ -52,6 +52,11 @@ export function PastOrderRow({ order, onOpen, onReorder }: Props) {
       <View style={styles.middle}>
         <View style={styles.metaRow}>
           <Text style={styles.ref}>{referenceLabel(order)}</Text>
+          <View style={styles.typeChip}>
+            <Text style={styles.typeChipText}>
+              {isDeliveryOrder(order) ? 'Delivery' : 'Pickup'}
+            </Text>
+          </View>
           <Text style={styles.time}>{placedRelative(order.createdAt)}</Text>
         </View>
         <Text style={styles.items} numberOfLines={1}>
@@ -119,6 +124,20 @@ const styles = StyleSheet.create({
     fontFamily: FONT.sans,
     fontSize: 12.5,
     color: T.ink3,
+  },
+  typeChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 999,
+    backgroundColor: 'rgba(141,85,36,0.10)',
+  },
+  typeChipText: {
+    fontFamily: FONT.sans,
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: T.brand,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   items: {
     marginTop: 2,
