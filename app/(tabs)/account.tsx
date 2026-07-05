@@ -11,10 +11,13 @@ import {
 import { router, useFocusEffect } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useLoyalty } from '@/hooks/use-loyalty'
+import { useTierToppings } from '@/hooks/use-tier-toppings'
 import { LOYALTY } from '@/lib/constants'
+import { tierProgress } from '@/lib/membership-tier'
 import { SignInCard } from '@/components/auth/SignInCard'
 import { AccountHeader } from '@/components/account/AccountHeader'
 import { LoyaltyCard } from '@/components/account/LoyaltyCard'
+import { TierUpCelebration } from '@/components/account/TierUpCelebration'
 import { MiniStats } from '@/components/account/MiniStats'
 import { MemberQrCard } from '@/components/account/MemberQrCard'
 import { AddToWalletButton } from '@/components/account/AddToWalletButton'
@@ -84,6 +87,9 @@ export default function AccountScreen() {
   const lifetime = account?.lifetimePoints ?? balance
   const rewardsCount = perReward > 0 ? Math.floor(balance / perReward) : 0
   const currentStars = perReward > 0 ? balance % perReward : 0
+  // Membership tier — derived from lifetime points, never stored.
+  const { tier, nextTier, starsToNext } = tierProgress(lifetime)
+  const { remaining: freeToppingsRemaining } = useTierToppings(tier)
 
   if (authLoading && !profile) {
     return (
@@ -139,6 +145,10 @@ export default function AccountScreen() {
         <LoyaltyCard
           account={account ?? EMPTY_LOYALTY}
           starsPerReward={perReward}
+          tier={tier}
+          nextTier={nextTier}
+          starsToNext={starsToNext}
+          freeToppingsRemaining={freeToppingsRemaining}
         />
         <MiniStats
           drinks={lifetime}
@@ -176,6 +186,11 @@ export default function AccountScreen() {
         <SignOutBtn onPress={signOut} />
         <DeleteAccountBtn onConfirm={deleteAccount} />
       </ScrollView>
+      {/* Mount only after loyalty data arrives: the celebration effect records
+          the current tier to storage, and before `account` settles `tier` is a
+          placeholder silver — recording it would overwrite a gold/diamond
+          member's baseline and replay the tier-up toast on every cold start. */}
+      {account !== null ? <TierUpCelebration tier={tier} /> : null}
     </View>
   )
 }

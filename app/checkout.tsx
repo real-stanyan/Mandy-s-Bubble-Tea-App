@@ -41,6 +41,10 @@ import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
 import { pickPromoCups } from '@/lib/promo-cup-pick'
+import { tierFor, type MembershipTier } from '@/lib/membership-tier'
+import { tierCheckoutPreview } from '@/lib/tier-checkout-preview'
+import type { CupRecord } from '@/lib/tier-toppings'
+import { useTierToppings } from '@/hooks/use-tier-toppings'
 import {
   initSquarePayments,
   canUseApplePay,
@@ -147,6 +151,11 @@ export default function CheckoutScreen() {
   }, [slots])
 
   const loyaltyBalance = loyalty?.balance ?? 0
+  // Membership tier — derived from lifetime points, never stored and never
+  // sent to the server (the orders route recomputes it from Square).
+  const tier = tierFor(loyalty?.lifetimePoints ?? 0)
+  const { remaining: tierToppingsRemaining } = useTierToppings(tier)
+  const toppingsRemaining = tierToppingsRemaining ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
   const canRedeem = perReward > 0 && loyaltyBalance >= perReward
   const welcomeAvailable = welcomeDiscount.available
@@ -230,10 +239,42 @@ export default function CheckoutScreen() {
   const rewardDiscountCents = sortedUnitPrices
     .slice(0, rewardCount)
     .reduce((s, p) => s + p, 0)
+
+  // Build CupRecord[] from cart items — mirrors the server's per-cup
+  // expansion. unitPrice = variation + all modifiers (CartItem.price);
+  // toppingPrices = each modifier's priceCents (0 = included, filtered by
+  // collectPaidToppingUnits). Repeated once per quantity unit.
+  const cups = useMemo<CupRecord[]>(() => {
+    const result: CupRecord[] = []
+    for (const item of items) {
+      const toppingPrices = (item.modifiers ?? []).map((m) => m.priceCents ?? 0)
+      for (let i = 0; i < item.quantity; i++) {
+        result.push({ unitPrice: item.price, toppingPrices })
+      }
+    }
+    return result
+  }, [items])
+
+  // Preview the tier discount + diamond free-topping coverage, mirroring
+  // the server's math in /api/orders so the displayed total (and the
+  // Apple/Google Pay sheet amount) equals the charge.
+  const tierPreview = tierCheckoutPreview({
+    tier,
+    cups,
+    rewardCount,
+    toppingsRemaining,
+    subtotal: total,
+    rewardDiscount: rewardDiscountCents,
+    welcomeDiscount: welcomeDiscountForSummary?.amountCents ?? 0,
+    igFollowDiscount: igFollowDiscountForSummary?.amountCents ?? 0,
+  })
+
   const totalDiscountCents =
     rewardDiscountCents +
     (welcomeDiscountForSummary?.amountCents ?? 0) +
-    (igFollowDiscountForSummary?.amountCents ?? 0)
+    (igFollowDiscountForSummary?.amountCents ?? 0) +
+    tierPreview.toppingCoveredCents +
+    tierPreview.tierDiscountCents
   const isFreeRedeem = rewardCount > 0 && total - totalDiscountCents <= 0
   // Mirrors the SUBTOTAL_PHASE Square service charge in /api/orders:
   // 1.9% of the pre-discount subtotal, floored. Skipped on free redeem
@@ -253,6 +294,8 @@ export default function CheckoutScreen() {
       - rewardDiscountCents
       - (welcomeDiscountForSummary?.amountCents ?? 0)
       - (igFollowDiscountForSummary?.amountCents ?? 0)
+      - tierPreview.toppingCoveredCents
+      - tierPreview.tierDiscountCents
       + surchargeCents
       + platformFeeCents
       + phSurchargeCents
@@ -311,6 +354,17 @@ export default function CheckoutScreen() {
       let amountCents = total
       if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
       if (useIgFollow) amountCents = Math.max(amountCents - igFollowAmount, 0)
+      if (rewardCount === 0) {
+        // Tier discount + diamond free toppings are applied server-side in
+        // /api/orders; mirror them here so the Apple/Google Pay sheet shows
+        // the amount Square will actually capture. When rewardCount > 0 the
+        // /api/loyalty/redeem response below returns updatedAmountCents
+        // which already includes the tier discounts — don't double-apply.
+        amountCents = Math.max(
+          amountCents - tierPreview.toppingCoveredCents - tierPreview.tierDiscountCents,
+          0,
+        )
+      }
       if (rewardCount > 0) {
         const redeemRes = await apiFetch<{
           ok: boolean
@@ -540,6 +594,11 @@ export default function CheckoutScreen() {
           igFollow={igFollowDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
           rewardCount={rewardCount}
+          tier={tier}
+          tierDiscountCents={tierPreview.tierDiscountCents}
+          toppingCoveredCents={tierPreview.toppingCoveredCents}
+          toppingCoveredCount={tierPreview.toppingCoveredCount}
+          toppingsRemaining={toppingsRemaining}
           surcharge={surchargeCents}
           platformFee={platformFeeCents}
           phSurcharge={phSurchargeCents}
@@ -881,6 +940,11 @@ function SummaryBlock({
   igFollow,
   rewardDiscount,
   rewardCount: rewardCountForSummary,
+  tier,
+  tierDiscountCents,
+  toppingCoveredCents,
+  toppingCoveredCount,
+  toppingsRemaining,
   surcharge,
   platformFee: platformFeeAmt,
   phSurcharge,
@@ -892,6 +956,11 @@ function SummaryBlock({
   igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
   rewardCount: number
+  tier: MembershipTier
+  tierDiscountCents: number
+  toppingCoveredCents: number
+  toppingCoveredCount: number
+  toppingsRemaining: number
   surcharge: number
   platformFee: number
   phSurcharge: number
@@ -899,7 +968,11 @@ function SummaryBlock({
   deliveryAddOnCents?: number
 }) {
   const discountTotal =
-    (welcome?.amountCents ?? 0) + (igFollow?.amountCents ?? 0) + rewardDiscount
+    (welcome?.amountCents ?? 0) +
+    (igFollow?.amountCents ?? 0) +
+    rewardDiscount +
+    toppingCoveredCents +
+    tierDiscountCents
   const total = Math.max(
     subtotal - discountTotal + surcharge + platformFeeAmt + phSurcharge + (deliveryAddOnCentsAmt ?? 0),
     0,
@@ -925,6 +998,20 @@ function SummaryBlock({
         <SummaryRow
           label={`Reward discount${rewardCountForSummary > 1 ? ` ×${rewardCountForSummary}` : ''}`}
           amountCents={-rewardDiscount}
+          muted
+        />
+      )}
+      {toppingCoveredCents > 0 && (
+        <SummaryRow
+          label={`Free toppings ×${toppingCoveredCount} (${toppingsRemaining} left this month)`}
+          amountCents={-toppingCoveredCents}
+          muted
+        />
+      )}
+      {tierDiscountCents > 0 && (
+        <SummaryRow
+          label={`${tier === 'diamond' ? 'Diamond' : 'Gold'} Member −5%`}
+          amountCents={-tierDiscountCents}
           muted
         />
       )}
