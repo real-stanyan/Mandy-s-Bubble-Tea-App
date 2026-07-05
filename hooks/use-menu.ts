@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Image } from 'expo-image'
 import { apiFetch } from '@/lib/api'
+import {
+  IMG_THUMB,
+  optimizedImageUrl,
+  SQUARE_IMAGE_HEADERS,
+} from '@/lib/optimized-image'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 interface MenuSnapshot {
@@ -50,6 +56,29 @@ async function fetchSnapshot(): Promise<MenuSnapshot> {
   return { items, categories: deriveCategories(items, data.categories) }
 }
 
+// Warm the expo-image disk cache with every menu thumbnail once per app
+// session (~90 URLs × ~2.4KB webp ≈ 220KB). Guarded by a module flag: the
+// menu cache TTL is only 5s, so without it every silent refetch would
+// re-fire 90 requests. The Accept header must match SquareImage's so the
+// prefetched cache entries (keyed by URL) hold the webp variant.
+let prefetchedThumbs = false
+
+function prefetchThumbs(items: CatalogItem[]) {
+  if (prefetchedThumbs) return
+  const urls = items.flatMap((item) =>
+    item.imageUrl ? [optimizedImageUrl(item.imageUrl, IMG_THUMB)] : [],
+  )
+  if (urls.length === 0) return
+  prefetchedThumbs = true
+  Image.prefetch(urls, {
+    cachePolicy: 'disk',
+    headers: SQUARE_IMAGE_HEADERS,
+  }).catch(() => {
+    // Fire-and-forget: offline or optimizer errors are non-fatal; images
+    // load lazily (with raw-URL fallback) when rows render.
+  })
+}
+
 function load(force = false): Promise<MenuSnapshot> {
   if (!force && isCacheFresh()) return Promise.resolve(cache!)
   if (inFlight) return inFlight
@@ -58,6 +87,7 @@ function load(force = false): Promise<MenuSnapshot> {
       cache = snap
       cacheAt = Date.now()
       subscribers.forEach((fn) => fn(snap))
+      prefetchThumbs(snap.items)
       return snap
     })
     .finally(() => {

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
 import { useOrdersStore } from '@/store/orders';
+import { SquareImage } from '@/components/ui/SquareImage';
+import { IMG_THUMB } from '@/lib/optimized-image';
 import { useCartStore } from '@/store/cart';
 import { Icon } from '@/components/brand/Icon';
 import { CupArt } from '@/components/brand/CupArt';
@@ -65,10 +66,10 @@ export function YourUsual() {
             }}
           >
             {usual.imageUrl ? (
-              <Image
-                source={{ uri: usual.imageUrl }}
+              <SquareImage
+                url={usual.imageUrl}
+                width={IMG_THUMB}
                 style={{ width: 72, height: 72 }}
-                contentFit="cover"
               />
             ) : (
               <CupArt fill={T.brand} stroke={T.ink} size={48} />

@@ -24,6 +24,8 @@ import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
 import { displayNameFor, imageSourceFor, TOP10_CATEGORY_SLUG } from '@/lib/menu/top10-presets'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
@@ -421,7 +423,6 @@ const ProductRow = memo(function ProductRow({
   const rawName = item.itemData?.name ?? 'Unknown'
   const name = displayNameFor(categorySlug ?? undefined, rawName) || rawName
   const customImage = imageSourceFor(categorySlug ?? undefined, rawName)
-  const imageSource = customImage ?? (item.imageUrl ? { uri: item.imageUrl } : null)
   const firstVariation = item.itemData?.variations?.[0]
   const rawPrice = firstVariation?.itemVariationData?.priceMoney?.amount
   // Inside TOP 10 the locked toppings are mandatory, so show base + surcharge.
@@ -446,11 +447,18 @@ const ProductRow = memo(function ProductRow({
       disabled={soldOut}
       activeOpacity={0.6}
     >
-      {imageSource ? (
+      {customImage ? (
         <Image
-          source={imageSource}
+          source={customImage}
           style={styles.rowImage}
           contentFit="cover"
+          contentPosition="center"
+        />
+      ) : item.imageUrl ? (
+        <SquareImage
+          url={item.imageUrl}
+          width={IMG_THUMB}
+          style={styles.rowImage}
           contentPosition="center"
         />
       ) : (

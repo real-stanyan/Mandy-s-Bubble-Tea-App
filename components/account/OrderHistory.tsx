@@ -1,7 +1,8 @@
 import { memo, useCallback } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native'
-import { Image } from 'expo-image'
 import { usePathname, useRouter } from 'expo-router'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { Icon } from '@/components/brand/Icon'
 import { useCartStore } from '@/store/cart'
 // Customer-visible state mapping (PREPARED→READY, fulfillment COMPLETED→
@@ -167,10 +168,10 @@ const OrderCardRow = memo(function OrderCardRow({
       activeOpacity={0.85}
     >
       {thumb ? (
-        <Image
-          source={{ uri: thumb }}
+        <SquareImage
+          url={thumb}
+          width={IMG_THUMB}
           style={styles.thumb}
-          contentFit="cover"
           contentPosition="center"
           transition={120}
         />

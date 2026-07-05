@@ -1,5 +1,7 @@
-import { View, Text, Pressable, StyleSheet, Platform, Image } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { CupArt } from '@/components/brand/CupArt'
 import { Icon } from '@/components/brand/Icon'
 import { hashColor } from '@/components/brand/color'
@@ -121,7 +123,7 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
           return (
           <View key={`${line.variationId}-${i}`} style={styles.itemRow}>
             {uri ? (
-              <Image source={{ uri }} style={styles.itemTile} />
+              <SquareImage url={uri} width={IMG_THUMB} style={styles.itemTile} />
             ) : (
               <View style={[styles.itemTile, { backgroundColor: tileBg }]}>
                 <CupArt

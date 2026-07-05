@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { Image } from 'expo-image'
 import { useCartStore } from '@/store/cart'
+import { SquareImage } from '@/components/ui/SquareImage'
+import { IMG_THUMB } from '@/lib/optimized-image'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { T, FONT } from '@/constants/theme'
@@ -39,7 +40,7 @@ export function CartItemRow({ item }: Props) {
     <View style={styles.row}>
       <View style={styles.thumb}>
         {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <SquareImage url={item.imageUrl} width={IMG_THUMB} style={StyleSheet.absoluteFill} />
         ) : (
           <CupArt size={28} fill={T.brand} stroke={T.ink} />
         )}
