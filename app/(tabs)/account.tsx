@@ -186,7 +186,11 @@ export default function AccountScreen() {
         <SignOutBtn onPress={signOut} />
         <DeleteAccountBtn onConfirm={deleteAccount} />
       </ScrollView>
-      <TierUpCelebration tier={tier} />
+      {/* Mount only after loyalty data arrives: the celebration effect records
+          the current tier to storage, and before `account` settles `tier` is a
+          placeholder silver — recording it would overwrite a gold/diamond
+          member's baseline and replay the tier-up toast on every cold start. */}
+      {account !== null ? <TierUpCelebration tier={tier} /> : null}
     </View>
   )
 }
