@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
+import { reportPaymentStep } from '@/lib/client-log'
 
 // PRODUCTION (release) builds ALWAYS use the production Square credentials
 // below — never sandbox. Only dev builds (__DEV__ === true) may override via
@@ -93,19 +94,34 @@ export async function canUseGooglePay(): Promise<boolean> {
 // user killed the app, leaving the created order OPEN with no tender. The
 // watchdog guarantees the promise settles; single-settle guard keeps
 // resolve/reject/timeout mutually exclusive.
-export const CARD_ENTRY_TIMEOUT_MS = 120_000
+//
+// Card entry is 300s (not the wallets' 90s): the user is TYPING card details
+// in the native form, and a timeout while the form is still open creates a
+// fake-success window — the form's own success animation would play while
+// the JS flow already gave up (see the guard.settled check in
+// startCardPayment). 300s only backstops the no-form failure modes (nil
+// rootViewController no-op / dropped native rejection); a real cardholder
+// finishing in under 5 minutes is never interrupted.
+export const CARD_ENTRY_TIMEOUT_MS = 300_000
 export const WALLET_TIMEOUT_MS = 90_000
 export const PAYMENT_SHEET_TIMEOUT = 'PAYMENT_SHEET_TIMEOUT'
 
 type SettleGuard = {
   resolve: (nonce: string) => void
   reject: (error: Error) => void
+  /** True once resolve/reject/timeout has fired — later callbacks must not
+   *  present success to the user (fake-success window). */
+  readonly settled: boolean
 }
 
 function createSettleGuard(
   resolve: (nonce: string) => void,
   reject: (error: Error) => void,
   timeoutMs: number,
+  /** Called when the native flow tries to settle AFTER the guard already
+   *  settled (usually: watchdog fired, sheet answered late). Observability
+   *  only — must never throw or block (reportPaymentStep guarantees that). */
+  onLateSettle?: () => void,
 ): SettleGuard {
   let settled = false
   const timer = setTimeout(() => {
@@ -114,12 +130,31 @@ function createSettleGuard(
     reject(new Error(PAYMENT_SHEET_TIMEOUT))
   }, timeoutMs)
   const settleOnce = <T>(fn: (v: T) => void) => (v: T) => {
-    if (settled) return
+    if (settled) {
+      onLateSettle?.()
+      return
+    }
     settled = true
     clearTimeout(timer)
     fn(v)
   }
-  return { resolve: settleOnce(resolve), reject: settleOnce(reject) }
+  return {
+    resolve: settleOnce(resolve),
+    reject: settleOnce(reject),
+    get settled() {
+      return settled
+    },
+  }
+}
+
+/** Fire-and-forget 'tokenize-late-settle' beacon — the signature of "the
+ *  sheet answered after the watchdog gave up". */
+function reportLateSettle(payMethod: 'card' | 'apple' | 'google') {
+  reportPaymentStep({
+    step: 'tokenize-late-settle',
+    payMethod,
+    message: 'payment sheet settled after the watchdog timeout',
+  })
 }
 
 function toError(e: unknown, fallback: string): Error {
@@ -147,12 +182,27 @@ function guardNativePromise(maybePromise: unknown, guard: SettleGuard, fallback:
  */
 export function startCardPayment(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const guard = createSettleGuard(resolve, reject, CARD_ENTRY_TIMEOUT_MS)
+    const guard = createSettleGuard(resolve, reject, CARD_ENTRY_TIMEOUT_MS, () =>
+      reportLateSettle('card'),
+    )
     try {
       const { SQIPCardEntry } = loadSqip()
       const nativePromise = SQIPCardEntry.startCardEntryFlow(
         false, // don't collect postal code (AU)
         async (cardDetails) => {
+          // Fake-success window: if the watchdog already rejected, the native
+          // form may still be open in front of the user. Returning success
+          // here would play the form's success animation and dismiss it —
+          // while the JS flow already gave up (guard.resolve is a no-op) —
+          // so the user walks away believing they paid. Fail the form
+          // instead so it shows an explicit error.
+          if (guard.settled) {
+            reportLateSettle('card')
+            return {
+              success: false,
+              errorMessage: 'Payment timed out — please tap Pay again',
+            }
+          }
           if (cardDetails.nonce) {
             return { success: true, onCardEntryComplete: () => guard.resolve(cardDetails.nonce!) }
           }
@@ -175,7 +225,9 @@ export function startCardPayment(): Promise<string> {
  */
 export function startApplePayPayment(priceDollars: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const guard = createSettleGuard(resolve, reject, WALLET_TIMEOUT_MS)
+    const guard = createSettleGuard(resolve, reject, WALLET_TIMEOUT_MS, () =>
+      reportLateSettle('apple'),
+    )
     try {
       const { SQIPApplePay, PaymentType, ApplePayNonceSuccessState } = loadSqip()
       const nativePromise = SQIPApplePay.requestApplePayNonce(
@@ -222,7 +274,9 @@ export function startApplePayPayment(priceDollars: string): Promise<string> {
  */
 export function startGooglePayPayment(priceDollars: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const guard = createSettleGuard(resolve, reject, WALLET_TIMEOUT_MS)
+    const guard = createSettleGuard(resolve, reject, WALLET_TIMEOUT_MS, () =>
+      reportLateSettle('google'),
+    )
     try {
       const { SQIPGooglePay, GooglePayPriceStatus } = loadSqip()
       const nativePromise = SQIPGooglePay.requestGooglePayNonce(

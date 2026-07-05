@@ -18,6 +18,7 @@ export type PaymentStep =
   | 'tokenize-timeout'
   | 'tokenize-fail'
   | 'tokenize-cancel'
+  | 'tokenize-late-settle'
   | 'pay-fail'
 
 export interface PaymentStepInput {

@@ -1,18 +1,37 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
+import * as Application from 'expo-application'
 import { supabase } from '@/lib/supabase'
 
 export const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://mandybubbletea.com'
 
-/** "1.1.4+22" — marketing version + native build number. Attached to every
+// Build numbers are EAS-remote-managed (eas.json appVersionSource: "remote"
+// + production autoIncrement): the REAL CFBundleVersion / versionCode is
+// assigned by EAS at build time, and app.json's ios.buildNumber is a stale
+// value baked into the bundle — do NOT maintain or trust it (1.1.3 shipped
+// as build 23 while app.json still said 22). expo-application reads the
+// installed binary's Info.plist / PackageInfo, so it always reflects the
+// build the user is actually running; expoConfig is only a fallback for
+// environments without the native module (Expo Go / tests).
+
+/** Native build number of the RUNNING binary ("23" on iOS, versionCode on
+ *  Android); falls back to the stale expoConfig value as a last resort. */
+export function appBuildNumber(): string | number | null | undefined {
+  return (
+    Application.nativeBuildVersion ??
+    (Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode)
+  )
+}
+
+/** "1.1.4+23" — marketing version + native build number. Attached to every
  *  API request so server logs / order metadata can attribute failures to a
  *  specific shipped binary (we had zero version observability before). */
 export function appVersionString(): string {
-  const version = Constants.expoConfig?.version ?? '0.0.0'
-  const build =
-    Platform.OS === 'ios'
-      ? Constants.expoConfig?.ios?.buildNumber
-      : Constants.expoConfig?.android?.versionCode
+  const version =
+    Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '0.0.0'
+  const build = appBuildNumber()
   return build != null ? `${version}+${build}` : version
 }
 

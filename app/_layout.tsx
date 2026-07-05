@@ -2,10 +2,10 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Text, TextInput, TouchableOpacity } from 'react-native';
-import Constants from 'expo-constants';
 import { UpdateRequired } from '@/components/ui/UpdateRequired';
 import { useAppConfig } from '@/hooks/use-app-config';
 import { decideUpdateGate } from '@/lib/app-config';
+import { appBuildNumber } from '@/lib/api';
 
 // Disable system font scaling globally — Mandy App uses fixed font sizes
 // regardless of the user's accessibility font-size setting.
@@ -72,15 +72,11 @@ export default function RootLayout() {
   // Min-version gate: only intercept when the remote config arrived AND
   // this build is confirmed below the minimum (fail-open on every other
   // path — see decideUpdateGate). Placed before the fontsLoaded return so
-  // hooks run unconditionally.
+  // hooks run unconditionally. Build number comes from expo-application
+  // (the running binary's real, EAS-assigned CFBundleVersion) — app.json's
+  // buildNumber is stale under appVersionSource: "remote".
   const appConfig = useAppConfig();
-  const updateGate = decideUpdateGate(
-    appConfig,
-    Platform.OS,
-    Platform.OS === 'ios'
-      ? Constants.expoConfig?.ios?.buildNumber
-      : Constants.expoConfig?.android?.versionCode,
-  );
+  const updateGate = decideUpdateGate(appConfig, Platform.OS, appBuildNumber());
   if (!fontsLoaded) {
     return null;
   }

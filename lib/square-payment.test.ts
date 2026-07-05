@@ -25,6 +25,13 @@ jest.mock('expo-constants', () => ({
 const mockRequestApplePayNonce = jest.fn()
 const mockRequestGooglePayNonce = jest.fn()
 const mockStartCardEntryFlow = jest.fn()
+// Cut the client-log → lib/api → supabase/expo-application import chain and
+// let tests assert the tokenize-late-settle beacon.
+const mockReportPaymentStep = jest.fn()
+
+jest.mock('@/lib/client-log', () => ({
+  reportPaymentStep: (...args: unknown[]) => mockReportPaymentStep(...args),
+}))
 
 jest.mock('react-native-square-in-app-payments', () => ({
   SQIPCore: { setSquareApplicationId: jest.fn() },
@@ -53,6 +60,7 @@ beforeEach(() => {
   mockRequestApplePayNonce.mockReset()
   mockRequestGooglePayNonce.mockReset()
   mockStartCardEntryFlow.mockReset()
+  mockReportPaymentStep.mockReset()
 })
 
 afterEach(() => {
@@ -108,7 +116,7 @@ describe('watchdog timeout', () => {
     await assertion
   })
 
-  it('card entry that never settles rejects with PAYMENT_SHEET_TIMEOUT after 120s', async () => {
+  it('card entry that never settles rejects with PAYMENT_SHEET_TIMEOUT after 300s', async () => {
     mockStartCardEntryFlow.mockReturnValue(new Promise(() => {}))
     const promise = startCardPayment()
     const assertion = expect(promise).rejects.toThrow(PAYMENT_SHEET_TIMEOUT)
@@ -180,5 +188,69 @@ describe('single-settle guarantee', () => {
     // Advancing past the watchdog must be a no-op (timer was cleared).
     jest.advanceTimersByTime(WALLET_TIMEOUT_MS + 1)
     expect(jest.getTimerCount()).toBe(0)
+  })
+})
+
+describe('card fake-success window (submit after watchdog timeout)', () => {
+  it('nonce submitted AFTER timeout → form shown success:false + late-settle beacon', async () => {
+    let nonceCallback:
+      | ((d: { nonce?: string }) => Promise<{
+          success: boolean
+          errorMessage?: string
+          onCardEntryComplete?: () => void
+        }>)
+      | undefined
+    mockStartCardEntryFlow.mockImplementation(
+      (_collectPostal: boolean, onNonce: typeof nonceCallback) => {
+        nonceCallback = onNonce
+        return new Promise(() => {})
+      },
+    )
+    const promise = startCardPayment()
+    const assertion = expect(promise).rejects.toThrow(PAYMENT_SHEET_TIMEOUT)
+    jest.advanceTimersByTime(CARD_ENTRY_TIMEOUT_MS)
+    await assertion
+
+    // The native form is still open; the user finishes typing and submits.
+    // The form must NOT play its success animation (the JS flow already
+    // rejected) — it gets an explicit failure message instead.
+    const result = await nonceCallback!({ nonce: 'cnon:too-late' })
+    expect(result).toEqual({
+      success: false,
+      errorMessage: 'Payment timed out — please tap Pay again',
+    })
+    expect(mockReportPaymentStep).toHaveBeenCalledWith(
+      expect.objectContaining({ step: 'tokenize-late-settle', payMethod: 'card' }),
+    )
+  })
+
+  it('wallet success arriving AFTER timeout fires the late-settle beacon', async () => {
+    let onSuccess: ((d: { nonce: string }) => void) | undefined
+    mockRequestGooglePayNonce.mockImplementation(
+      (_info: unknown, success: (d: { nonce: string }) => void) => {
+        onSuccess = success
+        return new Promise(() => {})
+      },
+    )
+    const promise = startGooglePayPayment('5.00')
+    const assertion = expect(promise).rejects.toThrow(PAYMENT_SHEET_TIMEOUT)
+    jest.advanceTimersByTime(WALLET_TIMEOUT_MS)
+    await assertion
+
+    onSuccess!({ nonce: 'cnon:late' })
+    expect(mockReportPaymentStep).toHaveBeenCalledWith(
+      expect.objectContaining({ step: 'tokenize-late-settle', payMethod: 'google' }),
+    )
+  })
+
+  it('a normal on-time settle fires NO late-settle beacon', async () => {
+    mockRequestGooglePayNonce.mockImplementation(
+      (_info: unknown, onSuccess: (d: { nonce: string }) => void) => {
+        onSuccess({ nonce: 'cnon:on-time' })
+        return Promise.resolve()
+      },
+    )
+    await expect(startGooglePayPayment('5.00')).resolves.toBe('cnon:on-time')
+    expect(mockReportPaymentStep).not.toHaveBeenCalled()
   })
 })

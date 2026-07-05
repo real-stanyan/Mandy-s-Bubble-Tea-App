@@ -13,7 +13,6 @@ export interface AppConfig {
   ok: boolean
   ios: PlatformConfig | null
   android: PlatformConfig | null
-  killSwitch?: boolean
 }
 
 export type UpdateGateDecision =
@@ -41,6 +40,16 @@ export function decideUpdateGate(
   if (buildNumber == null) return { required: false }
   const build = Number(buildNumber)
   if (!Number.isFinite(build)) return { required: false }
+  // Self-consistency: a config demanding a build NEWER than the newest one
+  // on the store (minBuild > latestBuild) would lock users behind a wall
+  // with nothing to update to — e.g. minBuild bumped before the release
+  // actually shipped. Fail open until the config is coherent.
+  if (
+    typeof platformConfig.latestBuild === 'number' &&
+    platformConfig.minBuild > platformConfig.latestBuild
+  ) {
+    return { required: false }
+  }
   if (build >= platformConfig.minBuild) return { required: false }
   if (typeof platformConfig.storeUrl !== 'string' || !platformConfig.storeUrl) {
     // No store URL to send the user to — an unactionable wall is worse

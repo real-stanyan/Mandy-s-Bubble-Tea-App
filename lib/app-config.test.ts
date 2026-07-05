@@ -12,7 +12,6 @@ const config: AppConfig = {
     storeUrl: 'https://apps.apple.com/au/app/id6762111842',
   },
   android: null,
-  killSwitch: false,
 }
 
 describe('decideUpdateGate', () => {
@@ -52,6 +51,34 @@ describe('decideUpdateGate', () => {
   it('fails open when config reports ok:false', () => {
     expect(decideUpdateGate({ ...config, ok: false }, 'ios', '1')).toEqual({
       required: false,
+    })
+  })
+
+  it('fails open when minBuild > latestBuild (config demands an unreleased build)', () => {
+    // e.g. minBuild bumped ahead of the store release — blocking here would
+    // wall users off with nothing to update to.
+    const incoherent: AppConfig = {
+      ...config,
+      ios: {
+        minBuild: 25,
+        latestBuild: 23,
+        storeUrl: 'https://apps.apple.com/au/app/id6762111842',
+      },
+    }
+    expect(decideUpdateGate(incoherent, 'ios', '22')).toEqual({ required: false })
+  })
+
+  it('still gates when latestBuild is missing (self-check needs both numbers)', () => {
+    const noLatest = {
+      ...config,
+      ios: {
+        minBuild: 23,
+        storeUrl: 'https://apps.apple.com/au/app/id6762111842',
+      },
+    } as unknown as AppConfig
+    expect(decideUpdateGate(noLatest, 'ios', '22')).toEqual({
+      required: true,
+      storeUrl: 'https://apps.apple.com/au/app/id6762111842',
     })
   })
 
