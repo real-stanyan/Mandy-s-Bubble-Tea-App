@@ -46,14 +46,16 @@ describe('D3 — RN app authed full customer journey [TestBaseline:D3]', () => {
     if (fixture) await fixture.stop()
   })
 
-  it('Home tab renders loyalty hero (Member badge + stars-to-free-drink copy)', async () => {
+  it('Home tab renders loyalty hero (tier badge + stars-to-free-drink copy)', async () => {
     await waitFor(element(by.text('Home')).atIndex(0))
       .toBeVisible()
       .withTimeout(30_000)
     // Loyalty card depends on useLoyalty hook + /api/me data which
     // arrives ~1-2s after first paint. Use waitFor with generous
     // timeout instead of expecting immediate visibility.
-    await waitFor(element(by.text('Member')))
+    // Tiered membership replaced the static "Member" pill with the tier
+    // label — a fresh fixture user has 0 lifetime stars → SILVER.
+    await waitFor(element(by.text('SILVER')))
       .toBeVisible()
       .withTimeout(15_000)
     // Note: Detox iOS by.text takes string only; regex passed in is

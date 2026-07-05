@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { Icon } from '@/components/brand/Icon';
 import { StarCupsRow } from '@/components/brand/StarCupsRow';
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme';
+import { tierFor } from '@/lib/membership-tier';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -25,6 +26,8 @@ export function HomeLoyaltyHero() {
   const currentStars = goal > 0 ? balance % goal : 0;
   const toGo = Math.max(0, goal - currentStars);
   const reached = balance >= goal;
+  // Membership tier — derived from lifetime points, never stored.
+  const tier = tierFor(loyalty?.lifetimePoints ?? 0);
 
   return (
     <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
@@ -85,9 +88,13 @@ export function HomeLoyaltyHero() {
                 backgroundColor: 'rgba(255,255,255,0.15)',
               }}
             >
-              <Icon name="star" color={T.peach} size={12} />
+              <Icon
+                name={tier === 'diamond' ? 'gem' : 'star'}
+                color={tier === 'diamond' ? '#8ec5ff' : T.peach}
+                size={12}
+              />
               <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: '#fff' }}>
-                Member
+                {tier === 'diamond' ? 'DIAMOND' : tier === 'gold' ? 'GOLD' : 'SILVER'}
               </Text>
             </View>
           </View>
