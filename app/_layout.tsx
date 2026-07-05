@@ -1,7 +1,11 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Text, TextInput, TouchableOpacity } from 'react-native';
+import { Platform, Text, TextInput, TouchableOpacity } from 'react-native';
+import Constants from 'expo-constants';
+import { UpdateRequired } from '@/components/ui/UpdateRequired';
+import { useAppConfig } from '@/hooks/use-app-config';
+import { decideUpdateGate } from '@/lib/app-config';
 
 // Disable system font scaling globally — Mandy App uses fixed font sizes
 // regardless of the user's accessibility font-size setting.
@@ -65,8 +69,23 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
   useReadyVibration();
+  // Min-version gate: only intercept when the remote config arrived AND
+  // this build is confirmed below the minimum (fail-open on every other
+  // path — see decideUpdateGate). Placed before the fontsLoaded return so
+  // hooks run unconditionally.
+  const appConfig = useAppConfig();
+  const updateGate = decideUpdateGate(
+    appConfig,
+    Platform.OS,
+    Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode,
+  );
   if (!fontsLoaded) {
     return null;
+  }
+  if (updateGate.required) {
+    return <UpdateRequired storeUrl={updateGate.storeUrl} />;
   }
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: T.bg }}>

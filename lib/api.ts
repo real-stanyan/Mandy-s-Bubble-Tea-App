@@ -1,6 +1,20 @@
+import { Platform } from 'react-native'
+import Constants from 'expo-constants'
 import { supabase } from '@/lib/supabase'
 
 export const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://mandybubbletea.com'
+
+/** "1.1.4+22" — marketing version + native build number. Attached to every
+ *  API request so server logs / order metadata can attribute failures to a
+ *  specific shipped binary (we had zero version observability before). */
+export function appVersionString(): string {
+  const version = Constants.expoConfig?.version ?? '0.0.0'
+  const build =
+    Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode
+  return build != null ? `${version}+${build}` : version
+}
 
 let cachedToken: string | null = null
 let hydratePromise: Promise<void> | null = null
@@ -52,6 +66,18 @@ function buildHeaders(
   const appKey = process.env.EXPO_PUBLIC_SITE_ACCESS_APP_KEY
   if (appKey && !headers['x-mbt-app-key']) {
     headers['x-mbt-app-key'] = appKey
+  }
+  // Version + platform attribution. `x-client-platform: app` is read first
+  // by the server's clientPlatformFrom() (metadata.source), the other two
+  // feed the app_client order-metadata stamp and Vercel request logs.
+  if (!headers['x-mbt-app-version']) {
+    headers['x-mbt-app-version'] = appVersionString()
+  }
+  if (!headers['x-mbt-platform']) {
+    headers['x-mbt-platform'] = Platform.OS
+  }
+  if (!headers['x-client-platform']) {
+    headers['x-client-platform'] = 'app'
   }
   return headers
 }
