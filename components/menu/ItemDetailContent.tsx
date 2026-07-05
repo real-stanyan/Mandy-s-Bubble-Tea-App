@@ -20,6 +20,7 @@ import { T, TYPE, RADIUS } from '@/constants/theme'
 import { isBestseller } from '@/components/menu/bestsellers'
 import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierIds, imageSourceFor, lockedToppingsPriceCents } from '@/lib/menu/top10-presets'
 import { SquareImage } from '@/components/ui/SquareImage'
+import { ImageSkeleton } from '@/components/ui/ImageSkeleton'
 import { IMG_HERO } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 
@@ -94,6 +95,20 @@ export function ItemDetailContent({
   const [added, setAdded] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
   const [quantity, setQuantity] = useState(1)
+  // Hero skeleton lifecycle: the skeleton sits UNDER the image, so keep it
+  // mounted ~200ms past onLoad — the image's 150ms fade-in covers it and
+  // unmounting never exposes the bare background mid-fade.
+  const [heroLoaded, setHeroLoaded] = useState(false)
+  const heroLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onHeroLoad = () => {
+    if (heroLoadTimer.current) clearTimeout(heroLoadTimer.current)
+    heroLoadTimer.current = setTimeout(() => setHeroLoaded(true), 200)
+  }
+  useEffect(() => {
+    return () => {
+      if (heroLoadTimer.current) clearTimeout(heroLoadTimer.current)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -102,6 +117,7 @@ export function ItemDetailContent({
     setItem(null)
     setSelectedVariation(null)
     setSelectedByList({})
+    setHeroLoaded(false)
     ;(async () => {
       try {
         const data = await apiFetch<{ item: CatalogItem; modifierLists?: ModifierList[] }>(
@@ -360,12 +376,16 @@ export function ItemDetailContent({
             contentPosition="center"
           />
         ) : item.imageUrl ? (
-          <SquareImage
-            url={item.imageUrl}
-            width={IMG_HERO}
-            style={styles.hero}
-            contentPosition="center"
-          />
+          <View style={styles.hero}>
+            {!heroLoaded ? <ImageSkeleton /> : null}
+            <SquareImage
+              url={item.imageUrl}
+              width={IMG_HERO}
+              style={StyleSheet.absoluteFill}
+              contentPosition="center"
+              onLoad={onHeroLoad}
+            />
+          </View>
         ) : (
           <View style={[styles.hero, styles.heroFallback]}>
             <CupArt fill={hashColor(itemId)} size={200} />
