@@ -85,10 +85,18 @@ const FIXED = `    if (targetToUpdate) {
         existingConfigurationList.removeFromProject();`
 
 if (!src.includes(BROKEN)) {
-  console.error(
-    '[patch-apple-targets] Expected code not found — upstream changed, re-check whether the patch is still needed'
+  // WARN, don't fail: the patch only matters for `expo prebuild -p ios`
+  // re-runs — holding every environment's `npm install` hostage over it
+  // would be far worse than a noisy prebuild crash later. The dependency is
+  // pinned to exactly 4.0.7 in package.json, so hitting this means someone
+  // bumped the package: re-check whether upstream fixed the update path
+  // (then delete this script) or port the patch to the new code.
+  console.warn(
+    '[patch-apple-targets] WARNING: expected code not found (package updated?). ' +
+      'Skipping patch — verify `npx expo prebuild -p ios` works twice in a row ' +
+      'before trusting CNG re-runs, or update/remove scripts/patch-apple-targets.js.'
   )
-  process.exit(1)
+  process.exit(0)
 }
 
 fs.writeFileSync(filePath, src.replace(BROKEN, FIXED))

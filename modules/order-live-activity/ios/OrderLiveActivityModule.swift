@@ -12,6 +12,9 @@
 // Activities are disabled — callers never need their own platform gate.
 
 import ExpoModulesCore
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 
 struct ActivityAttributesRecord: Record {
   @Field var kind: String = "pickup"
@@ -39,18 +42,23 @@ public class OrderLiveActivityModule: Module {
 
     OnCreate {
       if #available(iOS 16.2, *) {
-        OrderActivityController.shared.onPushToken = { [weak self] orderId, tokenHex in
-          self?.sendEvent("onOrderActivityPushToken", [
-            "orderId": orderId,
-            "token": tokenHex,
-          ])
+        // The controller is an actor (serializes the racing JS end paths);
+        // registering the token handler hops onto it.
+        Task {
+          await OrderActivityController.shared.setOnPushToken { [weak self] orderId, tokenHex in
+            self?.sendEvent("onOrderActivityPushToken", [
+              "orderId": orderId,
+              "token": tokenHex,
+            ])
+          }
         }
       }
     }
 
     Function("areLiveActivitiesEnabled") { () -> Bool in
       if #available(iOS 16.2, *) {
-        return OrderActivityController.shared.areActivitiesEnabled
+        // Pure system query — no actor state involved, safe to stay sync.
+        return ActivityAuthorizationInfo().areActivitiesEnabled
       }
       return false
     }
