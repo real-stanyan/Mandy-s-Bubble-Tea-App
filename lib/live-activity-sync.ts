@@ -120,7 +120,10 @@ export async function startActivityForPlacedOrder(params: {
       activityId = await startOrderActivity(
         orderId,
         { kind: 'pickup', orderNumber, waitText },
-        buildPickupContentState('preparing'),
+        // Contract initial state: the order is placed but staff haven't
+        // accepted it yet — the server's RESERVED push flips it to
+        // "preparing" (or straight to "ready" when the shop skips accept).
+        buildPickupContentState('received'),
       )
     }
     if (activityId) {

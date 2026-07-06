@@ -19,6 +19,12 @@ enum MandysColor {
   static let green = Color(hex: 0x3CA96E)
   static let greenDark = Color(hex: 0x2E7F52)
   static let amber = Color(hex: 0xC9A227)
+  /// Amber as TEXT on light/cream backgrounds (mock's paused-copy tone).
+  static let amberDark = Color(hex: 0x8A6E14)
+  /// Amber-tinted cream — the "received" card's warm golden bottom stop.
+  static let receivedCream = Color(hex: 0xF6E7B3)
+  /// Warm amber for text on dark (Dynamic Island) backgrounds.
+  static let amberOnDark = Color(hex: 0xE8CF7A)
 
   // delivery dark-sage card
   static let deliveryBg1 = Color(hex: 0x39443A)
@@ -57,19 +63,27 @@ extension Color {
 
 @available(iOS 16.2, *)
 enum PickupPhase {
-  case preparing, ready, completed, canceled
+  // 3-step card: Received → Preparing → Ready. "received" is the contract's
+  // initial state (order placed, staff haven't accepted); the server's
+  // RESERVED push flips to preparing, PREPARED to ready — and the shop may
+  // skip RESERVED entirely, so received can jump straight to ready.
+  case received, preparing, ready, completed, canceled
 
   init(status: String) {
     switch status {
+    case "preparing": self = .preparing
     case "ready": self = .ready
     case "completed": self = .completed
     case "canceled": self = .canceled
-    default: self = .preparing
+    // "received" and anything unknown: the honest minimum claim is only
+    // "we have your order".
+    default: self = .received
     }
   }
 
   var heading: String {
     switch self {
+    case .received: return "Order received!"
     case .preparing: return "We're making your drinks"
     case .ready: return "Ready for pickup!"
     case .completed: return "Picked up — enjoy!"
@@ -79,6 +93,7 @@ enum PickupPhase {
 
   var sub: String {
     switch self {
+    case .received: return "We'll start making it shortly"
     case .preparing: return "Freshly shaken to order"
     case .ready: return "Mandy's Bubble Tea"
     case .completed: return "Thanks for visiting Mandy's"
@@ -86,13 +101,25 @@ enum PickupPhase {
     }
   }
 
-  /// Compact Dynamic Island short word.
+  /// Compact Dynamic Island short word ("Making" gains "· ~X min" in the
+  /// island when a wait estimate exists).
   var shortStatus: String {
     switch self {
+    case .received: return "Order in"
     case .preparing: return "Making"
     case .ready: return "Ready!"
     case .completed: return "Picked up"
     case .canceled: return "Canceled"
+    }
+  }
+
+  /// Index of the current step on the 3-step stepper
+  /// (0 Received / 1 Preparing / 2 Ready).
+  var stepIndex: Int {
+    switch self {
+    case .received, .canceled: return 0
+    case .preparing: return 1
+    case .ready, .completed: return 2
     }
   }
 

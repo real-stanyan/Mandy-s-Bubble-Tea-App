@@ -1,10 +1,63 @@
-// Pickup lock-screen card (mockup S1 preparing / S2 ready).
-// Warm cream identity: paper→cream gradient, brown ink, boba-cup hero on the
-// left, 2-step progress (Preparing → Ready) along the bottom.
+// Pickup lock-screen card — 3 states, each with its own card tone:
+//   received  → cream base + AMBER accents (waiting: staff haven't accepted)
+//   preparing → cream base + BRAND brown accents (original S1)
+//   ready     → green takeover (original S2)
+// Warm cream identity throughout: boba-cup hero on the left, 3-step progress
+// (Received → Preparing → Ready) along the bottom. The stepper derives purely
+// from the phase, so the shop skipping accept (received → ready, no RESERVED
+// in between) just renders as everything done.
 
 import SwiftUI
 import WidgetKit
 import ActivityKit
+
+/// Per-phase accent palette for the pickup card + stepper.
+@available(iOS 16.2, *)
+struct PickupAccent {
+  /// Eyebrow + active-label text (dark enough for cream backgrounds).
+  let text: Color
+  /// Active node / progress fill / pill dot.
+  let node: Color
+  /// Glow ring around the active node.
+  let glow: Color
+  /// Progress-bar gradient for the in-progress segment.
+  let barFill: LinearGradient
+
+  static func accent(for phase: PickupPhase) -> PickupAccent {
+    switch phase {
+    case .received, .canceled:
+      return PickupAccent(
+        text: MandysColor.amberDark,
+        node: MandysColor.amber,
+        glow: MandysColor.amber.opacity(0.22),
+        barFill: LinearGradient(
+          colors: [MandysColor.amber, Color(hex: 0xD9B54A)],
+          startPoint: .leading, endPoint: .trailing
+        )
+      )
+    case .preparing:
+      return PickupAccent(
+        text: MandysColor.brandDark,
+        node: MandysColor.brand,
+        glow: MandysColor.brand.opacity(0.18),
+        barFill: LinearGradient(
+          colors: [MandysColor.brand, MandysColor.brandLight],
+          startPoint: .leading, endPoint: .trailing
+        )
+      )
+    case .ready, .completed:
+      return PickupAccent(
+        text: MandysColor.greenDark,
+        node: MandysColor.green,
+        glow: MandysColor.green.opacity(0.2),
+        barFill: LinearGradient(
+          colors: [MandysColor.green, MandysColor.greenDark],
+          startPoint: .leading, endPoint: .trailing
+        )
+      )
+    }
+  }
+}
 
 @available(iOS 16.2, *)
 struct PickupCardView: View {
@@ -14,13 +67,14 @@ struct PickupCardView: View {
 
   var body: some View {
     let ready = phase.isDone
+    let accent = PickupAccent.accent(for: phase)
     HStack(alignment: .center, spacing: 12) {
       BobaCupView(showBadge: ready)
         .frame(width: 78)
 
       VStack(alignment: .leading, spacing: 0) {
         HStack(alignment: .firstTextBaseline) {
-          Eyebrow(text: "Mandy's · Pickup", color: ready ? MandysColor.greenDark : MandysColor.brand)
+          Eyebrow(text: "Mandy's · Pickup", color: accent.text)
           Spacer(minLength: 6)
           OrderNo(number: context.attributes.orderNumber, color: MandysColor.ink3)
         }
@@ -32,7 +86,7 @@ struct PickupCardView: View {
           .minimumScaleFactor(0.7)
           .padding(.top, 5)
 
-        subRow(ready: ready)
+        subRow(ready: ready, accent: accent)
           .padding(.top, 3)
 
         Spacer(minLength: 4)
@@ -42,65 +96,77 @@ struct PickupCardView: View {
     }
     .padding(EdgeInsets(top: 14, leading: 14, bottom: 12, trailing: 16))
     .frame(height: 152)
-    .background(background(ready: ready))
+    .background(background)
   }
 
   @ViewBuilder
-  private func subRow(ready: Bool) -> some View {
-    if ready {
-      HStack(spacing: 5) {
-        Text("📍").font(.system(size: 10))
-        Text("Mandy's Bubble Tea")
-          .font(.system(size: 10.5, weight: .semibold))
-          .foregroundColor(MandysColor.ink2)
-      }
-      .padding(.horizontal, 9)
-      .padding(.vertical, 2.5)
-      .background(
-        Capsule()
-          .fill(Color.white.opacity(0.75))
-          .overlay(Capsule().stroke(MandysColor.greenDark.opacity(0.22), lineWidth: 1))
-      )
-    } else {
-      HStack(spacing: 6) {
+  private func subRow(ready: Bool, accent: PickupAccent) -> some View {
+    HStack(spacing: 6) {
+      if ready {
+        HStack(spacing: 5) {
+          Text("📍").font(.system(size: 10))
+          Text("Mandy's Bubble Tea")
+            .font(.system(size: 10.5, weight: .semibold))
+            .foregroundColor(MandysColor.ink2)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 2.5)
+        .background(
+          Capsule()
+            .fill(Color.white.opacity(0.75))
+            .overlay(Capsule().stroke(MandysColor.greenDark.opacity(0.22), lineWidth: 1))
+        )
+      } else {
         Text(phase.sub)
           .font(.system(size: 11.5))
           .foregroundColor(MandysColor.ink2)
           .lineLimit(1)
-        if let wait = context.attributes.waitText, !wait.isEmpty {
-          HStack(spacing: 4) {
-            Circle().fill(MandysColor.amber).frame(width: 5, height: 5)
-            Text(wait)
-              .font(.system(size: 10, weight: .bold, design: .monospaced))
-              .foregroundColor(MandysColor.brandDark)
-          }
-          .padding(.horizontal, 9)
-          .padding(.vertical, 2.5)
-          .background(
-            Capsule()
-              .fill(MandysColor.brand.opacity(0.12))
-              .overlay(Capsule().stroke(MandysColor.brand.opacity(0.22), lineWidth: 1))
-          )
+          .minimumScaleFactor(0.85)
+      }
+      // Wait-estimate pill: shown in ALL three states whenever the estimate
+      // exists, tinted with the phase accent.
+      if let wait = context.attributes.waitText, !wait.isEmpty {
+        HStack(spacing: 4) {
+          Circle().fill(accent.node).frame(width: 5, height: 5)
+          Text(wait)
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundColor(accent.text)
         }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 2.5)
+        .background(
+          Capsule()
+            .fill(accent.node.opacity(0.12))
+            .overlay(Capsule().stroke(accent.node.opacity(0.26), lineWidth: 1))
+        )
       }
     }
   }
 
-  private func background(ready: Bool) -> LinearGradient {
-    if ready {
+  private var background: LinearGradient {
+    switch phase {
+    case .ready, .completed:
       return LinearGradient(
         colors: [MandysColor.paper, MandysColor.readyBg1, MandysColor.readyBg2],
         startPoint: .topLeading, endPoint: .bottomTrailing
       )
+    case .received, .canceled:
+      // Same warm cream family, but the bottom stop leans golden-amber so
+      // the waiting card reads distinctly from the brown "preparing" card.
+      return LinearGradient(
+        colors: [MandysColor.paper, MandysColor.cream, MandysColor.receivedCream],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+      )
+    case .preparing:
+      return LinearGradient(
+        colors: [MandysColor.paper, MandysColor.cream, MandysColor.creamDeep],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+      )
     }
-    return LinearGradient(
-      colors: [MandysColor.paper, MandysColor.cream, MandysColor.creamDeep],
-      startPoint: .topLeading, endPoint: .bottomTrailing
-    )
   }
 }
 
-// MARK: - 2-step progress (Preparing → Ready)
+// MARK: - 3-step progress (Received → Preparing → Ready)
 
 @available(iOS 16.2, *)
 struct PickupStepsView: View {
@@ -108,65 +174,101 @@ struct PickupStepsView: View {
   /// Dynamic-Island dark variant.
   var onDark: Bool = false
 
+  private static let labels = ["Received", "Preparing", "Ready"]
+
   var body: some View {
+    let accent = PickupAccent.accent(for: phase)
+    let idx = phase.stepIndex
     let done = phase.isDone
     VStack(spacing: 4) {
       HStack(spacing: 5) {
-        node(done: done, active: !done)
-        GeometryReader { geo in
-          ZStack(alignment: .leading) {
-            Capsule()
-              .fill(onDark ? Color.white.opacity(0.14) : MandysColor.ink.opacity(0.12))
-            Capsule()
-              .fill(
-                done
-                  ? LinearGradient(colors: [MandysColor.green, MandysColor.greenDark], startPoint: .leading, endPoint: .trailing)
-                  : LinearGradient(colors: [MandysColor.brand, MandysColor.brandLight], startPoint: .leading, endPoint: .trailing)
-              )
-              .frame(width: geo.size.width * (done ? 1 : 0.42))
-          }
+        ForEach(0..<3) { i in
+          node(i, idx: idx, done: done, accent: accent)
+          if i < 2 { bar(i, idx: idx, done: done, accent: accent) }
         }
-        .frame(height: 4)
-        node(done: done, active: false)
       }
-      HStack {
-        Text("Preparing")
-          .foregroundColor(labelColor(active: !done, done: done))
-        Spacer()
-        Text("Ready")
-          .foregroundColor(labelColor(active: false, done: done))
+      HStack(spacing: 0) {
+        ForEach(0..<3) { i in
+          Text(Self.labels[i])
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundColor(labelColor(i, idx: idx, done: done, accent: accent))
+            .frame(
+              maxWidth: .infinity,
+              alignment: i == 0 ? .leading : i == 2 ? .trailing : .center
+            )
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+        }
       }
-      .font(.system(size: 9, weight: .semibold))
     }
   }
 
+  private func visual(_ i: Int, idx: Int, done: Bool) -> (done: Bool, active: Bool) {
+    (done: done ? true : i < idx, active: !done && i == idx)
+  }
+
   @ViewBuilder
-  private func node(done: Bool, active: Bool) -> some View {
+  private func node(_ i: Int, idx: Int, done: Bool, accent: PickupAccent) -> some View {
+    let v = visual(i, idx: idx, done: done)
     ZStack {
       Circle()
         .fill(
-          done ? MandysColor.green
-            : active ? MandysColor.brand
+          v.done ? MandysColor.green
+            : v.active ? accent.node
             : (onDark ? Color.white.opacity(0.2) : MandysColor.ink.opacity(0.14))
         )
-      if done {
+      if v.done {
         Text("✓").font(.system(size: 9, weight: .heavy)).foregroundColor(.white)
-      } else if active {
+      } else if v.active {
         Circle().fill(Color.white).frame(width: 5, height: 5)
       }
     }
     .frame(width: 17, height: 17)
     .background(
       Circle()
-        .fill(active ? MandysColor.brand.opacity(0.18) : Color.clear)
+        .fill(v.active ? accent.glow : Color.clear)
         .frame(width: 25, height: 25)
     )
   }
 
-  private func labelColor(active: Bool, done: Bool) -> Color {
-    if done { return onDark ? MandysColor.green : MandysColor.greenDark }
-    if active { return onDark ? Color(hex: 0xE5B87E) : MandysColor.brandDark }
+  /// Bar i connects node i → node i+1. Segments the customer has fully
+  /// passed are green; the segment leading OUT of the active node gets the
+  /// mock's 42% "in-progress" fill in the phase accent.
+  @ViewBuilder
+  private func bar(_ i: Int, idx: Int, done: Bool, accent: PickupAccent) -> some View {
+    let fullyDone = done || i + 1 <= idx
+    let inProgress = !done && i == idx
+    GeometryReader { geo in
+      ZStack(alignment: .leading) {
+        Capsule()
+          .fill(onDark ? Color.white.opacity(0.14) : MandysColor.ink.opacity(0.12))
+        if fullyDone {
+          Capsule()
+            .fill(
+              LinearGradient(
+                colors: [MandysColor.green, MandysColor.greenDark],
+                startPoint: .leading, endPoint: .trailing
+              )
+            )
+        } else if inProgress {
+          Capsule()
+            .fill(accent.barFill)
+            .frame(width: geo.size.width * 0.42)
+        }
+      }
+    }
+    .frame(height: 4)
+  }
+
+  private func labelColor(_ i: Int, idx: Int, done: Bool, accent: PickupAccent) -> Color {
+    let v = visual(i, idx: idx, done: done)
+    if v.done { return onDark ? MandysColor.green : MandysColor.greenDark }
+    if v.active { return onDark ? onDarkAccentText : accent.text }
     return onDark ? Color.white.opacity(0.45) : MandysColor.ink3
+  }
+
+  private var onDarkAccentText: Color {
+    phase == .received ? MandysColor.amberOnDark : Color(hex: 0xE5B87E)
   }
 }
 

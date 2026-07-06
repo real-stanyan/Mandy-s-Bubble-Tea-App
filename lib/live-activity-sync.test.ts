@@ -91,7 +91,8 @@ describe('startActivityForPlacedOrder', () => {
     expect(startMock).toHaveBeenCalledWith(
       'sq-1',
       { kind: 'pickup', orderNumber: 'OL123', waitText: '~8–12 min' },
-      expect.objectContaining({ status: 'preparing' }),
+      // Contract initial state: "received" until staff accept (RESERVED).
+      expect.objectContaining({ status: 'received' }),
     )
   })
 
@@ -258,9 +259,32 @@ describe('syncFromOrderHistory', () => {
     lineItems: [],
   }
 
-  it('advances a pickup card to ready', async () => {
+  it('mirrors the three pickup states from fulfillment refreshes', async () => {
+    await syncFromOrderHistory([base]) // PROPOSED
+    expect(updateMock).toHaveBeenLastCalledWith(
+      'o1',
+      expect.objectContaining({ status: 'received' }),
+    )
+    await syncFromOrderHistory([{ ...base, fulfillmentState: 'RESERVED' }])
+    expect(updateMock).toHaveBeenLastCalledWith(
+      'o1',
+      expect.objectContaining({ status: 'preparing' }),
+    )
     await syncFromOrderHistory([{ ...base, fulfillmentState: 'PREPARED' }])
-    expect(updateMock).toHaveBeenCalledWith('o1', expect.objectContaining({ status: 'ready' }))
+    expect(updateMock).toHaveBeenLastCalledWith(
+      'o1',
+      expect.objectContaining({ status: 'ready' }),
+    )
+    expect(updateMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('advances a pickup card to ready (skip-accept jump: no RESERVED in between)', async () => {
+    await syncFromOrderHistory([base]) // received
+    await syncFromOrderHistory([{ ...base, fulfillmentState: 'PREPARED' }])
+    expect(updateMock).toHaveBeenLastCalledWith(
+      'o1',
+      expect.objectContaining({ status: 'ready' }),
+    )
   })
 
   it('dedupes repeated refreshes with the same fulfillment state', async () => {
