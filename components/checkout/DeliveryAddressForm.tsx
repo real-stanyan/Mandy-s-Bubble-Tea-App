@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { T, FONT, RADIUS } from '@/constants/theme'
 import { isDeliverablePostcode, DELIVERABLE_POSTCODES } from '@/lib/delivery'
 import { placesAutocomplete, placeDetails, type Prediction } from '@/lib/places-client'
@@ -48,6 +48,7 @@ export function DeliveryAddressForm({ value, onChange, defaultPhone }: Props) {
   }, [query, sessionToken])
 
   const selectPrediction = async (p: Prediction) => {
+    Keyboard.dismiss()
     setPredictions([])
     setQuery(p.description)
     try {
