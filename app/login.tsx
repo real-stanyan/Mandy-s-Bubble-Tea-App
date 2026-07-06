@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
 import Svg, { Circle, Path, Rect } from 'react-native-svg'
 import * as AppleAuthentication from 'expo-apple-authentication'
+import * as Application from 'expo-application'
 import {
   GoogleSignin,
   statusCodes,
@@ -46,7 +47,10 @@ const RESEND_COOLDOWN = 30
 
 GoogleSignin.configure({
   webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  iosClientId: __DEV__
+  // The iOS OAuth client is registered per bundle id, so pick by the
+  // running binary's id — a Debug build with the production bundle id
+  // must use the production client, or Google's token exchange 500s.
+  iosClientId: Application.applicationId?.endsWith('.dev')
     ? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID_DEV ||
       process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
     : process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
