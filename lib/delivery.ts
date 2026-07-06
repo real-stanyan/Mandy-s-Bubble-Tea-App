@@ -90,12 +90,36 @@ export function deliveryAddOnCents(
   return quote.feeCents + quote.serviceFeeCents
 }
 
-// ETA copy for the live tracking sheet. Prefers the server's Google
-// Directions duration (re-routed as the driver moves); falls back to the
-// static range when no route is available yet.
-export function etaText(etaSeconds: number | null | undefined): string {
+// ETA copy for the live tracking sheet, from the server's Google Directions
+// duration (re-routed as the driver moves). Returns null when no live route
+// data exists — callers hide the ETA UI rather than showing a made-up range
+// (the pill/tile is honest: no data, no number).
+export function etaText(etaSeconds: number | null | undefined): string | null {
   if (etaSeconds == null || !Number.isFinite(etaSeconds) || etaSeconds <= 0) {
-    return '~15–25 min'
+    return null
   }
   return `~${Math.max(1, Math.ceil(etaSeconds / 60))} min`
+}
+
+// Straight-line driver→destination distance for the driver-row sub copy
+// ("1.2 km away"). Haversine is plenty at suburb scale; null when either
+// point is missing so callers fall back to generic copy — no fake numbers.
+export function distanceKmText(
+  lat1: number | null | undefined,
+  lng1: number | null | undefined,
+  lat2: number | null | undefined,
+  lng2: number | null | undefined,
+): string | null {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null
+  const rad = (d: number) => (d * Math.PI) / 180
+  const R = 6371 // km
+  const dLat = rad(lat2 - lat1)
+  const dLng = rad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2
+  const km = 2 * R * Math.asin(Math.sqrt(a))
+  if (!Number.isFinite(km)) return null
+  if (km < 0.95) return `${Math.max(50, Math.round((km * 1000) / 50) * 50)} m away`
+  return `${km.toFixed(1)} km away`
 }

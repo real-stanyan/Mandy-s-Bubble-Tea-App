@@ -34,6 +34,7 @@ import {
   deliveryFeesPending,
   deliveryAddOnCents,
   etaText,
+  distanceKmText,
 } from './delivery'
 
 describe('quote reason copy (verbatim from web)', () => {
@@ -76,9 +77,29 @@ describe('etaText', () => {
     expect(etaText(610)).toBe('~11 min')
     expect(etaText(30)).toBe('~1 min')
   })
-  it('falls back to the static range when unavailable', () => {
-    expect(etaText(null)).toBe('~15–25 min')
-    expect(etaText(undefined)).toBe('~15–25 min')
-    expect(etaText(0)).toBe('~15–25 min')
+  it('returns null when unavailable — callers hide the ETA UI, no fake range', () => {
+    expect(etaText(null)).toBeNull()
+    expect(etaText(undefined)).toBeNull()
+    expect(etaText(0)).toBeNull()
+    expect(etaText(-5)).toBeNull()
+    expect(etaText(Number.NaN)).toBeNull()
+  })
+})
+
+describe('distanceKmText', () => {
+  it('null when any coordinate is missing — generic copy instead of fake numbers', () => {
+    expect(distanceKmText(null, 153.4, -27.9, 153.4)).toBeNull()
+    expect(distanceKmText(-27.9, 153.4, -27.9, undefined)).toBeNull()
+  })
+  it('km with one decimal at suburb scale', () => {
+    // ~0.011° lat ≈ 1.22 km
+    expect(distanceKmText(-27.966, 153.4115, -27.955, 153.4115)).toBe('1.2 km away')
+  })
+  it('metres under ~1 km, snapped to 50 m', () => {
+    // ~0.003° lat ≈ 334 m → snaps to 350 m
+    expect(distanceKmText(-27.966, 153.4115, -27.963, 153.4115)).toBe('350 m away')
+  })
+  it('zero distance clamps to the 50 m floor', () => {
+    expect(distanceKmText(-27.966, 153.4115, -27.966, 153.4115)).toBe('50 m away')
   })
 })
