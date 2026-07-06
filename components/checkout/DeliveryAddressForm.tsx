@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { T, FONT, RADIUS } from '@/constants/theme'
 import { isDeliverablePostcode, DELIVERABLE_POSTCODES } from '@/lib/delivery'
 import { placesAutocomplete, placeDetails, type Prediction } from '@/lib/places-client'
@@ -93,16 +93,15 @@ export function DeliveryAddressForm({ value, onChange, defaultPhone }: Props) {
         ) : null}
         {predictions.length > 0 && (
           <View style={styles.dropdown}>
-            <FlatList<Prediction>
-              data={predictions}
-              keyExtractor={(p) => p.placeId}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <Pressable style={styles.predRow} onPress={() => selectPrediction(item)}>
-                  <Text style={styles.predText}>{item.description}</Text>
+            {/* Places returns ≤5 predictions — a plain map avoids nesting a
+                VirtualizedList inside the checkout ScrollView (RN error). */}
+            <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+              {predictions.map((p) => (
+                <Pressable key={p.placeId} style={styles.predRow} onPress={() => selectPrediction(p)}>
+                  <Text style={styles.predText}>{p.description}</Text>
                 </Pressable>
-              )}
-            />
+              ))}
+            </ScrollView>
           </View>
         )}
       </Field>
