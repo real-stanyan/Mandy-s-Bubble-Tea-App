@@ -10,11 +10,12 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "postinstall": "node scripts/patch-square-sdk.js",
+    "postinstall": "node scripts/patch-square-sdk.js && node scripts/patch-apple-targets.js",
     "eas-build-post-install": "node scripts/fix-square-build-phases.js",
     "gallery:sync": "tsx scripts/sync-preset-gallery.ts"
   },
   "dependencies": {
+    "@bacons/apple-targets": "4.0.7",
     "@expo-google-fonts/fraunces": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
