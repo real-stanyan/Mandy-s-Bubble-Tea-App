@@ -6,7 +6,7 @@
 // ContentState. Keep all three in sync; do not rename fields.
 //
 // kind:   "pickup" | "delivery"
-// status: pickup   → "preparing" | "ready" | "completed" | "canceled"
+// status: pickup   → "received" | "preparing" | "ready" | "completed" | "canceled"
 //         delivery → "pending" | "accepted" | "picked_up" | "delivered" | "canceled"
 
 import ActivityKit

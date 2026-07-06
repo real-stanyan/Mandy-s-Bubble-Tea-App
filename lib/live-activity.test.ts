@@ -20,18 +20,32 @@ beforeEach(() => {
   apiFetchMock.mockReset()
 })
 
-describe('pickupActivityStatus (fulfillment → contract status)', () => {
+describe('pickupActivityStatus (fulfillment → contract status, 3-step card)', () => {
   it.each([
-    ['PROPOSED', 'preparing'],
+    ['PROPOSED', 'received'],
+    [null, 'received'],
+    [undefined, 'received'],
+    ['SOMETHING_NEW', 'received'],
     ['RESERVED', 'preparing'],
-    [null, 'preparing'],
-    [undefined, 'preparing'],
     ['PREPARED', 'ready'],
     ['COMPLETED', 'completed'],
     ['CANCELED', 'canceled'],
     ['FAILED', 'canceled'],
   ] as const)('%s → %s', (state, expected) => {
     expect(pickupActivityStatus(state)).toBe(expected)
+  })
+
+  it('walks the full 3-step lifecycle: PROPOSED → RESERVED → PREPARED', () => {
+    expect(
+      ['PROPOSED', 'RESERVED', 'PREPARED'].map((s) => pickupActivityStatus(s)),
+    ).toEqual(['received', 'preparing', 'ready'])
+  })
+
+  it('supports the shop skipping accept: PROPOSED jumps straight to PREPARED', () => {
+    // Store-side POS may never write RESERVED; the stepper must accept
+    // received → ready directly (mapping is stateless, so it does).
+    expect(pickupActivityStatus('PROPOSED')).toBe('received')
+    expect(pickupActivityStatus('PREPARED')).toBe('ready')
   })
 })
 

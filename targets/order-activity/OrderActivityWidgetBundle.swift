@@ -69,10 +69,13 @@ struct MandysOrderLiveActivity: Widget {
         DynamicIslandExpandedRegion(.bottom) {
           if isPickup {
             VStack(spacing: 4) {
-              if let wait = context.attributes.waitText, pickup == .preparing {
-                Text("Freshly shaken · \(wait)")
+              // Wait estimate rides along in every pre-ready state.
+              if let wait = context.attributes.waitText, !wait.isEmpty, !pickup.isDone {
+                Text("\(pickup.sub) · \(wait)")
                   .font(.system(size: 10.5))
                   .foregroundColor(Color.white.opacity(0.55))
+                  .lineLimit(1)
+                  .minimumScaleFactor(0.8)
               }
               PickupStepsView(phase: pickup, onDark: true)
             }
@@ -100,10 +103,15 @@ struct MandysOrderLiveActivity: Widget {
           Circle()
             .fill(compactDotColor(isPickup: isPickup, pickup: pickup, delivery: delivery))
             .frame(width: 6, height: 6)
-          Text(isPickup ? pickup.shortStatus : delivery.shortStatus)
+          Text(
+            isPickup
+              ? compactPickupText(pickup, wait: context.attributes.waitText)
+              : delivery.shortStatus
+          )
             .font(.system(size: 11.5, weight: .bold))
             .foregroundColor(compactTextColor(isPickup: isPickup, pickup: pickup, delivery: delivery))
             .lineLimit(1)
+            .minimumScaleFactor(0.75)
         }
       } minimal: {
         Text(isPickup ? "🧋" : delivery.markEmoji).font(.system(size: 12))
@@ -111,16 +119,32 @@ struct MandysOrderLiveActivity: Widget {
     }
   }
 
+  /// Three-state compact copy: "Order in" / "Making · ~X min" / "Ready!".
+  private func compactPickupText(_ pickup: PickupPhase, wait: String?) -> String {
+    if pickup == .preparing, let wait, !wait.isEmpty {
+      return "\(pickup.shortStatus) · \(wait)"
+    }
+    return pickup.shortStatus
+  }
+
   private func compactDotColor(isPickup: Bool, pickup: PickupPhase, delivery: DeliveryPhase) -> Color {
     if isPickup {
-      return pickup.isDone ? MandysColor.green : MandysColor.amber
+      switch pickup {
+      case .received, .canceled: return MandysColor.amber
+      case .preparing: return MandysColor.brand
+      case .ready, .completed: return MandysColor.green
+      }
     }
     return delivery == .delivered ? MandysColor.green : MandysColor.sage
   }
 
   private func compactTextColor(isPickup: Bool, pickup: PickupPhase, delivery: DeliveryPhase) -> Color {
     if isPickup {
-      return pickup.isDone ? Color(hex: 0x7FD3A4) : Color(hex: 0xE5B87E)
+      switch pickup {
+      case .received, .canceled: return MandysColor.amberOnDark
+      case .preparing: return Color(hex: 0xE5B87E)
+      case .ready, .completed: return Color(hex: 0x7FD3A4)
+      }
     }
     return delivery == .delivered ? Color(hex: 0x7FD3A4) : Color(hex: 0xCBDCB4)
   }

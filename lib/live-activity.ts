@@ -2,7 +2,7 @@
 //
 // Cross-platform contract (pinned; the web repo pushes the same shapes via
 // APNs `aps.content-state`):
-//   pickup  status: "preparing" | "ready" | "completed" | "canceled"
+//   pickup  status: "received" | "preparing" | "ready" | "completed" | "canceled"
 //   delivery status: "pending" | "accepted" | "picked_up" | "delivered" | "canceled"
 //
 // Status derivation mirrors lib/dispatch-steps.ts deriveDeliverySteps() —
@@ -12,7 +12,12 @@ import { apiFetch } from '@/lib/api'
 import type { DispatchStatus } from '@/lib/dispatch-steps'
 import type { OrderActivityContentState } from '@/modules/order-live-activity'
 
-export type PickupActivityStatus = 'preparing' | 'ready' | 'completed' | 'canceled'
+export type PickupActivityStatus =
+  | 'received'
+  | 'preparing'
+  | 'ready'
+  | 'completed'
+  | 'canceled'
 export type DeliveryActivityStatus =
   | 'pending'
   | 'accepted'
@@ -29,11 +34,19 @@ export const DELIVERY_TERMINAL: ReadonlySet<DeliveryActivityStatus> = new Set([
   'canceled',
 ])
 
-/** Square fulfillment state → pickup activity status. */
+/** Square fulfillment state → pickup activity status (3-step card:
+ *  Received → Preparing → Ready).
+ *
+ *  RESERVED is the staff POS-accept signal → "preparing"; the shop can skip
+ *  it and jump PROPOSED → PREPARED directly, which the stepper supports
+ *  (received → ready). Unknown/initial states stay "received" — the honest
+ *  claim is only "we have your order" until staff actually accept it. */
 export function pickupActivityStatus(
   fulfillmentState: string | null | undefined,
 ): PickupActivityStatus {
   switch (fulfillmentState) {
+    case 'RESERVED':
+      return 'preparing'
     case 'PREPARED':
       return 'ready'
     case 'COMPLETED':
@@ -42,8 +55,8 @@ export function pickupActivityStatus(
     case 'FAILED':
       return 'canceled'
     default:
-      // PROPOSED / RESERVED / unknown — still being made.
-      return 'preparing'
+      // PROPOSED / unknown — order placed, not yet accepted by staff.
+      return 'received'
   }
 }
 
