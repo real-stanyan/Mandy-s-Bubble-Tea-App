@@ -81,8 +81,12 @@ export default function RootLayout() {
   // hooks run unconditionally. Build number comes from expo-application
   // (the running binary's real, EAS-assigned CFBundleVersion) — app.json's
   // buildNumber is stale under appVersionSource: "remote".
+  // Dev builds carry the committed (decorative) CFBundleVersion, not the
+  // EAS-assigned one — gating them against remote minBuild is never useful.
   const appConfig = useAppConfig();
-  const updateGate = decideUpdateGate(appConfig, Platform.OS, appBuildNumber());
+  const updateGate = __DEV__
+    ? ({ required: false } as const)
+    : decideUpdateGate(appConfig, Platform.OS, appBuildNumber());
   if (!fontsLoaded) {
     return null;
   }
