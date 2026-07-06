@@ -268,7 +268,22 @@ export default function OrderDetailScreen() {
     driverName: driverFirst,
   })
 
-  const outForDelivery = isDelivery && !!tracking
+  // !isTerminal guards the terminal race: the orders-store refresh (10s) and
+  // the tracking poll (5s) run in parallel, so the store can learn "delivered"
+  // while the hook still holds the last tracking snapshot — without the guard
+  // the full-screen map would win over the S7 screen.
+  const outForDelivery = isDelivery && !!tracking && !isTerminal
+  // Delivered is honoured from EITHER side of that race: the orders store
+  // (displayState) or the live status poll (fulfillment COMPLETED / dispatch
+  // 'delivered' via dispatchUi.kind) — otherwise the classic branch would
+  // flash "crafting your order" for up to one store-refresh cycle. CANCELED
+  // keeps the classic screen; pickup orders never enter (isDelivery gate).
+  const deliveredNow =
+    isDelivery &&
+    displayState !== 'CANCELED' &&
+    (displayState === 'COMPLETED' ||
+      liveFulfillmentState === 'COMPLETED' ||
+      dispatchUi.kind === 'completed')
 
   const stateInfo = STATE_CONFIG[displayState] ?? STATE_CONFIG.COMPLETED
   const pickupNumber = referenceId
@@ -330,8 +345,9 @@ export default function OrderDetailScreen() {
 
   // ── S4/S5 · Out for delivery → full-bleed live map + bottom sheet ─────────
   // The native stack header stays for back navigation. All other states keep
-  // the in-flow detail page below.
-  if (outForDelivery && tracking) {
+  // the in-flow detail page below. !deliveredNow: once either signal says
+  // delivered, S7 below wins even if the last tracking snapshot is still around.
+  if (outForDelivery && tracking && !deliveredNow) {
     const eta = etaText(tracking.etaSeconds)
     const showEta = !!eta && !stale
     const distance = distanceKmText(
@@ -430,7 +446,7 @@ export default function OrderDetailScreen() {
 
   // ── S7 · Delivered → celebration screen (View receipt flips back to the
   // classic detail page below, which keeps the complaint section). ──────────
-  if (isDelivery && displayState === 'COMPLETED' && !showReceipt) {
+  if (deliveredNow && !showReceipt) {
     const deliveredLine = deliveredMetaLine(storeOrder?.updatedAt ?? null)
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.deliveredContent}>

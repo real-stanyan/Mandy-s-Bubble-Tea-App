@@ -26,7 +26,16 @@ export function useDeliveryTracking(
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    if (!active || !orderId) return
+    if (!active || !orderId) {
+      // Reset when polling stops (order went terminal / card lost the live
+      // slot). Without this the last non-null tracking survives the cleanup
+      // and downstream "out for delivery?" checks race the orders-store
+      // refresh — a delivered order could stay stuck on the full-screen map.
+      setState(null)
+      setDispatchStatus(null)
+      setTracking(null)
+      return
+    }
     let cancelled = false
     const poll = async () => {
       try {
