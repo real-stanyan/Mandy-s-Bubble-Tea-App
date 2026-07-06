@@ -12,7 +12,12 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useCartStore } from '@/store/cart'
-import { effectiveOrderState, isUnfinished, type OrderHistoryItem } from '@/store/orders'
+import {
+  effectiveOrderState,
+  isDeliveryOrder,
+  isUnfinished,
+  type OrderHistoryItem,
+} from '@/store/orders'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { Icon } from '@/components/brand/Icon'
 import { T, FONT } from '@/constants/theme'
@@ -23,6 +28,7 @@ import {
 import {
   ActiveOrderCard,
 } from '@/components/orders/ActiveOrderCard'
+import { DeliveryHeroCard } from '@/components/delivery/DeliveryHeroCard'
 import { PastOrderRow } from '@/components/orders/PastOrderRow'
 import type { TimelineStatus } from '@/components/orders/StatusTimeline'
 import { reorder } from '@/components/orders/reorder'
@@ -51,10 +57,14 @@ export default function OrderScreen() {
   const replaceCart = useCartStore((s) => s.clearCart)
   const addItem = useCartStore((s) => s.addItem)
 
-  const { activeOrders, pastOrders } = useMemo(() => {
+  const { activeOrders, pastOrders, liveDeliveryId } = useMemo(() => {
     const active = orders.filter(isUnfinished)
     const past = orders.filter((o) => !isUnfinished(o))
-    return { activeOrders: active, pastOrders: past }
+    // Only the newest active delivery order gets the live poll + inline map
+    // (history is newest-first) — avoids stacking multiple WebViews when a
+    // customer somehow has several deliveries in flight.
+    const liveDelivery = active.find(isDeliveryOrder) ?? null
+    return { activeOrders: active, pastOrders: past, liveDeliveryId: liveDelivery?.id ?? null }
   }, [orders])
 
   const hasActiveOrder = activeOrders.length > 0
@@ -182,14 +192,23 @@ export default function OrderScreen() {
                   label="In progress"
                   count={`${activeOrders.length} order${activeOrders.length === 1 ? '' : 's'}`}
                 />
-                {activeOrders.map((order) => (
-                  <ActiveOrderCard
-                    key={order.id}
-                    order={order}
-                    status={timelineStatusFor(order)}
-                    onTrack={handleTrack}
-                  />
-                ))}
+                {activeOrders.map((order) =>
+                  isDeliveryOrder(order) ? (
+                    <DeliveryHeroCard
+                      key={order.id}
+                      order={order}
+                      live={order.id === liveDeliveryId}
+                      onTrack={handleTrack}
+                    />
+                  ) : (
+                    <ActiveOrderCard
+                      key={order.id}
+                      order={order}
+                      status={timelineStatusFor(order)}
+                      onTrack={handleTrack}
+                    />
+                  ),
+                )}
               </>
             ) : null}
 
