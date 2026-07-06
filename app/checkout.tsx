@@ -19,6 +19,7 @@ import { DeliveryAddressForm } from '@/components/checkout/DeliveryAddressForm'
 import { DeliveryQuoteCard } from '@/components/checkout/DeliveryQuoteCard'
 import { useDeliveryQuote } from '@/hooks/use-delivery-quote'
 import { deliveryAddOnCents, deliveryFeesPending, feeValueText } from '@/lib/delivery'
+import { startActivityForPlacedOrder } from '@/lib/live-activity-sync'
 import { buildPaymentSelections } from '@/lib/doodle/build-payment-selections'
 import { useCreateOrder } from '@/hooks/use-create-order'
 import { usePayment } from '@/hooks/use-payment'
@@ -521,6 +522,17 @@ export default function CheckoutScreen() {
         ? items.reduce((s, i) => s + i.quantity, 0)
         : 0
       const totalCents = Math.max(amountCents, 0)
+
+      // Lock-screen Live Activity (iOS 16.2+). Fire-and-forget: checkout
+      // success must never block or fail on the lock-screen card. Uses the
+      // render-scope deliveryAddress captured BEFORE clearCart resets it.
+      startActivityForPlacedOrder({
+        orderId,
+        referenceId: createdOrder.referenceId ?? null,
+        fulfillmentType,
+        destLat: deliveryAddress.lat,
+        destLng: deliveryAddress.lng,
+      }).catch(() => {})
 
       clearCart()
       // Payment succeeded — rotate the per-checkout idempotency nonce so

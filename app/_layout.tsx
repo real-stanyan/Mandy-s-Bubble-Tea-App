@@ -6,6 +6,7 @@ import { UpdateRequired } from '@/components/ui/UpdateRequired';
 import { useAppConfig } from '@/hooks/use-app-config';
 import { decideUpdateGate } from '@/lib/app-config';
 import { appBuildNumber } from '@/lib/api';
+import { initLiveActivities } from '@/lib/live-activity-sync';
 
 // Disable system font scaling globally — Mandy App uses fixed font sizes
 // regardless of the user's accessibility font-size setting.
@@ -68,6 +69,11 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded]);
+  // Live Activity plumbing: push-token upload listener + orders-store sync.
+  // Idempotent, no-op off iOS.
+  useEffect(() => {
+    initLiveActivities();
+  }, []);
   useReadyVibration();
   // Min-version gate: only intercept when the remote config arrived AND
   // this build is confirmed below the minimum (fail-open on every other

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { apiFetch } from '@/lib/api'
+import { syncDeliveryTracking } from '@/lib/live-activity-sync'
 import type { DispatchStatus } from '@/lib/dispatch-steps'
 import type { Tracking } from '@/components/delivery/TrackingMap'
 
@@ -44,6 +45,14 @@ export function useDeliveryTracking(
         setState(data.state)
         setDispatchStatus(data.dispatchStatus ?? null)
         setTracking(data.tracking)
+        // Mirror the freshest delivery signal onto the lock-screen Live
+        // Activity while the app is foregrounded (server pushes cover the
+        // background). Fire-and-forget; internal dedupe skips no-ops.
+        void syncDeliveryTracking(orderId, {
+          state: data.state,
+          dispatchStatus: data.dispatchStatus ?? null,
+          tracking: data.tracking,
+        })
       } catch {
         /* keep last known; next tick retries */
       }

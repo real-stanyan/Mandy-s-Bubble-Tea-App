@@ -12,11 +12,18 @@
       "supportsTablet": false,
       "buildNumber": "22",
       "bundleIdentifier": "com.mandysbubbletea.app",
+      "appleTeamId": "HV982TTRNP",
+      "associatedDomains": [
+        "applinks:mandybubbletea.com",
+        "webcredentials:mandybubbletea.com"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true
       },
       "entitlements": {
         "com.apple.developer.in-app-payments": [
@@ -25,7 +32,10 @@
         "com.apple.developer.applesignin": [
           "Default"
         ],
-        "aps-environment": "production"
+        "aps-environment": "production",
+        "com.apple.security.application-groups": [
+          "group.com.mandysbubbletea.app"
+        ]
       },
       "usesAppleSignIn": true
     },
@@ -46,6 +56,7 @@
     },
     "plugins": [
       "expo-router",
+      "@bacons/apple-targets",
       [
         "expo-notifications",
         {
@@ -70,6 +81,7 @@
       "expo-secure-store",
       "react-native-square-in-app-payments",
       "./plugins/embed-square-frameworks",
+      "./plugins/preserve-extra-google-url-scheme",
       [
         "@react-native-google-signin/google-signin",
         {
