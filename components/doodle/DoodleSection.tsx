@@ -34,7 +34,7 @@ function CupPreview({ slot }: { slot: DoodleSlot }) {
     // No pick yet → prints a random surprise design.
     return (
       <View style={[styles.preview, styles.surprisePreview]}>
-        <Text style={styles.surpriseEmoji}>🔮</Text>
+        <Text style={styles.surpriseEmoji}>🎁</Text>
         <Text style={styles.surpriseLabel}>Surprise{'\n'}design</Text>
       </View>
     )
@@ -83,7 +83,7 @@ function CupPreview({ slot }: { slot: DoodleSlot }) {
 
 function sourceBadge(slot: DoodleSlot): string {
   const s = slot.selection
-  if (s === null) return '🔮 Surprise'
+  if (s === null) return '🎁 Surprise'
   if (s.kind === 'ai') return '✨ AI'
   if (s.kind === 'photo') return '📷 Photo'
   if (s.kind === 'draw') return '✏️ Drawn'
@@ -95,9 +95,9 @@ export function DoodleSection({ slots, onSlotChange }: Props) {
   if (slots.length === 0) return null
 
   return (
-    <CardBlock eyebrow="Cup labels" title="Optional · surprise me 🔮">
+    <CardBlock eyebrow="Cup labels" title="Optional · surprise me 🎁">
       <Text style={styles.hint}>
-        Leave a cup as is for a random design 🔮, or tap to choose your own.
+        Leave a cup as is for a random design 🎁, or tap to choose your own.
       </Text>
       <ScrollView
         horizontal
