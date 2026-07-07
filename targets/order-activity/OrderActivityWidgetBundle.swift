@@ -47,7 +47,10 @@ struct MandysOrderLiveActivity: Widget {
           }
         }
         DynamicIslandExpandedRegion(.trailing) {
+          // Inset from the island's rounded corner so the number isn't clipped.
           OrderNo(number: context.attributes.orderNumber, color: Color.white.opacity(0.4))
+            .padding(.trailing, 6)
+            .padding(.top, 2)
         }
         DynamicIslandExpandedRegion(.center) {
           VStack(spacing: 2) {
@@ -81,6 +84,9 @@ struct MandysOrderLiveActivity: Widget {
               PickupStepsView(phase: pickup, onDark: true)
             }
             .padding(.top, 2)
+            // Keep the outer step labels clear of the island's bottom corners.
+            .padding(.horizontal, 10)
+            .padding(.bottom, 2)
           } else {
             DeliveryStepsView(
               stepIndex: delivery.stepIndex,
@@ -88,6 +94,8 @@ struct MandysOrderLiveActivity: Widget {
               palette: .island
             )
             .padding(.top, 2)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 2)
           }
         }
       } compactLeading: {
