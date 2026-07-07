@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "100286313588",
+    "project_id": "mandys-bubble-tea-app",
+    "storage_bucket": "mandys-bubble-tea-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:100286313588:android:8a3a7559b52f3e3edb0d21",
+        "android_client_info": {
+          "package_name": "com.mandysbubbletea.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9MH1ggAqaKGLWY6dd7Up-veea_Aj_TIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
