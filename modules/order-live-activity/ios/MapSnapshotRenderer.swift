@@ -19,8 +19,8 @@ enum MapSnapshotError: Error {
 }
 
 enum MapSnapshotRenderer {
-  /// Card map zone is 365×92pt (mockup S5); render @3x for Pro-class screens.
-  static let sizePoints = CGSize(width: 365, height: 92)
+  /// Card map zone is 365×110pt (mockup S5, grown 2026-07-07); render @3x for Pro-class screens.
+  static let sizePoints = CGSize(width: 365, height: 110)
 
   static func render(
     orderId: String,
