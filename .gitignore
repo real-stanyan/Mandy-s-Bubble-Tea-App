@@ -48,3 +48,6 @@ app-example
 artifacts/
 e2e-screenshots/
 ios/build/
+
+# FCM V1 service account key (uploaded to EAS, never committed)
+fcm-v1-service-account.json
