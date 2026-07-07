@@ -96,6 +96,14 @@
           "cameraPermission": "Used to take a photo when reporting an order issue.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 28
+          }
+        }
       ]
     ],
     "experiments": {
