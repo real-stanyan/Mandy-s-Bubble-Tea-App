@@ -92,9 +92,11 @@ export async function startActivityForPlacedOrder(params: {
   fulfillmentType: 'PICKUP' | 'DELIVERY'
   destLat?: number | null
   destLng?: number | null
+  /** First drink's catalog name — picks the cartoon cup on the card. */
+  drinkName?: string | null
 }): Promise<void> {
   if (Platform.OS !== 'ios') return
-  const { orderId, referenceId, fulfillmentType, destLat, destLng } = params
+  const { orderId, referenceId, fulfillmentType, destLat, destLng, drinkName } = params
   try {
     const orderNumber = activityOrderNumber(referenceId, orderId)
     let activityId: string | null
@@ -105,6 +107,7 @@ export async function startActivityForPlacedOrder(params: {
         {
           kind: 'delivery',
           orderNumber,
+          drinkName,
           // Coordinates power the S5 map (native snapshot + widget pin
           // projection); withheld when unusable so the widget stays on the
           // honest stepper layout.
@@ -119,7 +122,7 @@ export async function startActivityForPlacedOrder(params: {
       const waitText = await fetchWaitText(orderId)
       activityId = await startOrderActivity(
         orderId,
-        { kind: 'pickup', orderNumber, waitText },
+        { kind: 'pickup', orderNumber, waitText, drinkName },
         // Contract initial state: the order is placed but staff haven't
         // accepted it yet — the server's RESERVED push flips it to
         // "preparing" (or straight to "ready" when the shop skips accept).

@@ -33,6 +33,9 @@ struct MandysOrderAttributes: ActivityAttributes {
   var orderNumber: String
   /// Pickup only — static wait estimate pill, e.g. "~8–12 min".
   var waitText: String?
+  /// First drink's catalog name (e.g. "Taro Milk Tea") — picks the cartoon
+  /// cup style on the lock-screen card. nil / unknown → classic brown cup.
+  var drinkName: String?
   var storeLat: Double?
   var storeLng: Double?
   var destLat: Double?

@@ -69,8 +69,13 @@ struct PickupCardView: View {
     let ready = phase.isDone
     let accent = PickupAccent.accent(for: phase)
     HStack(alignment: .center, spacing: 12) {
-      BobaCupView(showBadge: ready)
-        .frame(width: 78)
+      // Cartoon cup matching the ordered drink (first item); unknown/legacy
+      // activities without drinkName fall back to the classic brown cup.
+      DrinkCupView(
+        style: DrinkCatalog.style(for: context.attributes.drinkName),
+        showBadge: ready
+      )
+      .frame(width: 78)
 
       VStack(alignment: .leading, spacing: 0) {
         HStack(alignment: .firstTextBaseline) {
@@ -272,110 +277,6 @@ struct PickupStepsView: View {
   }
 }
 
-// MARK: - Pure-shape boba cup (mockup's CSS cup, in SwiftUI)
-
-@available(iOS 16.2, *)
-struct BobaCupView: View {
-  var showBadge: Bool
-
-  var body: some View {
-    ZStack {
-      // halo
-      Circle()
-        .fill(
-          RadialGradient(
-            colors: [MandysColor.brand.opacity(0.16), MandysColor.brand.opacity(0.05), .clear],
-            center: .center, startRadius: 4, endRadius: 37
-          )
-        )
-        .frame(width: 74, height: 74)
-
-      ZStack(alignment: .topLeading) {
-        // straw
-        RoundedRectangle(cornerRadius: 3)
-          .fill(LinearGradient(colors: [Color(hex: 0xB96A2B), MandysColor.brand], startPoint: .leading, endPoint: .trailing))
-          .frame(width: 8, height: 34)
-          .rotationEffect(.degrees(14), anchor: .bottom)
-          .offset(x: 30, y: -7)
-        // lid
-        RoundedRectangle(cornerRadius: 4)
-          .fill(LinearGradient(colors: [Color(hex: 0xE8DAC6), Color(hex: 0xD9C3A3)], startPoint: .top, endPoint: .bottom))
-          .frame(width: 52, height: 7)
-          .offset(x: 1, y: 12)
-        // body (tapered cup)
-        CupBodyShape()
-          .fill(
-            LinearGradient(
-              colors: [Color(hex: 0xF3DDBB), Color(hex: 0xE5B87E), Color(hex: 0xC98A4B), Color(hex: 0xB5763B)],
-              startPoint: .top, endPoint: .bottom
-            )
-          )
-          .frame(width: 48, height: 60)
-          .offset(x: 3, y: 19)
-        // foam
-        RoundedRectangle(cornerRadius: 8)
-          .fill(LinearGradient(colors: [MandysColor.paper.opacity(0.95), MandysColor.cream.opacity(0.35)], startPoint: .top, endPoint: .bottom))
-          .frame(width: 42, height: 12)
-          .offset(x: 6, y: 21)
-        // shine
-        Capsule()
-          .fill(Color.white.opacity(0.45))
-          .frame(width: 5, height: 34)
-          .rotationEffect(.degrees(3))
-          .offset(x: 9, y: 26)
-        // pearls
-        pearl.offset(x: 13, y: 69)
-        pearl.offset(x: 24, y: 70)
-        pearl.offset(x: 35, y: 69)
-        pearl.offset(x: 18, y: 62)
-        pearl.offset(x: 30, y: 62)
-
-        if showBadge {
-          ZStack {
-            Circle().fill(MandysColor.green)
-            Text("✓").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
-          }
-          .frame(width: 24, height: 24)
-          .overlay(Circle().stroke(MandysColor.paper, lineWidth: 3))
-          .offset(x: 40, y: 2)
-        }
-      }
-      .frame(width: 54, height: 82)
-    }
-  }
-
-  private var pearl: some View {
-    Circle()
-      .fill(
-        RadialGradient(
-          colors: [Color(hex: 0x6B4A2B), Color(hex: 0x3A2413)],
-          center: UnitPoint(x: 0.32, y: 0.28), startRadius: 0, endRadius: 5
-        )
-      )
-      .frame(width: 7, height: 7)
-  }
-}
-
-@available(iOS 16.2, *)
-struct CupBodyShape: Shape {
-  func path(in rect: CGRect) -> Path {
-    var p = Path()
-    let topInset = rect.width * 0.04
-    let bottomInset = rect.width * 0.16
-    let r: CGFloat = 8
-    p.move(to: CGPoint(x: rect.minX + topInset, y: rect.minY))
-    p.addLine(to: CGPoint(x: rect.maxX - topInset, y: rect.minY))
-    p.addLine(to: CGPoint(x: rect.maxX - bottomInset + 2, y: rect.maxY - r))
-    p.addQuadCurve(
-      to: CGPoint(x: rect.maxX - bottomInset - r, y: rect.maxY),
-      control: CGPoint(x: rect.maxX - bottomInset, y: rect.maxY)
-    )
-    p.addLine(to: CGPoint(x: rect.minX + bottomInset + r, y: rect.maxY))
-    p.addQuadCurve(
-      to: CGPoint(x: rect.minX + bottomInset - 2, y: rect.maxY - r),
-      control: CGPoint(x: rect.minX + bottomInset, y: rect.maxY)
-    )
-    p.closeSubpath()
-    return p
-  }
-}
+// The pure-shape boba cup (BobaCupView + CupBodyShape) moved to
+// DrinkCup.swift as the parameterized DrinkCupView, styled per drink by
+// DrinkCatalog.swift.
