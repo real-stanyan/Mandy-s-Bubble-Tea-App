@@ -128,9 +128,11 @@ struct PickupCardView: View {
           .lineLimit(1)
           .minimumScaleFactor(0.85)
       }
-      // Wait-estimate pill: shown in ALL three states whenever the estimate
-      // exists, tinted with the phase accent.
-      if let wait = context.attributes.waitText, !wait.isEmpty {
+      // Wait-estimate pill: shown while the order is in flight (received /
+      // preparing / ready), tinted with the phase accent. Hidden once the
+      // order is picked up or canceled — a wait estimate is stale there.
+      if let wait = context.attributes.waitText, !wait.isEmpty,
+         phase != .completed, phase != .canceled {
         HStack(spacing: 4) {
           Circle().fill(accent.node).frame(width: 5, height: 5)
           Text(wait)

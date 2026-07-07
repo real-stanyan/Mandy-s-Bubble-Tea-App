@@ -219,7 +219,10 @@ async function pushContent(
   try {
     const found = terminal
       ? await endOrderActivity(orderId, content, {
-          immediateDismissal: content.status === 'canceled',
+          // Terminal orders (picked up / delivered / canceled) leave the Lock
+          // Screen right away — product decision 2026-07-07 (was: canceled
+          // only, others lingered on the system default policy).
+          immediateDismissal: true,
         })
       : await updateOrderActivity(orderId, content)
     if (!found || terminal) {
