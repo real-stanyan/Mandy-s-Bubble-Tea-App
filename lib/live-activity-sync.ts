@@ -147,10 +147,16 @@ export async function startActivityForPlacedOrder(params: {
     if (activityId) {
       gone.delete(orderId)
       lastSyncKey.delete(orderId)
+    } else {
+      // null = bridge unavailable or ActivityKit refused (disabled in
+      // Settings, activity-count limit, …). Worth a breadcrumb.
+      console.warn('[live-activity] start returned null for order', orderId)
     }
-  } catch {
+  } catch (err) {
     // Live Activity is enhancement-only — checkout success never surfaces
-    // an error because the lock-screen card couldn't start.
+    // an error because the lock-screen card couldn't start. But do leave a
+    // breadcrumb: a silent catch here cost us a day of blind debugging.
+    console.warn('[live-activity] start failed for order', orderId, err)
   }
 }
 
