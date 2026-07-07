@@ -151,7 +151,7 @@ export default function CheckoutScreen() {
   const allLabeled = useMemo(() => {
     return slots.every((slot) => {
       const s = slot.selection
-      // null = surprise tarot card (optional, always fine to pay).
+      // null = surprise random design (optional, always fine to pay).
       if (s === null) return true
       if (s.kind === 'ai' && s.aiDoodleId === null) return false
       // draw with userDoodleId === null is fine — handlePay uploads paths

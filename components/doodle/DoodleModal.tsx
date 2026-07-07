@@ -57,8 +57,8 @@ function activeModeFor(slot: DoodleSlot): Tab {
 }
 
 function activeSummary(slot: DoodleSlot, active: Tab): string {
-  // No pick yet → prints a random surprise tarot card.
-  if (slot.selection === null) return '🔮 Random tarot card'
+  // No pick yet → prints a random surprise design.
+  if (slot.selection === null) return '🔮 Random design'
   if (active === 'ai') {
     const s = slot.selection
     const prompt = s.kind === 'ai' ? s.prompt : ''
@@ -168,7 +168,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
     onClose()
   }, [setLabel, slot.cupKey, onClose])
 
-  // Drop this cup's pick → it falls back to a random surprise tarot card.
+  // Drop this cup's pick → it falls back to a random surprise design.
   const handleSurprise = useCallback(() => {
     clearLabel(slot.cupKey)
     onClose()
@@ -248,7 +248,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
   }
 
   const handleUploadClear = () => {
-    // Remove the photo → fall back to a random surprise tarot card.
+    // Remove the photo → fall back to a random surprise design.
     if (slot.selection?.kind === 'photo') clearLabel(slot.cupKey)
   }
 
@@ -329,7 +329,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
                 <Text
                   style={[styles.surpriseBtnText, isSurprise && styles.surpriseBtnTextActive]}
                 >
-                  🔮 Surprise me — random tarot card{isSurprise ? '  ·  current' : ''}
+                  🔮 Surprise me — random design{isSurprise ? '  ·  current' : ''}
                 </Text>
               </Pressable>
               <Text style={styles.sectionHint}>
