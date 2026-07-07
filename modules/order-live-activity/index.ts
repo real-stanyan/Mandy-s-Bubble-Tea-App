@@ -14,6 +14,8 @@ export type OrderActivityAttributes = {
   /** e.g. "OL123" / "DE045" (no leading '#'). */
   orderNumber: string
   waitText?: string | null
+  /** First drink's catalog name — picks the cartoon cup on the card. */
+  drinkName?: string | null
   storeLat?: number | null
   storeLng?: number | null
   destLat?: number | null

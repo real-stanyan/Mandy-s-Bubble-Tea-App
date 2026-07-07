@@ -532,6 +532,8 @@ export default function CheckoutScreen() {
         fulfillmentType,
         destLat: deliveryAddress.lat,
         destLng: deliveryAddress.lng,
+        // First drink picks the cartoon cup on the lock-screen card.
+        drinkName: items[0]?.name ?? null,
       }).catch(() => {})
 
       clearCart()
