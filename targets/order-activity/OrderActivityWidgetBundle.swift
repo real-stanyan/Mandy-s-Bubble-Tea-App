@@ -31,19 +31,20 @@ struct MandysOrderLiveActivity: Widget {
       let isPickup = context.attributes.kind == "pickup"
       let pickup = PickupPhase(status: context.state.status)
       let delivery = DeliveryPhase(status: context.state.status)
+      // Pickup slots show the ordered drink's cartoon cup instead of a
+      // generic emoji; delivery keeps the scooter glyph.
+      let cupStyle = DrinkCatalog.style(for: context.attributes.drinkName)
 
       return DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          Text(isPickup ? "🧋" : delivery.markEmoji)
-            .font(.system(size: 15))
-            .frame(width: 30, height: 30)
-            .background(
-              Circle().fill(
-                isPickup
-                  ? MandysColor.brand.opacity(0.35)
-                  : MandysColor.sage.opacity(0.28)
-              )
-            )
+          if isPickup {
+            DrinkCupGlyph(style: cupStyle, size: 34)
+          } else {
+            Text(delivery.markEmoji)
+              .font(.system(size: 15))
+              .frame(width: 30, height: 30)
+              .background(Circle().fill(MandysColor.sage.opacity(0.28)))
+          }
         }
         DynamicIslandExpandedRegion(.trailing) {
           OrderNo(number: context.attributes.orderNumber, color: Color.white.opacity(0.4))
@@ -90,14 +91,14 @@ struct MandysOrderLiveActivity: Widget {
           }
         }
       } compactLeading: {
-        Text(isPickup ? "🧋" : delivery.markEmoji)
-          .font(.system(size: 12))
-          .frame(width: 22, height: 22)
-          .background(
-            Circle().fill(
-              isPickup ? MandysColor.brand.opacity(0.4) : MandysColor.sage.opacity(0.28)
-            )
-          )
+        if isPickup {
+          DrinkCupGlyph(style: cupStyle, size: 23)
+        } else {
+          Text(delivery.markEmoji)
+            .font(.system(size: 12))
+            .frame(width: 22, height: 22)
+            .background(Circle().fill(MandysColor.sage.opacity(0.28)))
+        }
       } compactTrailing: {
         HStack(spacing: 4) {
           Circle()
@@ -114,7 +115,11 @@ struct MandysOrderLiveActivity: Widget {
             .minimumScaleFactor(0.75)
         }
       } minimal: {
-        Text(isPickup ? "🧋" : delivery.markEmoji).font(.system(size: 12))
+        if isPickup {
+          DrinkCupGlyph(style: cupStyle, size: 20)
+        } else {
+          Text(delivery.markEmoji).font(.system(size: 12))
+        }
       }
     }
   }
