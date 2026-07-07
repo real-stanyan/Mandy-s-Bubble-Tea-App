@@ -3,7 +3,15 @@ import Constants from 'expo-constants'
 import * as Application from 'expo-application'
 import { supabase } from '@/lib/supabase'
 
-export const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://mandybubbletea.com'
+// Only local hot-reload (dev) builds may point at a sandbox/LAN server via
+// EXPO_PUBLIC_API_BASE_URL. Every COMPILED build (EAS preview + production, and
+// any release build) ALWAYS hits production — mirrors the __DEV__ guard on
+// Square credentials in lib/square-payment.ts, so a distributed build can never
+// silently talk to a test backend just because an env var leaked in.
+const PROD_API_BASE = 'https://mandybubbletea.com'
+export const API_BASE = __DEV__
+  ? process.env.EXPO_PUBLIC_API_BASE_URL ?? PROD_API_BASE
+  : PROD_API_BASE
 
 // Build numbers are EAS-remote-managed (eas.json appVersionSource: "remote"
 // + production autoIncrement): the REAL CFBundleVersion / versionCode is
