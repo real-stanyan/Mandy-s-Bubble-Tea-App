@@ -116,9 +116,27 @@ export function DeliveryHeroCard({ order, live, onTrack }: Props) {
           <View style={styles.mapWrap}>
             {/* Glanceable preview — taps fall through to the card (detail page
                 has the interactive map). */}
-            <View style={styles.mapFill} pointerEvents="none">
-              <TrackingMap ref={mapRef} initial={{ ...tracking, stale }} bottomInset={0} />
-            </View>
+            {Platform.OS === 'android' ? (
+              // Android: react-native-webview white-outs when clipped inside a
+              // rounded, elevated card (SurfaceView z-order punch-through) —
+              // it blanks the whole card. Show a static store→home preview
+              // here; the full-screen tracker keeps the live WebView map.
+              <View style={styles.mapFill} pointerEvents="none">
+                <View style={[styles.staticPin, styles.staticPinStore]}>
+                  <Text style={styles.staticPinEmoji}>🧋</Text>
+                </View>
+                <View style={[styles.staticPin, styles.staticPinDest]}>
+                  <Text style={styles.staticPinEmoji}>🏠</Text>
+                </View>
+                <View style={styles.staticHint}>
+                  <Text style={styles.staticHintText}>Tap to track live ↗</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.mapFill} pointerEvents="none">
+                <TrackingMap ref={mapRef} initial={{ ...tracking, stale }} bottomInset={0} />
+              </View>
+            )}
             <View style={styles.mapChip} pointerEvents="none">
               <FreshnessBar hasDriver={hasDriver} locationUpdatedAt={tracking.locationUpdatedAt} />
             </View>
@@ -305,6 +323,52 @@ const styles = StyleSheet.create({
   },
   mapFill: {
     ...StyleSheet.absoluteFillObject,
+  },
+  // Android static map preview (WebView white-outs when clipped in the card).
+  staticPin: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  staticPinStore: {
+    top: 62,
+    left: 26,
+    borderColor: T.brand,
+  },
+  staticPinDest: {
+    bottom: 26,
+    right: 30,
+    borderColor: '#5B7A52',
+  },
+  staticPinEmoji: {
+    fontSize: 17,
+    lineHeight: 20,
+  },
+  staticHint: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(42,30,20,0.82)',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  staticHintText: {
+    fontFamily: FONT.mono,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: T.cream,
   },
   mapChip: {
     position: 'absolute',
