@@ -110,7 +110,13 @@ export function ActiveOrderCard({ order, status, onTrack }: Props) {
         <View style={[styles.statusPill, { backgroundColor: pillBg }]}>
           <Icon name="clock" color={pillText} size={12} />
           <Text style={[styles.statusPillText, { color: pillText }]}>
-            {ready ? (delivery ? 'On the way' : 'Now') : 'Preparing'}
+            {ready
+              ? delivery
+                ? 'On the way'
+                : 'Now'
+              : status === 'PREPARING'
+                ? 'Preparing'
+                : 'Received'}
           </Text>
         </View>
       </View>

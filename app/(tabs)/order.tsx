@@ -36,7 +36,12 @@ import { reorder } from '@/components/orders/reorder'
 function timelineStatusFor(order: OrderHistoryItem): TimelineStatus {
   const eff = effectiveOrderState(order.state, order.fulfillmentState)
   if (eff === 'READY') return 'READY'
-  if (eff === 'OPEN') return 'PREPARING'
+  if (eff === 'OPEN') {
+    // A just-placed order (PROPOSED) is only "Received" — Preparing starts
+    // when staff accept it (RESERVED). Mirrors the lock-screen card's
+    // three-state contract (received → preparing → ready).
+    return order.fulfillmentState === 'RESERVED' ? 'PREPARING' : 'OPEN'
+  }
   return 'OPEN'
 }
 
