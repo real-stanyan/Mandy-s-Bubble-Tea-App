@@ -31,11 +31,11 @@ function pathsToInlineSvg(paths: SvgPath[]): string {
 function CupPreview({ slot }: { slot: DoodleSlot }) {
   const s = slot.selection
   if (s === null) {
-    // No pick yet → prints a random surprise tarot card.
+    // No pick yet → prints a random surprise design.
     return (
       <View style={[styles.preview, styles.surprisePreview]}>
         <Text style={styles.surpriseEmoji}>🔮</Text>
-        <Text style={styles.surpriseLabel}>Surprise{'\n'}tarot card</Text>
+        <Text style={styles.surpriseLabel}>Surprise{'\n'}design</Text>
       </View>
     )
   }
@@ -97,7 +97,7 @@ export function DoodleSection({ slots, onSlotChange }: Props) {
   return (
     <CardBlock eyebrow="Cup labels" title="Optional · surprise me 🔮">
       <Text style={styles.hint}>
-        Leave a cup as is for a random tarot card 🔮, or tap to choose your own design.
+        Leave a cup as is for a random design 🔮, or tap to choose your own.
       </Text>
       <ScrollView
         horizontal
