@@ -26,6 +26,24 @@ struct DrinkStyle {
   var domeColor: Color? = nil  // slush dome accent, defaults to liquid[0]
 }
 
+// MARK: - Tiny scaled cup for Dynamic Island slots
+
+/// The full DrinkCupView scaled down to a small square slot (compact leading /
+/// minimal / expanded leading). At these sizes the cup reads as silhouette +
+/// liquid colour — exactly the per-drink identity the island needs.
+@available(iOS 16.2, *)
+struct DrinkCupGlyph: View {
+  let style: DrinkStyle
+  var size: CGFloat  // slot height (square)
+
+  var body: some View {
+    DrinkCupView(style: style)
+      .frame(width: 74, height: 82)   // natural union bounds (halo ∪ cup)
+      .scaleEffect(size / 82)
+      .frame(width: size, height: size)
+  }
+}
+
 // MARK: - Cup body shape (identical geometry to the original CupBodyShape)
 
 @available(iOS 16.2, *)
