@@ -18,6 +18,11 @@ export const TIER_DISCOUNT_PERCENT = 5
 /** Diamond: free paid-topping units per Brisbane calendar month. */
 export const DIAMOND_MONTHLY_FREE_TOPPINGS = 10
 
+/** True for the tiers that earn the online product discount (Gold + Diamond). */
+export function tierHasDiscount(tier: MembershipTier): boolean {
+  return tier === 'gold' || tier === 'diamond'
+}
+
 export function tierFor(lifetimePoints: number): MembershipTier {
   const pts = Number.isFinite(lifetimePoints) ? lifetimePoints : 0
   if (pts >= TIER_THRESHOLDS.diamond) return 'diamond'
