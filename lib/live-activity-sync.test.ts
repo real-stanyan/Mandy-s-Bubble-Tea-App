@@ -200,7 +200,7 @@ describe('syncDeliveryTracking', () => {
     expect(updateMock).toHaveBeenCalledTimes(2)
   })
 
-  it('ends the activity on delivered (default dismissal)', async () => {
+  it('ends the activity on delivered (immediate dismissal)', async () => {
     await syncDeliveryTracking('o1', {
       state: 'OPEN',
       dispatchStatus: 'delivered',
@@ -209,7 +209,7 @@ describe('syncDeliveryTracking', () => {
     expect(endMock).toHaveBeenCalledWith(
       'o1',
       expect.objectContaining({ status: 'delivered' }),
-      { immediateDismissal: false },
+      { immediateDismissal: true },
     )
     expect(updateMock).not.toHaveBeenCalled()
   })
@@ -299,7 +299,7 @@ describe('syncFromOrderHistory', () => {
     expect(endMock).toHaveBeenCalledWith(
       'o1',
       expect.objectContaining({ status: 'completed' }),
-      { immediateDismissal: false },
+      { immediateDismissal: true },
     )
   })
 
@@ -320,7 +320,7 @@ describe('syncFromOrderHistory', () => {
     expect(endMock).toHaveBeenCalledWith(
       'o2',
       expect.objectContaining({ status: 'delivered' }),
-      { immediateDismissal: false },
+      { immediateDismissal: true },
     )
   })
 
