@@ -230,7 +230,8 @@ struct DeliveryCardView: View {
       }
       .padding(EdgeInsets(top: 13, leading: 16, bottom: 12, trailing: 16))
     }
-    .frame(height: 152)
+    // Match the map card: full 160pt lock-screen height.
+    .frame(height: 160)
     .background(background(delivered: delivered))
   }
 

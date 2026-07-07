@@ -1,6 +1,6 @@
 // Delivery out-for-delivery map-hero card (mockup S5 live / S5b paused).
 //
-// Top ~92pt: static MKMapSnapshotter PNG pre-rendered at order time into the
+// Top ~110pt: static MKMapSnapshotter PNG pre-rendered at order time into the
 // App Group container (attributes.mapImageFilename); the widget re-derives
 // the SAME padded/aspect-corrected bbox from the attributes' store/dest
 // coordinates (GeoProjection — twinned with the app-side snapshot region),
@@ -32,12 +32,14 @@ struct DeliveryMapCardView: View {
   var body: some View {
     VStack(spacing: 0) {
       mapZone
-        .frame(height: 92)
+        .frame(height: 110)
         .clipped()
       lowerStrip
         .frame(maxHeight: .infinity)
     }
-    .frame(height: 152)
+    // Lock-screen activities cap at 160pt — use all of it, and give the map
+    // the extra headroom (the strip below only needs ~50pt).
+    .frame(height: 160)
     .background(Color(hex: 0xF2EFE6))
   }
 
@@ -136,8 +138,8 @@ struct DeliveryMapCardView: View {
 
   private func pin(emoji: String, fill: Color) -> some View {
     Text(emoji)
-      .font(.system(size: 10))
-      .frame(width: 22, height: 22)
+      .font(.system(size: 12))
+      .frame(width: 26, height: 26)
       .background(Circle().fill(fill))
       .overlay(Circle().stroke(Color.white, lineWidth: 2))
       .shadow(color: .black.opacity(0.25), radius: 2.5, y: 2)
@@ -145,9 +147,9 @@ struct DeliveryMapCardView: View {
 
   private var riderMarker: some View {
     Text("🛵")
-      .font(.system(size: 16))
+      .font(.system(size: 18))
       .scaleEffect(x: -1)
-      .frame(width: 32, height: 32)
+      .frame(width: 36, height: 36)
       .background(Circle().fill(MandysColor.paper))
       .overlay(Circle().stroke(paused ? MandysColor.amber : Color.white, lineWidth: 2.5))
       .shadow(color: .black.opacity(0.3), radius: 4.5, y: 4)
@@ -189,7 +191,7 @@ struct DeliveryMapCardView: View {
       Spacer(minLength: 6)
       miniSteps
     }
-    .padding(EdgeInsets(top: 8, leading: 14, bottom: 10, trailing: 14))
+    .padding(EdgeInsets(top: 6, leading: 14, bottom: 7, trailing: 14))
     .background(
       LinearGradient(
         colors: [MandysColor.liveSage1, MandysColor.liveSage2, MandysColor.sageDeep],

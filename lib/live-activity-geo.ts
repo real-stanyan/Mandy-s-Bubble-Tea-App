@@ -22,8 +22,8 @@ export const METERS_PER_DEG_LAT = 110_574
 export const METERS_PER_DEG_LNG_EQUATOR = 111_320
 /** Minimum bbox edge in metres so a store≈dest pair still renders a map. */
 export const MIN_SPAN_METERS = 300
-/** Live Activity map zone is 365×92pt (mockup S5). */
-export const MAP_ASPECT = 365 / 92
+/** Live Activity map zone is 365×110pt (mockup S5, grown 2026-07-07). */
+export const MAP_ASPECT = 365 / 110
 
 /** Padded, aspect-corrected bbox around the store→destination pair.
  *  1. raw bbox → 2. pad each axis by paddingRatio of its span (both sides)

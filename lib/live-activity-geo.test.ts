@@ -36,7 +36,7 @@ describe('computeMapBBox', () => {
 
   it('pads each axis by the ratio before aspect correction (checkable on the non-expanded axis)', () => {
     const b = computeMapBBox(STORE.lat, STORE.lng, DEST.lat, DEST.lng, 0.3)
-    // This pair is taller (in aspect terms) than 365:92, so the LAT axis is
+    // This pair is taller (in aspect terms) than 365:110, so the LAT axis is
     // untouched by aspect correction and must be exactly raw span + 2×30%.
     const rawLatSpan = Math.abs(STORE.lat - DEST.lat)
     expect(b.maxLat - b.minLat).toBeCloseTo(rawLatSpan * 1.6, 10)
@@ -44,7 +44,7 @@ describe('computeMapBBox', () => {
     expect(widthMeters(b) / heightMeters(b)).toBeCloseTo(MAP_ASPECT, 5)
   })
 
-  it('matches the physical aspect ratio of the 365×92 map zone', () => {
+  it('matches the physical aspect ratio of the 365×110 map zone', () => {
     const b = computeMapBBox(STORE.lat, STORE.lng, DEST.lat, DEST.lng)
     expect(widthMeters(b) / heightMeters(b)).toBeCloseTo(MAP_ASPECT, 5)
   })

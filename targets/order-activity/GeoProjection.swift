@@ -42,7 +42,7 @@ enum GeoProjection {
     lat1: Double, lng1: Double,
     lat2: Double, lng2: Double,
     paddingRatio: Double = 0.3,
-    aspect: Double = 365.0 / 92.0
+    aspect: Double = 365.0 / 110.0
   ) -> BBox {
     var minLat = min(lat1, lat2)
     var maxLat = max(lat1, lat2)
