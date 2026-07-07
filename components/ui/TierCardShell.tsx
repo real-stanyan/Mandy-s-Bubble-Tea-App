@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react'
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native'
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
 import Animated, {
@@ -16,6 +16,13 @@ import { RADIUS } from '@/constants/theme'
 import type { MembershipTier } from '@/lib/membership-tier'
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
+// Android drops the continuous 3D tilt (perspective + rotateX/rotateY sway):
+// re-compositing the layered gradient/SVG stack under a live perspective
+// transform every frame janks hard enough to ANR on Android GPUs, while iOS
+// composits it for free. The breathing reflection + sparkles (cheap single-view
+// transforms) stay on both platforms.
+const DISABLE_3D = Platform.OS === 'android'
 
 // Dark-luxe tier materials — a native port of the web card's layer stack
 // (web src/components/account/LoyaltyCard.tsx TIER_VISUALS): metallic rim →
@@ -176,23 +183,26 @@ export function TierCardShell({ tier, onPress, entrance = false, children }: She
       : 1
     // Idle: reflection breathes across the metal (web: xPercent -22 ↔ 22, 7s).
     reflex.value = withRepeat(withTiming(0.22, { duration: 7000, easing: sine }), -1, true)
-    // Idle: gentle floating sway — web's no-gyro fallback timeline.
-    swayY.value = withRepeat(
-      withSequence(
-        withTiming(5, { duration: 3200, easing: sine }),
-        withTiming(-4, { duration: 3200, easing: sine }),
-      ),
-      -1,
-      true,
-    )
-    swayX.value = withRepeat(
-      withSequence(
-        withTiming(-3, { duration: 3200, easing: sine }),
-        withTiming(2.5, { duration: 3200, easing: sine }),
-      ),
-      -1,
-      true,
-    )
+    // Idle: gentle floating sway — web's no-gyro fallback timeline. Skipped on
+    // Android (drives the 3D perspective tilt that ANRs there); values stay 0.
+    if (!DISABLE_3D) {
+      swayY.value = withRepeat(
+        withSequence(
+          withTiming(5, { duration: 3200, easing: sine }),
+          withTiming(-4, { duration: 3200, easing: sine }),
+        ),
+        -1,
+        true,
+      )
+      swayX.value = withRepeat(
+        withSequence(
+          withTiming(-3, { duration: 3200, easing: sine }),
+          withTiming(2.5, { duration: 3200, easing: sine }),
+        ),
+        -1,
+        true,
+      )
+    }
     return () => {
       cancelAnimation(reflex)
       cancelAnimation(swayY)
@@ -200,16 +210,29 @@ export function TierCardShell({ tier, onPress, entrance = false, children }: She
     }
   }, [animate, enter, entrance, reflex, swayX, swayY])
 
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity: enter.value,
-    transform: [
-      { perspective: 900 },
-      { translateY: 20 * (1 - enter.value) },
-      { rotateY: `${-42 * (1 - enter.value) + swayY.value}deg` },
-      { rotateX: `${swayX.value}deg` },
-      { scale: scale.value },
-    ],
-  }))
+  const cardStyle = useAnimatedStyle(() => {
+    // Android: flat 2D — no perspective, no rotateX/Y. Keeps the mount fade +
+    // slide and the press scale, drops the per-frame 3D recomposite that ANRs.
+    if (DISABLE_3D) {
+      return {
+        opacity: enter.value,
+        transform: [
+          { translateY: 20 * (1 - enter.value) },
+          { scale: scale.value },
+        ],
+      }
+    }
+    return {
+      opacity: enter.value,
+      transform: [
+        { perspective: 900 },
+        { translateY: 20 * (1 - enter.value) },
+        { rotateY: `${-42 * (1 - enter.value) + swayY.value}deg` },
+        { rotateX: `${swayX.value}deg` },
+        { scale: scale.value },
+      ],
+    }
+  })
 
   const reflexStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: reflex.value * cardW }],
