@@ -532,8 +532,18 @@ export default function CheckoutScreen() {
         fulfillmentType,
         destLat: deliveryAddress.lat,
         destLng: deliveryAddress.lng,
-        // First drink picks the cartoon cup on the lock-screen card.
+        // Cartoon cup(s) on the lock-screen card: distinct drinks stack
+        // (max 3); a single-drink order carries its cup count for the ×N badge.
         drinkName: items[0]?.name ?? null,
+        ...(() => {
+          const distinct: string[] = []
+          for (const it of items) if (!distinct.includes(it.name)) distinct.push(it.name)
+          return {
+            drinkNames: distinct.slice(0, 3),
+            drinkQuantity:
+              distinct.length === 1 ? items.reduce((s, i) => s + i.quantity, 0) : null,
+          }
+        })(),
       }).catch(() => {})
 
       clearCart()

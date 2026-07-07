@@ -36,6 +36,12 @@ struct MandysOrderAttributes: ActivityAttributes {
   /// First drink's catalog name (e.g. "Taro Milk Tea") — picks the cartoon
   /// cup style on the lock-screen card. nil / unknown → classic brown cup.
   var drinkName: String?
+  /// Distinct drink names in order of appearance (max 3). 2 → two stacked
+  /// cups, ≥3 → three stacked cups on the card. nil/empty → drinkName.
+  var drinkNames: [String]?
+  /// Total cup count when the order is a single distinct drink — renders
+  /// the "×N" badge (N ≥ 2). nil/1 → no badge.
+  var drinkQuantity: Int?
   var storeLat: Double?
   var storeLng: Double?
   var destLat: Double?
