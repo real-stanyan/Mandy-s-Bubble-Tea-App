@@ -6,6 +6,7 @@ import { StarCupsRow } from '@/components/brand/StarCupsRow';
 import { T, TYPE } from '@/constants/theme';
 import { tierFor } from '@/lib/membership-tier';
 import { TierCardShell, TIER_VISUALS } from '@/components/ui/TierCardShell';
+import { TierDiscountChip } from '@/components/ui/TierDiscountChip';
 
 export function HomeLoyaltyHero() {
   const router = useRouter();
@@ -63,34 +64,37 @@ export function HomeLoyaltyHero() {
             </View>
           </View>
 
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 4,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.22)',
-              backgroundColor: 'rgba(255,255,255,0.06)',
-            }}
-          >
-            <Icon
-              name={tier === 'diamond' ? 'gem' : 'star'}
-              color={tier === 'diamond' ? '#8ec5ff' : T.peach}
-              size={12}
-            />
-            <Text
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View
               style={{
-                fontFamily: 'Inter_600SemiBold',
-                fontSize: 10.5,
-                letterSpacing: 1.6,
-                color: 'rgba(255,255,255,0.9)',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.22)',
+                backgroundColor: 'rgba(255,255,255,0.06)',
               }}
             >
-              {TIER_VISUALS[tier].label}
-            </Text>
+              <Icon
+                name={tier === 'diamond' ? 'gem' : 'star'}
+                color={tier === 'diamond' ? '#8ec5ff' : T.peach}
+                size={12}
+              />
+              <Text
+                style={{
+                  fontFamily: 'Inter_600SemiBold',
+                  fontSize: 10.5,
+                  letterSpacing: 1.6,
+                  color: 'rgba(255,255,255,0.9)',
+                }}
+              >
+                {TIER_VISUALS[tier].label}
+              </Text>
+            </View>
+            <TierDiscountChip tier={tier} />
           </View>
         </View>
 
