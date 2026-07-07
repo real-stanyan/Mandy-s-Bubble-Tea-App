@@ -35,8 +35,12 @@ import {
   pickupActivityStatus,
   PICKUP_TERMINAL,
   uploadActivityToken,
+  type DeliveryActivityStatus,
+  type PickupActivityStatus,
 } from '@/lib/live-activity'
 import { hasUsableMapCoords } from '@/lib/live-activity-geo'
+import { cancelOrderCard, upsertOrderCard } from '@/modules/order-status-card'
+import { deliveryCardParams, pickupCardParams } from '@/lib/order-status-card'
 import { DELIVERY_DRIVER, STORE_LAT, STORE_LNG } from '@/lib/delivery'
 import type { DispatchStatus } from '@/lib/dispatch-steps'
 import { isDeliveryOrder, isUnfinished, useOrdersStore, type OrderHistoryItem } from '@/store/orders'
@@ -50,17 +54,27 @@ const gone = new Set<string>()
 const uploadedTokens = new Map<string, string>()
 // Wall-clock-free fingerprint of the last pushed content per order.
 const lastSyncKey = new Map<string, string>()
+// Android: ticket label captured at start so later card updates keep the
+// subtext (the history/tracking payloads don't always carry it).
+const orderNumbers = new Map<string, string>()
 
 let initialized = false
 
-/** Idempotent bootstrap: token upload listener + pickup/terminal sync from
- *  the orders store. Called once from the root layout. */
+const CARD_PLATFORMS = new Set(['ios', 'android'])
+
+/** Idempotent bootstrap: token upload listener (iOS) + pickup/terminal sync
+ *  from the orders store (both platforms). Called once from the root
+ *  layout. On Android the "activity" is the ongoing order-status
+ *  notification (modules/order-status-card) — same lifecycle, different
+ *  renderer. */
 export function initLiveActivities(): void {
-  if (initialized || Platform.OS !== 'ios') return
+  if (initialized || !CARD_PLATFORMS.has(Platform.OS)) return
   initialized = true
-  addOrderActivityPushTokenListener((event) => {
-    void handleActivityPushToken(event)
-  })
+  if (Platform.OS === 'ios') {
+    addOrderActivityPushTokenListener((event) => {
+      void handleActivityPushToken(event)
+    })
+  }
   useOrdersStore.subscribe((s) => {
     void syncFromOrderHistory(s.orders)
   })
@@ -99,7 +113,7 @@ export async function startActivityForPlacedOrder(params: {
   /** Total cups when the order is one distinct drink — "×N" badge. */
   drinkQuantity?: number | null
 }): Promise<void> {
-  if (Platform.OS !== 'ios') return
+  if (!CARD_PLATFORMS.has(Platform.OS)) return
   const {
     orderId,
     referenceId,
@@ -110,6 +124,24 @@ export async function startActivityForPlacedOrder(params: {
     drinkNames,
     drinkQuantity,
   } = params
+  if (Platform.OS === 'android') {
+    try {
+      const orderNumber = activityOrderNumber(referenceId, orderId)
+      orderNumbers.set(orderId, orderNumber)
+      const card =
+        fulfillmentType === 'DELIVERY'
+          ? deliveryCardParams('pending', orderNumber)
+          : pickupCardParams('received', orderNumber)
+      if (card && !upsertOrderCard(orderId, card)) {
+        console.warn('[order-card] start returned false for order', orderId)
+      }
+      gone.delete(orderId)
+      lastSyncKey.delete(orderId)
+    } catch (err) {
+      console.warn('[order-card] start failed for order', orderId, err)
+    }
+    return
+  }
   try {
     const orderNumber = activityOrderNumber(referenceId, orderId)
     let activityId: string | null
@@ -169,7 +201,7 @@ export async function syncDeliveryTracking(
     tracking: Tracking | null
   },
 ): Promise<void> {
-  if (Platform.OS !== 'ios' || !orderId || gone.has(orderId)) return
+  if (!CARD_PLATFORMS.has(Platform.OS) || !orderId || gone.has(orderId)) return
   const status = deliveryActivityStatus(data.state, data.dispatchStatus)
   const content = buildDeliveryContentState({
     status,
@@ -178,36 +210,47 @@ export async function syncDeliveryTracking(
     driverLng: data.tracking?.driverLng,
     locationUpdatedAt: data.tracking?.locationUpdatedAt,
   })
-  const key = syncKey('delivery', content, data.tracking?.locationUpdatedAt)
+  // Android has no map on the card — keying on GPS would redraw the
+  // notification every 5s for an identical stepper.
+  const key =
+    Platform.OS === 'android'
+      ? syncKey('delivery', { ...content, driverLat: undefined, driverLng: undefined }, null)
+      : syncKey('delivery', content, data.tracking?.locationUpdatedAt)
   if (lastSyncKey.get(orderId) === key) return
-  await pushContent(orderId, content, DELIVERY_TERMINAL.has(status), key)
+  await pushContent(orderId, 'delivery', content, DELIVERY_TERMINAL.has(status), key)
 }
 
 /** Pickup progress + terminal 兜底 for both kinds — fed by every orders-store
  *  refresh. Delivery non-terminal states are left to the tracking poll (the
  *  history payload has no dispatch/GPS granularity). */
 export async function syncFromOrderHistory(orders: OrderHistoryItem[]): Promise<void> {
-  if (Platform.OS !== 'ios') return
+  if (!CARD_PLATFORMS.has(Platform.OS)) return
   for (const order of orders) {
     if (!order.id || gone.has(order.id)) continue
     if (!isRecentEnough(order)) continue
+    if (Platform.OS === 'android' && order.referenceId && !orderNumbers.has(order.id)) {
+      orderNumbers.set(order.id, activityOrderNumber(order.referenceId, order.id))
+    }
     if (isDeliveryOrder(order)) {
       const status = deliveryActivityStatus(
         order.state === 'CANCELED' ? 'CANCELED' : order.fulfillmentState,
         null,
       )
-      if (!DELIVERY_TERMINAL.has(status)) continue
+      // iOS leaves non-terminal delivery to the 5s tracking poll (better
+      // granularity); the Android card takes the coarse fulfillment-derived
+      // status too so a backgrounded-then-reopened app still catches up.
+      if (Platform.OS === 'ios' && !DELIVERY_TERMINAL.has(status)) continue
       const content = buildDeliveryContentState({ status, driverName: DRIVER_FIRST_NAME })
       const key = syncKey('delivery', content, null)
       if (lastSyncKey.get(order.id) === key) continue
-      await pushContent(order.id, content, true, key)
+      await pushContent(order.id, 'delivery', content, DELIVERY_TERMINAL.has(status), key)
     } else {
       const status =
         order.state === 'CANCELED' ? 'canceled' : pickupActivityStatus(order.fulfillmentState)
       const content = buildPickupContentState(status)
       const key = syncKey('pickup', content, null)
       if (lastSyncKey.get(order.id) === key) continue
-      await pushContent(order.id, content, PICKUP_TERMINAL.has(status), key)
+      await pushContent(order.id, 'pickup', content, PICKUP_TERMINAL.has(status), key)
     }
   }
 }
@@ -233,10 +276,15 @@ function syncKey(
 
 async function pushContent(
   orderId: string,
+  kind: 'pickup' | 'delivery',
   content: OrderActivityContentState,
   terminal: boolean,
   key: string,
 ): Promise<void> {
+  if (Platform.OS === 'android') {
+    pushCardAndroid(orderId, kind, content, terminal, key)
+    return
+  }
   try {
     const found = terminal
       ? await endOrderActivity(orderId, content, {
@@ -258,6 +306,41 @@ async function pushContent(
   }
 }
 
+/** Android renderer for the same lifecycle: ongoing notification while the
+ *  order is live, removed instantly on terminal (mirrors iOS immediate
+ *  dismissal). */
+function pushCardAndroid(
+  orderId: string,
+  kind: 'pickup' | 'delivery',
+  content: OrderActivityContentState,
+  terminal: boolean,
+  key: string,
+): void {
+  try {
+    const orderNumber = orderNumbers.get(orderId) ?? null
+    const params = terminal
+      ? null
+      : kind === 'pickup'
+        ? pickupCardParams(content.status as PickupActivityStatus, orderNumber)
+        : deliveryCardParams(
+            content.status as DeliveryActivityStatus,
+            orderNumber,
+            content.driverName,
+          )
+    if (!params) {
+      cancelOrderCard(orderId)
+      gone.add(orderId)
+      lastSyncKey.delete(orderId)
+      orderNumbers.delete(orderId)
+      return
+    }
+    upsertOrderCard(orderId, params)
+    lastSyncKey.set(orderId, key)
+  } catch {
+    // Native hiccup — next store refresh retries.
+  }
+}
+
 /** Only touch native for orders that could plausibly still have a live
  *  card: unfinished, or turned terminal within the last few hours. */
 function isRecentEnough(order: OrderHistoryItem): boolean {
@@ -272,5 +355,6 @@ export function _resetLiveActivitySyncForTests(): void {
   gone.clear()
   uploadedTokens.clear()
   lastSyncKey.clear()
+  orderNumbers.clear()
   initialized = false
 }
