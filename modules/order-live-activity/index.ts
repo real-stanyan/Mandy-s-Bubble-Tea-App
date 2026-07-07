@@ -16,6 +16,10 @@ export type OrderActivityAttributes = {
   waitText?: string | null
   /** First drink's catalog name — picks the cartoon cup on the card. */
   drinkName?: string | null
+  /** Distinct drink names in order (max 3) — 2/3 stack cups on the card. */
+  drinkNames?: string[] | null
+  /** Total cups when the order is one distinct drink — "×N" badge (N ≥ 2). */
+  drinkQuantity?: number | null
   storeLat?: number | null
   storeLng?: number | null
   destLat?: number | null

@@ -26,6 +26,89 @@ struct DrinkStyle {
   var domeColor: Color? = nil  // slush dome accent, defaults to liquid[0]
 }
 
+// MARK: - Lock-screen hero: 1 cup (optional ×N), 2 or 3 stacked cups
+
+/// "×N" pill for same-drink multi-cup orders, pinned to a cup shoulder.
+@available(iOS 16.2, *)
+struct QtyBadge: View {
+  let count: Int
+
+  var body: some View {
+    Text("×\(count)")
+      .font(.system(size: 12, weight: .heavy, design: .rounded))
+      .foregroundColor(.white)
+      .padding(.horizontal, 7)
+      .padding(.vertical, 2.5)
+      .background(Capsule().fill(Color(hex: 0xB5763B)))
+      .overlay(Capsule().stroke(Color(hex: 0xFFF9F0), lineWidth: 2.5))
+  }
+}
+
+/// The pickup card's drink visual.
+///   1 style           → single cup; quantity ≥ 2 adds the ×N badge
+///   2 styles          → front cup + one tucked behind
+///   3 styles          → front cup + two tucked behind (real "carrying a
+///                       tray" stagger, per the approved desktop mock)
+/// The ready ✓ badge stays on the front cup's right shoulder, so the ×N
+/// badge yields to the LEFT shoulder once the order is done.
+@available(iOS 16.2, *)
+struct DrinkCupHero: View {
+  let styles: [DrinkStyle]
+  var quantity: Int = 1
+  var showBadge: Bool = false
+
+  var body: some View {
+    if styles.count >= 3 {
+      trio
+    } else if styles.count == 2 {
+      duo
+    } else {
+      single
+    }
+  }
+
+  private var single: some View {
+    ZStack(alignment: showBadge ? .topLeading : .topTrailing) {
+      DrinkCupView(style: styles.first ?? DrinkCatalog.fallback, showBadge: showBadge)
+      if quantity >= 2 {
+        QtyBadge(count: quantity).offset(x: showBadge ? -2 : 2, y: 2)
+      }
+    }
+    .frame(width: 84, height: 92)
+  }
+
+  private var duo: some View {
+    ZStack {
+      DrinkCupView(style: styles[1])
+        .scaleEffect(0.78)
+        .rotationEffect(.degrees(9))
+        .offset(x: 16, y: -8)
+        .opacity(0.92)
+      DrinkCupView(style: styles[0], showBadge: showBadge)
+        .offset(x: -8, y: 6)
+    }
+    .frame(width: 96, height: 100)
+  }
+
+  private var trio: some View {
+    ZStack {
+      DrinkCupView(style: styles[1])
+        .scaleEffect(0.78)
+        .rotationEffect(.degrees(-9))
+        .offset(x: -20, y: -8)
+        .opacity(0.92)
+      DrinkCupView(style: styles[2])
+        .scaleEffect(0.78)
+        .rotationEffect(.degrees(9))
+        .offset(x: 20, y: -8)
+        .opacity(0.92)
+      DrinkCupView(style: styles[0], showBadge: showBadge)
+        .offset(y: 6)
+    }
+    .frame(width: 100, height: 100)
+  }
+}
+
 // MARK: - Tiny scaled cup for Dynamic Island slots
 
 /// The full DrinkCupView scaled down to a small square slot (compact leading /

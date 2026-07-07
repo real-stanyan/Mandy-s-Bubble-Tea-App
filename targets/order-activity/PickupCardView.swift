@@ -65,17 +65,25 @@ struct PickupCardView: View {
 
   private var phase: PickupPhase { PickupPhase(status: context.state.status) }
 
+  private var heroStyles: [DrinkStyle] {
+    let names = context.attributes.drinkNames ?? []
+    if names.isEmpty { return [DrinkCatalog.style(for: context.attributes.drinkName)] }
+    return names.prefix(3).map { DrinkCatalog.style(for: $0) }
+  }
+
   var body: some View {
     let ready = phase.isDone
     let accent = PickupAccent.accent(for: phase)
     HStack(alignment: .center, spacing: 12) {
-      // Cartoon cup matching the ordered drink (first item); unknown/legacy
-      // activities without drinkName fall back to the classic brown cup.
-      DrinkCupView(
-        style: DrinkCatalog.style(for: context.attributes.drinkName),
+      // Cartoon cup(s) matching the order: distinct drinks stack (max 3), a
+      // single-drink multi-cup order carries the ×N badge. Legacy activities
+      // without drinkNames fall back to drinkName → classic brown cup.
+      DrinkCupHero(
+        styles: heroStyles,
+        quantity: context.attributes.drinkQuantity ?? 1,
         showBadge: ready
       )
-      .frame(width: 78)
+      .frame(width: heroStyles.count >= 2 ? 96 : 78)
 
       VStack(alignment: .leading, spacing: 0) {
         HStack(alignment: .firstTextBaseline) {

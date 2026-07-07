@@ -21,6 +21,8 @@ struct ActivityAttributesRecord: Record {
   @Field var orderNumber: String = ""
   @Field var waitText: String?
   @Field var drinkName: String?
+  @Field var drinkNames: [String]?
+  @Field var drinkQuantity: Int?
   @Field var storeLat: Double?
   @Field var storeLng: Double?
   @Field var destLat: Double?
@@ -72,6 +74,8 @@ public class OrderLiveActivityModule: Module {
         orderNumber: attributes.orderNumber,
         waitText: attributes.waitText,
         drinkName: attributes.drinkName,
+        drinkNames: attributes.drinkNames,
+        drinkQuantity: attributes.drinkQuantity,
         storeLat: attributes.storeLat,
         storeLng: attributes.storeLng,
         destLat: attributes.destLat,
