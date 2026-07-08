@@ -7,6 +7,7 @@ import { T, TYPE } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
 import { TierCardShell, TIER_VISUALS } from '@/components/ui/TierCardShell'
 import { TierDiscountChip } from '@/components/ui/TierDiscountChip'
+import { TierToppingsProgress } from '@/components/ui/TierToppingsProgress'
 import type { MembershipTier } from '@/lib/membership-tier'
 import type { LoyaltyAccount } from '@/types/square'
 
@@ -34,12 +35,12 @@ export const LoyaltyCard = memo(function LoyaltyCard({
   const toGo = Math.max(0, goal - currentStars)
   const reached = account.balance >= goal
 
+  // Diamond's free-topping status now has its own pips block below the star
+  // row, so the subline stays on tier progress (Diamond → "Top tier member").
   const tierSubline =
-    tier === 'diamond' && freeToppingsRemaining != null
-      ? `${freeToppingsRemaining} free toppings left this month`
-      : starsToNext != null
-        ? `${starsToNext} stars to ${nextTier === 'gold' ? 'Gold' : 'Diamond'}`
-        : 'Top tier member'
+    starsToNext != null
+      ? `${starsToNext} stars to ${nextTier === 'gold' ? 'Gold' : 'Diamond'}`
+      : 'Top tier member'
 
   return (
     <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
@@ -112,6 +113,8 @@ export const LoyaltyCard = memo(function LoyaltyCard({
         </View>
 
         <StarCupsRow value={currentStars} total={goal} />
+
+        <TierToppingsProgress tier={tier} remaining={freeToppingsRemaining} />
 
         <View
           style={{

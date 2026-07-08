@@ -7,10 +7,16 @@ import { T, TYPE } from '@/constants/theme';
 import { tierFor } from '@/lib/membership-tier';
 import { TierCardShell, TIER_VISUALS } from '@/components/ui/TierCardShell';
 import { TierDiscountChip } from '@/components/ui/TierDiscountChip';
+import { TierToppingsProgress } from '@/components/ui/TierToppingsProgress';
+import { useTierToppings } from '@/hooks/use-tier-toppings';
 
 export function HomeLoyaltyHero() {
   const router = useRouter();
   const { profile, loyalty, starsPerReward } = useAuth();
+  // Membership tier — derived from lifetime points, never stored.
+  const tier = tierFor(loyalty?.lifetimePoints ?? 0);
+  // Diamond-only free-topping allowance (null otherwise / on failure).
+  const { remaining: freeToppingsRemaining } = useTierToppings(tier);
 
   if (!profile) return null;
 
@@ -22,8 +28,6 @@ export function HomeLoyaltyHero() {
   const currentStars = goal > 0 ? balance % goal : 0;
   const toGo = Math.max(0, goal - currentStars);
   const reached = balance >= goal;
-  // Membership tier — derived from lifetime points, never stored.
-  const tier = tierFor(loyalty?.lifetimePoints ?? 0);
 
   return (
     <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
@@ -99,6 +103,8 @@ export function HomeLoyaltyHero() {
         </View>
 
         <StarCupsRow value={currentStars} total={goal} />
+
+        <TierToppingsProgress tier={tier} remaining={freeToppingsRemaining} />
 
         {/* Bottom row */}
         <View
