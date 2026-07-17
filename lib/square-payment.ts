@@ -24,6 +24,14 @@ const SQUARE_LOCATION_ID = __DEV__
   : PROD_SQUARE_LOCATION_ID
 const APPLE_MERCHANT_ID = 'merchant.com.mandysbubbletea.app'
 
+/** True when the native Square SDK is initialized with SANDBOX credentials —
+ *  possible only in __DEV__ builds (see the guard above). The checkout screen
+ *  uses this to render an unmissable "test environment, no real charge"
+ *  banner so a sandbox session can never be mistaken for real payment. */
+export function isSandboxPayments(): boolean {
+  return SQUARE_APP_ID.startsWith('sandbox-')
+}
+
 // Expo Go 不含原生模块。在 Expo Go 里 require 会 throw,需要在 dev build / production build 里使用。
 const isExpoGo = Constants.appOwnership === 'expo'
 

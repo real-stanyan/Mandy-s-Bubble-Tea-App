@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mandy's",
     "slug": "mandys_bubble_tea_app",
-    "version": "1.1.4",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mandysbubbleteaapp",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "22",
+      "buildNumber": "24",
       "bundleIdentifier": "com.mandysbubbletea.app",
       "appleTeamId": "HV982TTRNP",
       "associatedDomains": [
@@ -115,6 +115,13 @@
       "eas": {
         "projectId": "bb32735f-027e-4a57-ae17-4c9bc01dc6bf"
       }
-    }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bb32735f-027e-4a57-ae17-4c9bc01dc6bf",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": "24"
   }
 }

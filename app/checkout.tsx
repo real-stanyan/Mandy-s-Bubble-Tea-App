@@ -50,6 +50,7 @@ import type { CupRecord } from '@/lib/tier-toppings'
 import { useTierToppings } from '@/hooks/use-tier-toppings'
 import {
   initSquarePayments,
+  isSandboxPayments,
   canUseApplePay,
   canUseGooglePay,
   startCardPayment,
@@ -110,6 +111,7 @@ export default function CheckoutScreen() {
     loyalty,
     welcomeDiscount,
     igFollowDiscount,
+    flashPromo,
     starsPerReward,
     loading: authLoading,
     refresh: refreshAuth,
@@ -297,6 +299,24 @@ export default function CheckoutScreen() {
   // PH surcharge mirrors the server-side detection: 10% of the pre-discount
   // subtotal, only on QLD public holidays (Christmas Eve from 18:00).
   // Skipped on free redeem for the same reason as the card surcharge.
+  // Flash promo (store-wide one-day %) is EXCLUSIVE: the order gets either
+  // the flash discount or the welcome/IG/tier bundle, whichever is worth
+  // more — mirroring the server's pick in /api/orders. Reward cups are not
+  // a discount; they only shrink the flash base.
+  const otherPromoDiscountCents =
+    (welcomeDiscountForSummary?.amountCents ?? 0) +
+    (igFollowDiscountForSummary?.amountCents ?? 0) +
+    tierPreview.toppingCoveredCents +
+    tierPreview.tierDiscountCents
+  const flashBaseCents = Math.max(total - rewardDiscountCents, 0)
+  const flashCandidateCents = flashPromo.available
+    ? Math.floor((flashBaseCents * flashPromo.percentage) / 100)
+    : 0
+  const flashWins = flashCandidateCents > otherPromoDiscountCents
+  const flashPromoForSummary = flashWins
+    ? { amountCents: flashCandidateCents, percentage: flashPromo.percentage }
+    : null
+
   const phActive = isPublicHolidayActive()
   const phSurchargeCents = isFreeRedeem || !phActive
     ? 0
@@ -305,10 +325,7 @@ export default function CheckoutScreen() {
   const displayedTotal = Math.max(
     total
       - rewardDiscountCents
-      - (welcomeDiscountForSummary?.amountCents ?? 0)
-      - (igFollowDiscountForSummary?.amountCents ?? 0)
-      - tierPreview.toppingCoveredCents
-      - tierPreview.tierDiscountCents
+      - (flashWins ? flashCandidateCents : otherPromoDiscountCents)
       + surchargeCents
       + platformFeeCents
       + phSurchargeCents
@@ -367,18 +384,27 @@ export default function CheckoutScreen() {
       reportPaymentStep({ step: 'create-order', orderId, payMethod })
 
       let amountCents = total
-      if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
-      if (useIgFollow) amountCents = Math.max(amountCents - igFollowAmount, 0)
-      if (rewardCount === 0) {
-        // Tier discount + diamond free toppings are applied server-side in
-        // /api/orders; mirror them here so the Apple/Google Pay sheet shows
-        // the amount Square will actually capture. When rewardCount > 0 the
-        // /api/loyalty/redeem response below returns updatedAmountCents
-        // which already includes the tier discounts — don't double-apply.
-        amountCents = Math.max(
-          amountCents - tierPreview.toppingCoveredCents - tierPreview.tierDiscountCents,
-          0,
-        )
+      if (flashWins) {
+        // Server attaches the flash discount instead of the whole
+        // welcome/IG/tier bundle (exclusive, best single discount) — mirror
+        // that pick so the pay sheet shows what Square will capture. When
+        // rewardCount > 0 the redeem response below overrides with the
+        // server's own post-discount total anyway.
+        amountCents = Math.max(amountCents - flashCandidateCents, 0)
+      } else {
+        if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
+        if (useIgFollow) amountCents = Math.max(amountCents - igFollowAmount, 0)
+        if (rewardCount === 0) {
+          // Tier discount + diamond free toppings are applied server-side in
+          // /api/orders; mirror them here so the Apple/Google Pay sheet shows
+          // the amount Square will actually capture. When rewardCount > 0 the
+          // /api/loyalty/redeem response below returns updatedAmountCents
+          // which already includes the tier discounts — don't double-apply.
+          amountCents = Math.max(
+            amountCents - tierPreview.toppingCoveredCents - tierPreview.tierDiscountCents,
+            0,
+          )
+        }
       }
       if (rewardCount > 0) {
         let redeemRes: { ok: boolean; updatedAmountCents?: string; error?: string }
@@ -666,7 +692,7 @@ export default function CheckoutScreen() {
           onIncrement={() => setRewardCount((n) => Math.min(maxRewardCount, n + 1))}
           onDecrement={() => setRewardCount((n) => Math.max(0, n - 1))}
           welcome={
-            welcomeDiscountForSummary
+            !flashWins && welcomeDiscountForSummary
               ? {
                   amountCents: welcomeDiscountForSummary.amountCents,
                   coveredCount: welcomeDiscountForSummary.coveredCount,
@@ -674,7 +700,7 @@ export default function CheckoutScreen() {
               : null
           }
           igFollow={
-            igFollowDiscountForSummary
+            !flashWins && igFollowDiscountForSummary
               ? {
                   amountCents: igFollowDiscountForSummary.amountCents,
                   coveredCount: igFollowDiscountForSummary.coveredCount,
@@ -691,13 +717,14 @@ export default function CheckoutScreen() {
         <NotesBlock value={note} onChange={setNote} />
         <SummaryBlock
           subtotal={total}
-          welcome={welcomeDiscountForSummary}
-          igFollow={igFollowDiscountForSummary}
+          flash={flashPromoForSummary}
+          welcome={flashWins ? null : welcomeDiscountForSummary}
+          igFollow={flashWins ? null : igFollowDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
           rewardCount={rewardCount}
           tier={tier}
-          tierDiscountCents={tierPreview.tierDiscountCents}
-          toppingCoveredCents={tierPreview.toppingCoveredCents}
+          tierDiscountCents={flashWins ? 0 : tierPreview.tierDiscountCents}
+          toppingCoveredCents={flashWins ? 0 : tierPreview.toppingCoveredCents}
           toppingCoveredCount={tierPreview.toppingCoveredCount}
           toppingsRemaining={toppingsRemaining}
           surcharge={surchargeCents}
@@ -995,6 +1022,15 @@ function PaymentBlock({
   return (
     <CardBlock eyebrow="Payment" title={cur.label} onEdit={() => setOpen((o) => !o)}>
       <View style={{ paddingHorizontal: 16, paddingBottom: 14 }}>
+        {isSandboxPayments() && (
+          <View style={styles.sandboxBar}>
+            <Text style={styles.sandboxTitle}>🧪 SANDBOX 测试支付环境</Text>
+            <Text style={styles.sandboxText}>
+              当前连接 Square 沙盒，不会产生真实扣款。请勿使用真实银行卡——用测试卡
+              4111 1111 1111 1111（任意未来有效期 / 任意 CVV 和邮编）。
+            </Text>
+          </View>
+        )}
         {open && (
           <View style={styles.payOptions}>
             {options.map((o, i) => {
@@ -1050,6 +1086,7 @@ function NotesBlock({ value, onChange }: { value: string; onChange: (s: string) 
 
 function SummaryBlock({
   subtotal,
+  flash,
   welcome,
   igFollow,
   rewardDiscount,
@@ -1066,6 +1103,7 @@ function SummaryBlock({
   deliveryAddOnCents: deliveryAddOnCentsAmt,
 }: {
   subtotal: number
+  flash: { amountCents: number; percentage: number } | null
   welcome: { amountCents: number; percentage: number; coveredCount: number } | null
   igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
@@ -1082,6 +1120,7 @@ function SummaryBlock({
   deliveryAddOnCents?: number
 }) {
   const discountTotal =
+    (flash?.amountCents ?? 0) +
     (welcome?.amountCents ?? 0) +
     (igFollow?.amountCents ?? 0) +
     rewardDiscount +
@@ -1094,6 +1133,13 @@ function SummaryBlock({
   return (
     <View style={styles.summaryCard}>
       <SummaryRow label="Subtotal" amountCents={subtotal} muted />
+      {flash && flash.amountCents > 0 && (
+        <SummaryRow
+          label={`Flash Sale ${flash.percentage}% off (today only)`}
+          amountCents={-flash.amountCents}
+          muted
+        />
+      )}
       {welcome && welcome.amountCents > 0 && (
         <SummaryRow
           label={`Welcome ${welcome.percentage}% off (${welcome.coveredCount} drink${welcome.coveredCount === 1 ? '' : 's'})`}
@@ -1526,6 +1572,29 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: T.line,
     marginVertical: 4,
+  },
+  sandboxBar: {
+    marginTop: 2,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#FFF6DE',
+    borderRadius: RADIUS.small,
+    borderWidth: 1,
+    borderColor: '#C9A227',
+  },
+  sandboxTitle: {
+    fontFamily: FONT.sans,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#8A6E14',
+    marginBottom: 4,
+  },
+  sandboxText: {
+    fontFamily: FONT.sans,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#8A6E14',
   },
   noticeBar: {
     marginBottom: 10,

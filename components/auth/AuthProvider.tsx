@@ -42,6 +42,12 @@ export type IgFollowDiscountInfo = {
   drinksRemaining: number
 }
 
+export type FlashPromoInfo = {
+  available: boolean
+  key: string | null
+  percentage: number
+}
+
 export type MeResponse = {
   ok: true
   authed: boolean
@@ -51,6 +57,7 @@ export type MeResponse = {
   loyalty: LoyaltyInfo | null
   welcomeDiscount: WelcomeDiscountInfo
   igFollowDiscount: IgFollowDiscountInfo
+  flashPromo?: FlashPromoInfo
   starsPerReward: number
 }
 
@@ -61,6 +68,7 @@ type AuthContextValue = {
   loyalty: LoyaltyInfo | null
   welcomeDiscount: WelcomeDiscountInfo
   igFollowDiscount: IgFollowDiscountInfo
+  flashPromo: FlashPromoInfo
   starsPerReward: number
   loading: boolean
   // True when the latest /api/me call threw (network / 5xx) — distinct
@@ -87,6 +95,7 @@ export function useAuth(): AuthContextValue {
 
 const DEFAULT_WELCOME: WelcomeDiscountInfo = { available: false, percentage: 0, drinksRemaining: 0 }
 const DEFAULT_IG_FOLLOW: IgFollowDiscountInfo = { available: false, percentage: 0, drinksRemaining: 0 }
+const DEFAULT_FLASH_PROMO: FlashPromoInfo = { available: false, key: null, percentage: 0 }
 
 function shallowEqual<T extends Record<string, unknown> | null>(a: T, b: T): boolean {
   if (a === b) return true
@@ -106,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null)
   const [welcomeDiscount, setWelcomeDiscount] = useState<WelcomeDiscountInfo>(DEFAULT_WELCOME)
   const [igFollowDiscount, setIgFollowDiscount] = useState<IgFollowDiscountInfo>(DEFAULT_IG_FOLLOW)
+  const [flashPromo, setFlashPromo] = useState<FlashPromoInfo>(DEFAULT_FLASH_PROMO)
   const [starsPerReward, setStarsPerReward] = useState(9)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -147,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoyalty(null)
           setWelcomeDiscount(DEFAULT_WELCOME)
           setIgFollowDiscount(DEFAULT_IG_FOLLOW)
+          setFlashPromo(DEFAULT_FLASH_PROMO)
           setStarsPerReward(json.starsPerReward)
           setFetchError(false)
           return
@@ -163,6 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIgFollowDiscount((prev) =>
           shallowEqual(prev, json.igFollowDiscount) ? prev : json.igFollowDiscount,
         )
+        setFlashPromo((prev) => {
+          const next = json.flashPromo ?? DEFAULT_FLASH_PROMO
+          return shallowEqual(prev, next) ? prev : next
+        })
         setStarsPerReward(json.starsPerReward)
         setFetchError(false)
       } catch {
@@ -295,6 +310,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoyalty(null)
     setWelcomeDiscount(DEFAULT_WELCOME)
     setIgFollowDiscount(DEFAULT_IG_FOLLOW)
+    setFlashPromo(DEFAULT_FLASH_PROMO)
   }, [])
 
   const deleteAccount = useCallback(async () => {
@@ -308,6 +324,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoyalty(null)
     setWelcomeDiscount(DEFAULT_WELCOME)
     setIgFollowDiscount(DEFAULT_IG_FOLLOW)
+    setFlashPromo(DEFAULT_FLASH_PROMO)
   }, [])
 
   const value = useMemo<AuthContextValue>(
@@ -318,6 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loyalty,
       welcomeDiscount,
       igFollowDiscount,
+      flashPromo,
       starsPerReward,
       loading,
       fetchError,
@@ -335,6 +353,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loyalty,
       welcomeDiscount,
       igFollowDiscount,
+      flashPromo,
       starsPerReward,
       loading,
       fetchError,

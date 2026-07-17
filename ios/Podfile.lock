@@ -9,6 +9,8 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
+  - EASClient (1.0.8):
+    - ExpoModulesCore
   - EXApplication (7.0.8):
     - ExpoModulesCore
   - EXConstants (18.0.13):
@@ -17,7 +19,7 @@ PODS:
     - ExpoModulesCore
     - React-Core
   - EXJSONUtils (0.15.0)
-  - EXManifests (1.0.10):
+  - EXManifests (1.0.11):
     - ExpoModulesCore
   - EXNotifications (0.32.16):
     - ExpoModulesCore
@@ -290,8 +292,40 @@ PODS:
     - ExpoModulesCore
   - ExpoWebBrowser (15.0.10):
     - ExpoModulesCore
+  - EXStructuredHeaders (5.0.0)
+  - EXTaskManager (14.0.9):
+    - ExpoModulesCore
+    - UMAppLoader
   - ExtensionStorage (1.0.0):
     - ExpoModulesCore
+  - EXUpdates (29.0.19):
+    - EASClient
+    - EXManifests
+    - ExpoModulesCore
+    - EXStructuredHeaders
+    - EXUpdatesInterface
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - ReachabilitySwift
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - EXUpdatesInterface (2.0.0):
     - ExpoModulesCore
   - FBLazyVector (0.81.5)
@@ -342,6 +376,7 @@ PODS:
     - FBLazyVector (= 0.81.5)
     - RCTRequired (= 0.81.5)
     - React-Core (= 0.81.5)
+  - ReachabilitySwift (5.2.4)
   - React (0.81.5):
     - React-Core (= 0.81.5)
     - React-Core/DevSupport (= 0.81.5)
@@ -2397,9 +2432,11 @@ PODS:
     - SquareInAppPaymentsSDK (= 1.6.5)
     - Yoga
   - SquareInAppPaymentsSDK (1.6.5)
+  - UMAppLoader (6.0.8)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - EASClient (from `../node_modules/expo-eas-client/ios`)
   - EXApplication (from `../node_modules/expo-application/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXImageLoader (from `../node_modules/expo-image-loader/ios`)
@@ -2432,7 +2469,10 @@ DEPENDENCIES:
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
   - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
+  - EXStructuredHeaders (from `../node_modules/expo-structured-headers/ios`)
+  - EXTaskManager (from `../node_modules/expo-task-manager/ios`)
   - "ExtensionStorage (from `../node_modules/@bacons/apple-targets/ios`)"
+  - EXUpdates (from `../node_modules/expo-updates/ios`)
   - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
@@ -2512,6 +2552,7 @@ DEPENDENCIES:
   - RNSVG (from `../node_modules/react-native-svg`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - SquareInAppPayments (from `../node_modules/react-native-square-in-app-payments`)
+  - UMAppLoader (from `../node_modules/unimodules-app-loader/ios`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -2526,6 +2567,7 @@ SPEC REPOS:
     - libdav1d
     - libwebp
     - PromisesObjC
+    - ReachabilitySwift
     - SDWebImage
     - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
@@ -2534,6 +2576,8 @@ SPEC REPOS:
     - SquareInAppPaymentsSDK
 
 EXTERNAL SOURCES:
+  EASClient:
+    :path: "../node_modules/expo-eas-client/ios"
   EXApplication:
     :path: "../node_modules/expo-application/ios"
   EXConstants:
@@ -2598,8 +2642,14 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-system-ui/ios"
   ExpoWebBrowser:
     :path: "../node_modules/expo-web-browser/ios"
+  EXStructuredHeaders:
+    :path: "../node_modules/expo-structured-headers/ios"
+  EXTaskManager:
+    :path: "../node_modules/expo-task-manager/ios"
   ExtensionStorage:
     :path: "../node_modules/@bacons/apple-targets/ios"
+  EXUpdates:
+    :path: "../node_modules/expo-updates/ios"
   EXUpdatesInterface:
     :path: "../node_modules/expo-updates-interface/ios"
   FBLazyVector:
@@ -2757,17 +2807,20 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-worklets"
   SquareInAppPayments:
     :path: "../node_modules/react-native-square-in-app-payments"
+  UMAppLoader:
+    :path: "../node_modules/unimodules-app-loader/ios"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
   AppAuth: 1c1a8afa7e12f2ec3a294d9882dfa5ab7d3cb063
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
+  EASClient: 40dd9e740684782610c49becab2643782ea1a20c
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
   EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
   EXImageLoader: 189e3476581efe3ad4d1d3fb4735b7179eb26f05
   EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
-  EXManifests: a8d97683e5c7a3b026ffbd58559c64dc655b747b
+  EXManifests: 378c7742de02a8605093b1c82b5774d8f9875cec
   EXNotifications: 9eec98712cc814ceff916d876cb53859003b0597
   Expo: aadbcc8c6c14ff3105a9154f1683cb1424ff0d2a
   expo-dev-client: 425ee077d6754a98cfe3a2e2410d29b440b24c9d
@@ -2795,7 +2848,10 @@ SPEC CHECKSUMS:
   ExpoSymbols: 349ee2b4d7d5ff3ea8436467914f8a67635aa354
   ExpoSystemUI: 2ad325f361a2fcd96a464e8574e19935c461c9cc
   ExpoWebBrowser: 17b064c621789e41d4816c95c93f429b84971f52
+  EXStructuredHeaders: c951e77f2d936f88637421e9588c976da5827368
+  EXTaskManager: 6f1a66e4c8cc6df6e24c3d90928704bc3013eae5
   ExtensionStorage: 5796de20bf181317c376d693fedb64c6781a33ba
+  EXUpdates: cb0e229e08997919836803ffe55f911a5dcd381b
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
   GoogleSignIn: fcee2257188d5eda57a5e2b6a715550ffff9206d
@@ -2811,6 +2867,7 @@ SPEC CHECKSUMS:
   RCTDeprecation: 943572d4be82d480a48f4884f670135ae30bf990
   RCTRequired: 8f3cfc90cc25cf6e420ddb3e7caaaabc57df6043
   RCTTypeSafety: 16a4144ca3f959583ab019b57d5633df10b5e97c
+  ReachabilitySwift: 32793e867593cfc1177f5d16491e3a197d2fccda
   React: 914f8695f9bf38e6418228c2ffb70021e559f92f
   React-callinvoker: 1c0808402aee0c6d4a0d8e7220ce6547af9fba71
   React-Core: c61410ef0ca6055e204a963992e363227e0fd1c5
@@ -2888,6 +2945,7 @@ SPEC CHECKSUMS:
   SquareBuyerVerificationSDK: 926d2d8d70546f83fdfbabe4bf46ae9e7f7dda9c
   SquareInAppPayments: 7ab23d04d09fa308b47c3cf8a6811a08cdb6d79b
   SquareInAppPaymentsSDK: 05304c6a7fbf117e05aa3e4991610839d77465ed
+  UMAppLoader: 145337733539f9af9b3dd97eeaa7f3bd97cacb23
   Yoga: 5934998fbeaef7845dbf698f698518695ab4cd1a
 
 PODFILE CHECKSUM: f9442562fb998fa3412469b4add76f3850234bac
