@@ -4,6 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner';
 import { HomeLoyaltyHero } from '@/components/home/HomeLoyaltyHero';
+import {
+  AppDownloadDiscountCard,
+  useAppDownloadStatus,
+} from '@/components/account/AppDownloadDiscountCard';
 import { YourUsual } from '@/components/home/YourUsual';
 import { DailySpecial } from '@/components/home/DailySpecial';
 import { FragranceBlindBox } from '@/components/home/FragranceBlindBox';
@@ -15,6 +19,7 @@ import { FRAGRANCE_BLIND_BOX_PROMO } from '@/lib/constants';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const appDownloadStatus = useAppDownloadStatus();
   return (
     <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: insets.top }}>
       <ScrollView
@@ -26,6 +31,7 @@ export default function HomeScreen() {
         <HomeHeader />
         {FRAGRANCE_BLIND_BOX_PROMO && <FragranceBlindBox />}
         <HomeLoyaltyHero />
+        <AppDownloadDiscountCard status={appDownloadStatus} />
         <YourUsual />
         <DailySpecial />
         <CategoriesStrip />
