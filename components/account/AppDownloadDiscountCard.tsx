@@ -21,9 +21,18 @@ export type AppDownloadStatus = {
 // Shared fetch hook. A screen that needs to know availability up front (e.g.
 // the Promotions screen's "no active promotions" empty state) can call this and
 // pass the result to the card as a prop to avoid a second request.
-export function useAppDownloadStatus(): AppDownloadStatus | null {
+//
+// `enabled` guards the request on sign-in state. Checkout can be reached signed
+// out, and the endpoint resolves the grant from the caller's phone — so firing
+// at mount would 401 and then never retry once the user signs in on that same
+// screen. Passing `!!profile` makes the fetch run on the false->true flip.
+export function useAppDownloadStatus(enabled = true): AppDownloadStatus | null {
   const [status, setStatus] = useState<AppDownloadStatus | null>(null)
   useEffect(() => {
+    if (!enabled) {
+      setStatus(null)
+      return
+    }
     let alive = true
     apiFetch<AppDownloadStatus>('/api/promotions/app-download/status')
       .then((d) => {
@@ -35,7 +44,7 @@ export function useAppDownloadStatus(): AppDownloadStatus | null {
     return () => {
       alive = false
     }
-  }, [])
+  }, [enabled])
   return status
 }
 
