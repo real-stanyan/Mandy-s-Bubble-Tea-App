@@ -3,11 +3,17 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { FlashPromoCard } from '@/components/account/FlashPromoCard'
 import { WelcomeDiscountCard } from '@/components/account/WelcomeDiscountCard'
 import { IgFollowPromoCard } from '@/components/account/IgFollowPromoCard'
+import {
+  AppDownloadDiscountCard,
+  useAppDownloadStatus,
+  appDownloadAvailable,
+} from '@/components/account/AppDownloadDiscountCard'
 import { LOYALTY } from '@/lib/constants'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 
 export default function PromotionsScreen() {
   const { loyalty, welcomeDiscount, igFollowDiscount, flashPromo, starsPerReward } = useAuth()
+  const appDownloadStatus = useAppDownloadStatus()
   const stars = loyalty?.balance ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
   const rewardsCount = perReward > 0 ? Math.floor(stars / perReward) : 0
@@ -15,6 +21,7 @@ export default function PromotionsScreen() {
     flashPromo.available ||
     welcomeDiscount.available ||
     igFollowDiscount.available ||
+    appDownloadAvailable(appDownloadStatus) ||
     rewardsCount > 0
 
   return (
@@ -25,6 +32,8 @@ export default function PromotionsScreen() {
         <FlashPromoCard />
 
         <WelcomeDiscountCard />
+
+        <AppDownloadDiscountCard status={appDownloadStatus} />
 
         <IgFollowPromoCard />
 

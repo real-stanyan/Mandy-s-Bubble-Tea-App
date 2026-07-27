@@ -27,6 +27,10 @@ import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
 import { useStoreStatus } from '@/hooks/use-store-status'
 import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
+import {
+  appDownloadAvailable,
+  useAppDownloadStatus,
+} from '@/components/account/AppDownloadDiscountCard'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { IMG_THUMB } from '@/lib/optimized-image'
@@ -116,6 +120,9 @@ export default function CheckoutScreen() {
     loading: authLoading,
     refresh: refreshAuth,
   } = useAuth()
+  // Self-fetched (same hook the Home/Promotions cards use) — the grant lives
+  // outside /api/me, keyed by phone rather than by customer.
+  const appDownloadStatus = useAppDownloadStatus(!!profile)
   const { createOrder, loading: orderLoading, error: orderError } = useCreateOrder()
   const { pay, loading: payLoading, error: payError } = usePayment()
 
@@ -313,9 +320,34 @@ export default function CheckoutScreen() {
     ? Math.floor((flashBaseCents * flashPromo.percentage) / 100)
     : 0
   const flashWins = flashCandidateCents > otherPromoDiscountCents
-  const flashPromoForSummary = flashWins
-    ? { amountCents: flashCandidateCents, percentage: flashPromo.percentage }
+
+  // App-download promo (per-phone claim, whole-order %) is EXCLUSIVE and sits
+  // one lane ABOVE flash: it replaces whichever discount survived above —
+  // flash OR the welcome/IG/tier bundle — when it's worth more. Mirrors the
+  // server's pick in /api/orders (same base as flash: reward cups shrink it
+  // but aren't themselves a discount) so this page and the Apple/Google Pay
+  // sheet show the amount Square will actually capture. The grant is resolved
+  // server-side from the signed-in phone, so no client flag is sent — this is
+  // display only.
+  const appDownloadPercentage = appDownloadStatus?.percentage ?? 0
+  const appDownloadCandidateCents = appDownloadAvailable(appDownloadStatus)
+    ? Math.floor((flashBaseCents * appDownloadPercentage) / 100)
+    : 0
+  const survivingPromoCents = flashWins ? flashCandidateCents : otherPromoDiscountCents
+  const appDownloadWins =
+    appDownloadCandidateCents > 0 && appDownloadCandidateCents > survivingPromoCents
+  // What the server will actually attach, after both exclusive lanes resolve.
+  const promoDiscountCents = appDownloadWins ? appDownloadCandidateCents : survivingPromoCents
+
+  const flashPromoForSummary =
+    flashWins && !appDownloadWins
+      ? { amountCents: flashCandidateCents, percentage: flashPromo.percentage }
+      : null
+  const appDownloadForSummary = appDownloadWins
+    ? { amountCents: appDownloadCandidateCents, percentage: appDownloadPercentage }
     : null
+  // True when either exclusive promo replaced the welcome/IG/tier bundle.
+  const bundleReplaced = flashWins || appDownloadWins
 
   const phActive = isPublicHolidayActive()
   const phSurchargeCents = isFreeRedeem || !phActive
@@ -325,7 +357,7 @@ export default function CheckoutScreen() {
   const displayedTotal = Math.max(
     total
       - rewardDiscountCents
-      - (flashWins ? flashCandidateCents : otherPromoDiscountCents)
+      - promoDiscountCents
       + surchargeCents
       + platformFeeCents
       + phSurchargeCents
@@ -384,7 +416,13 @@ export default function CheckoutScreen() {
       reportPaymentStep({ step: 'create-order', orderId, payMethod })
 
       let amountCents = total
-      if (flashWins) {
+      if (appDownloadWins) {
+        // Server replaces the entire discount set — bundle AND flash — with
+        // the app-download ticket (exclusive, best single discount); mirror
+        // that pick. When rewardCount > 0 the redeem response below overrides
+        // with the server's own post-discount total anyway.
+        amountCents = Math.max(amountCents - appDownloadCandidateCents, 0)
+      } else if (flashWins) {
         // Server attaches the flash discount instead of the whole
         // welcome/IG/tier bundle (exclusive, best single discount) — mirror
         // that pick so the pay sheet shows what Square will capture. When
@@ -692,7 +730,7 @@ export default function CheckoutScreen() {
           onIncrement={() => setRewardCount((n) => Math.min(maxRewardCount, n + 1))}
           onDecrement={() => setRewardCount((n) => Math.max(0, n - 1))}
           welcome={
-            !flashWins && welcomeDiscountForSummary
+            !bundleReplaced && welcomeDiscountForSummary
               ? {
                   amountCents: welcomeDiscountForSummary.amountCents,
                   coveredCount: welcomeDiscountForSummary.coveredCount,
@@ -700,7 +738,7 @@ export default function CheckoutScreen() {
               : null
           }
           igFollow={
-            !flashWins && igFollowDiscountForSummary
+            !bundleReplaced && igFollowDiscountForSummary
               ? {
                   amountCents: igFollowDiscountForSummary.amountCents,
                   coveredCount: igFollowDiscountForSummary.coveredCount,
@@ -718,13 +756,14 @@ export default function CheckoutScreen() {
         <SummaryBlock
           subtotal={total}
           flash={flashPromoForSummary}
-          welcome={flashWins ? null : welcomeDiscountForSummary}
-          igFollow={flashWins ? null : igFollowDiscountForSummary}
+          appDownload={appDownloadForSummary}
+          welcome={bundleReplaced ? null : welcomeDiscountForSummary}
+          igFollow={bundleReplaced ? null : igFollowDiscountForSummary}
           rewardDiscount={rewardDiscountCents}
           rewardCount={rewardCount}
           tier={tier}
-          tierDiscountCents={flashWins ? 0 : tierPreview.tierDiscountCents}
-          toppingCoveredCents={flashWins ? 0 : tierPreview.toppingCoveredCents}
+          tierDiscountCents={bundleReplaced ? 0 : tierPreview.tierDiscountCents}
+          toppingCoveredCents={bundleReplaced ? 0 : tierPreview.toppingCoveredCents}
           toppingCoveredCount={tierPreview.toppingCoveredCount}
           toppingsRemaining={toppingsRemaining}
           surcharge={surchargeCents}
@@ -1087,6 +1126,7 @@ function NotesBlock({ value, onChange }: { value: string; onChange: (s: string) 
 function SummaryBlock({
   subtotal,
   flash,
+  appDownload,
   welcome,
   igFollow,
   rewardDiscount,
@@ -1104,6 +1144,7 @@ function SummaryBlock({
 }: {
   subtotal: number
   flash: { amountCents: number; percentage: number } | null
+  appDownload: { amountCents: number; percentage: number } | null
   welcome: { amountCents: number; percentage: number; coveredCount: number } | null
   igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
   rewardDiscount: number
@@ -1121,6 +1162,7 @@ function SummaryBlock({
 }) {
   const discountTotal =
     (flash?.amountCents ?? 0) +
+    (appDownload?.amountCents ?? 0) +
     (welcome?.amountCents ?? 0) +
     (igFollow?.amountCents ?? 0) +
     rewardDiscount +
@@ -1137,6 +1179,13 @@ function SummaryBlock({
         <SummaryRow
           label={`Flash Sale ${flash.percentage}% off (today only)`}
           amountCents={-flash.amountCents}
+          muted
+        />
+      )}
+      {appDownload && appDownload.amountCents > 0 && (
+        <SummaryRow
+          label={`App Download ${appDownload.percentage}% off`}
+          amountCents={-appDownload.amountCents}
           muted
         />
       )}
