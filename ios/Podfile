@@ -62,6 +62,19 @@ target 'mandysbubbleteaapp' do
 
     # [SQIP] fix-square-build-order
     system("node", "/Users/stanyan/Github/mandys_bubble_tea_app/ios/fix-square-build-order.js")
+
+    # Xcode 26 / Clang: fmt's consteval basic_format_string trips
+    # "call to consteval function ... is not a constant expression" when
+    # RN deps (folly/fmt) build from source. Force fmt off consteval so the
+    # format-string check falls back to runtime. Harmless to behaviour.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        defs = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+        defs = [defs] unless defs.is_a?(Array)
+        defs << 'FMT_USE_CONSTEVAL=0' unless defs.include?('FMT_USE_CONSTEVAL=0')
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs
+      end
+    end
   end
 end
 
