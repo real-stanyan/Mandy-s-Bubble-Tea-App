@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { getOrderNonce, deriveIdempotencyKey } from '@/lib/order-nonce'
+import { buildOrderLines } from '@/lib/order-lines'
 import type { CartItem, Order } from '@/types/square'
 
 interface CreateOrderParams {
@@ -51,24 +52,7 @@ export function useCreateOrder(): CreateOrderHook {
     setLoading(true)
     setError(null)
     try {
-      const lines = items.map((item) => {
-        const modifierTotal = (item.modifiers ?? []).reduce(
-          (sum, m) => sum + (m.priceCents ?? 0),
-          0,
-        )
-        return {
-          itemName: item.name,
-          variationId: item.variationId,
-          variationName: item.variationName,
-          variationPriceCents: Math.max(0, item.price - modifierTotal),
-          modifiers: (item.modifiers ?? []).map((m) => ({
-            id: m.id,
-            name: m.name,
-            priceCents: m.priceCents ?? 0,
-          })),
-          quantity: item.quantity,
-        }
-      })
+      const lines = buildOrderLines(items)
 
       // Order body WITHOUT idempotencyKey — the key is derived FROM this
       // body (sha256(nonce|body)), mirroring the web checkout, so a retry

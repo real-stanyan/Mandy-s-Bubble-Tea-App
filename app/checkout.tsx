@@ -18,19 +18,22 @@ import { FulfillmentSelector } from '@/components/checkout/FulfillmentSelector'
 import { DeliveryAddressForm } from '@/components/checkout/DeliveryAddressForm'
 import { DeliveryQuoteCard } from '@/components/checkout/DeliveryQuoteCard'
 import { useDeliveryQuote } from '@/hooks/use-delivery-quote'
-import { deliveryAddOnCents, deliveryFeesPending, feeValueText } from '@/lib/delivery'
 import { startActivityForPlacedOrder } from '@/lib/live-activity-sync'
 import { buildPaymentSelections } from '@/lib/doodle/build-payment-selections'
+import { deliveryFeesPending, feeValueText } from '@/lib/delivery'
 import { useCreateOrder } from '@/hooks/use-create-order'
+import {
+  useOrderQuote,
+  quoteCents,
+  type OrderQuote,
+  type QuoteAmount,
+} from '@/hooks/use-order-quote'
+import { buildOrderLines } from '@/lib/order-lines'
 import { usePayment } from '@/hooks/use-payment'
 import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
 import { useStoreStatus } from '@/hooks/use-store-status'
 import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
-import {
-  appDownloadAvailable,
-  useAppDownloadStatus,
-} from '@/components/account/AppDownloadDiscountCard'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { IMG_THUMB } from '@/lib/optimized-image'
@@ -42,16 +45,10 @@ import { CardBlock } from '@/components/checkout/CardBlock'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
 import { hashColor } from '@/components/brand/color'
 import { T, FONT, RADIUS, SHADOW } from '@/constants/theme'
-import { CARD_SURCHARGE, LOYALTY, PH_SURCHARGE, PLATFORM_FEE } from '@/lib/constants'
-import { cardSurcharge, platformFee, publicHolidaySurcharge } from '@/lib/surcharge'
+import { LOYALTY } from '@/lib/constants'
 import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
-import { pickPromoCups } from '@/lib/promo-cup-pick'
-import { tierFor, type MembershipTier } from '@/lib/membership-tier'
-import { tierCheckoutPreview } from '@/lib/tier-checkout-preview'
-import type { CupRecord } from '@/lib/tier-toppings'
-import { useTierToppings } from '@/hooks/use-tier-toppings'
 import {
   initSquarePayments,
   isSandboxPayments,
@@ -115,14 +112,10 @@ export default function CheckoutScreen() {
     loyalty,
     welcomeDiscount,
     igFollowDiscount,
-    flashPromo,
     starsPerReward,
     loading: authLoading,
     refresh: refreshAuth,
   } = useAuth()
-  // Self-fetched (same hook the Home/Promotions cards use) — the grant lives
-  // outside /api/me, keyed by phone rather than by customer.
-  const appDownloadStatus = useAppDownloadStatus(!!profile)
   const { createOrder, loading: orderLoading, error: orderError } = useCreateOrder()
   const { pay, loading: payLoading, error: payError } = usePayment()
 
@@ -172,15 +165,9 @@ export default function CheckoutScreen() {
   }, [slots])
 
   const loyaltyBalance = loyalty?.balance ?? 0
-  // Membership tier — derived from lifetime points, never stored and never
-  // sent to the server (the orders route recomputes it from Square).
-  const tier = tierFor(loyalty?.lifetimePoints ?? 0)
-  const { remaining: tierToppingsRemaining } = useTierToppings(tier)
-  const toppingsRemaining = tierToppingsRemaining ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
   const canRedeem = perReward > 0 && loyaltyBalance >= perReward
   const welcomeAvailable = welcomeDiscount.available
-  const welcomePercentage = welcomeDiscount.percentage
 
   const cupCount = items.reduce((n, it) => n + it.quantity, 0)
   const maxRewardCount = perReward > 0
@@ -213,157 +200,71 @@ export default function CheckoutScreen() {
     }
   }, [profile])
 
-  const sortedUnitPrices = useMemo(() => {
-    const arr: number[] = []
-    for (const item of items) {
-      for (let i = 0; i < item.quantity; i++) arr.push(item.price)
-    }
-    return arr.sort((a, b) => a - b)
-  }, [items])
-
-  const welcomeK = welcomeAvailable
-    ? Math.min(welcomeDiscount.drinksRemaining, sortedUnitPrices.length)
-    : 0
-  const igFollowK = igFollowDiscount.available ? igFollowDiscount.drinksRemaining : 0
-
-  const { welcomeCups, igFollowCups } = pickPromoCups({
-    unitPrices: sortedUnitPrices,
-    welcomeK,
-    igFollowK,
-    loyaltyRewardCount: rewardCount,
-  })
-
-  const welcomeAmount = Math.floor(
-    (welcomeCups.reduce((s, p) => s + p, 0) * welcomePercentage) / 100,
+  // The exact body `/api/orders` will receive, minus the free-text note — the
+  // note changes on every keystroke and never moves the price. Both the quote
+  // below and the create call in handlePay are built from the same cart, so
+  // what the customer reads is priced from the request that gets charged.
+  const quoteBody = useMemo(
+    () => ({
+      lines: buildOrderLines(items),
+      applyWelcomeDiscount: welcomeAvailable,
+      applyIgFollowDiscount: igFollowDiscount.available,
+      applyLoyaltyReward: rewardCount > 0,
+      loyaltyRewardCount: rewardCount,
+      fulfillmentType,
+      ...(fulfillmentType === 'DELIVERY' &&
+      deliveryAddress.address &&
+      deliveryAddress.lat &&
+      deliveryAddress.lng
+        ? {
+            delivery: {
+              address: deliveryAddress.address,
+              lat: deliveryAddress.lat,
+              lng: deliveryAddress.lng,
+              unit: deliveryAddress.unit || undefined,
+              driverNote: deliveryAddress.driverNote || undefined,
+              postcode: deliveryAddress.postcode || undefined,
+            },
+          }
+        : {}),
+    }),
+    [
+      items,
+      welcomeAvailable,
+      igFollowDiscount.available,
+      rewardCount,
+      fulfillmentType,
+      deliveryAddress,
+    ],
   )
-  const igFollowAmount = Math.floor(
-    (igFollowCups.reduce((s, p) => s + p, 0) * igFollowDiscount.percentage) / 100,
-  )
-
-  const welcomeDiscountForSummary =
-    welcomeAvailable && welcomeCups.length > 0
-      ? {
-          amountCents: welcomeAmount,
-          percentage: welcomePercentage,
-          coveredCount: welcomeCups.length,
-        }
-      : null
-
-  const igFollowDiscountForSummary =
-    igFollowDiscount.available && igFollowCups.length > 0
-      ? {
-          amountCents: igFollowAmount,
-          percentage: igFollowDiscount.percentage,
-          coveredCount: igFollowCups.length,
-        }
-      : null
-
-  const rewardDiscountCents = sortedUnitPrices
-    .slice(0, rewardCount)
-    .reduce((s, p) => s + p, 0)
-
-  // Build CupRecord[] from cart items — mirrors the server's per-cup
-  // expansion. unitPrice = variation + all modifiers (CartItem.price);
-  // toppingPrices = each modifier's priceCents (0 = included, filtered by
-  // collectPaidToppingUnits). Repeated once per quantity unit.
-  const cups = useMemo<CupRecord[]>(() => {
-    const result: CupRecord[] = []
-    for (const item of items) {
-      const toppingPrices = (item.modifiers ?? []).map((m) => m.priceCents ?? 0)
-      for (let i = 0; i < item.quantity; i++) {
-        result.push({ unitPrice: item.price, toppingPrices })
-      }
-    }
-    return result
-  }, [items])
-
-  // Preview the tier discount + diamond free-topping coverage, mirroring
-  // the server's math in /api/orders so the displayed total (and the
-  // Apple/Google Pay sheet amount) equals the charge.
-  const tierPreview = tierCheckoutPreview({
-    tier,
-    cups,
-    rewardCount,
-    toppingsRemaining,
-    subtotal: total,
-    rewardDiscount: rewardDiscountCents,
-    welcomeDiscount: welcomeDiscountForSummary?.amountCents ?? 0,
-    igFollowDiscount: igFollowDiscountForSummary?.amountCents ?? 0,
-  })
-
-  const totalDiscountCents =
-    rewardDiscountCents +
-    (welcomeDiscountForSummary?.amountCents ?? 0) +
-    (igFollowDiscountForSummary?.amountCents ?? 0) +
-    tierPreview.toppingCoveredCents +
-    tierPreview.tierDiscountCents
-  const isFreeRedeem = rewardCount > 0 && total - totalDiscountCents <= 0
-  // Mirrors the SUBTOTAL_PHASE Square service charge in /api/orders:
-  // 1.9% of the pre-discount subtotal, floored. Skipped on free redeem
-  // since the server also skips it on that branch.
-  const surchargeCents = isFreeRedeem ? 0 : cardSurcharge(total)
-  const platformFeeCents = isFreeRedeem ? 0 : platformFee(total)
-  // PH surcharge mirrors the server-side detection: 10% of the pre-discount
-  // subtotal, only on QLD public holidays (Christmas Eve from 18:00).
-  // Skipped on free redeem for the same reason as the card surcharge.
-  // Flash promo (store-wide one-day %) is EXCLUSIVE: the order gets either
-  // the flash discount or the welcome/IG/tier bundle, whichever is worth
-  // more — mirroring the server's pick in /api/orders. Reward cups are not
-  // a discount; they only shrink the flash base.
-  const otherPromoDiscountCents =
-    (welcomeDiscountForSummary?.amountCents ?? 0) +
-    (igFollowDiscountForSummary?.amountCents ?? 0) +
-    tierPreview.toppingCoveredCents +
-    tierPreview.tierDiscountCents
-  const flashBaseCents = Math.max(total - rewardDiscountCents, 0)
-  const flashCandidateCents = flashPromo.available
-    ? Math.floor((flashBaseCents * flashPromo.percentage) / 100)
-    : 0
-  const flashWins = flashCandidateCents > otherPromoDiscountCents
-
-  // App-download promo (per-phone claim, whole-order %) is EXCLUSIVE and sits
-  // one lane ABOVE flash: it replaces whichever discount survived above —
-  // flash OR the welcome/IG/tier bundle — when it's worth more. Mirrors the
-  // server's pick in /api/orders (same base as flash: reward cups shrink it
-  // but aren't themselves a discount) so this page and the Apple/Google Pay
-  // sheet show the amount Square will actually capture. The grant is resolved
-  // server-side from the signed-in phone, so no client flag is sent — this is
-  // display only.
-  const appDownloadPercentage = appDownloadStatus?.percentage ?? 0
-  const appDownloadCandidateCents = appDownloadAvailable(appDownloadStatus)
-    ? Math.floor((flashBaseCents * appDownloadPercentage) / 100)
-    : 0
-  const survivingPromoCents = flashWins ? flashCandidateCents : otherPromoDiscountCents
-  const appDownloadWins =
-    appDownloadCandidateCents > 0 && appDownloadCandidateCents > survivingPromoCents
-  // What the server will actually attach, after both exclusive lanes resolve.
-  const promoDiscountCents = appDownloadWins ? appDownloadCandidateCents : survivingPromoCents
-
-  const flashPromoForSummary =
-    flashWins && !appDownloadWins
-      ? { amountCents: flashCandidateCents, percentage: flashPromo.percentage }
-      : null
-  const appDownloadForSummary = appDownloadWins
-    ? { amountCents: appDownloadCandidateCents, percentage: appDownloadPercentage }
-    : null
-  // True when either exclusive promo replaced the welcome/IG/tier bundle.
-  const bundleReplaced = flashWins || appDownloadWins
 
   const phActive = isPublicHolidayActive()
-  const phSurchargeCents = isFreeRedeem || !phActive
-    ? 0
-    : publicHolidaySurcharge(total)
-  const deliveryFeeCents = deliveryAddOnCents(fulfillmentType, isFreeRedeem, quote)
-  const displayedTotal = Math.max(
-    total
-      - rewardDiscountCents
-      - promoDiscountCents
-      + surchargeCents
-      + platformFeeCents
-      + phSurchargeCents
-      + deliveryFeeCents,
-    0,
+
+  // Server-priced summary — every discount, every surcharge, the total.
+  //
+  // This screen used to decide all of it locally: which promos apply, how many
+  // cups each covers, which one wins the exclusive better-of, and what the
+  // percentage surcharges come to. That copy of the rules could only lag the
+  // server's, and did (#40). Now the server decides and this screen renders.
+  // Signed out there is nothing to price — every promo resolves off the
+  // session, and the endpoint 401s. The screen shows the cart subtotal.
+  const { quote: orderQuote } = useOrderQuote(
+    quoteBody,
+    items.length > 0 && !!profile,
+    phActive,
   )
+
+  const rewardDiscountCents = quoteCents(orderQuote?.rewardCupsSumCents)
+  const promoDiscountCents = quoteCents(orderQuote?.discountTotalCents)
+  // Drinks fully covered by a loyalty reward. Not the same as "$0 order":
+  // a DELIVERY redeem still pays its delivery + service fees.
+  const isFreeRedeem =
+    rewardCount > 0 &&
+    quoteCents(orderQuote?.subtotalCents) - promoDiscountCents - rewardDiscountCents <= 0
+
+  // No quote yet (first paint, or offline): show the bare cart subtotal rather
+  // than inventing a total. Too high, never too low.
+  const displayedTotal = orderQuote ? quoteCents(orderQuote.netTotalCents) : total
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -385,8 +286,11 @@ export default function CheckoutScreen() {
     setPaymentError(null)
     setPayNotice(null)
 
-    const useWelcome = welcomeAvailable && welcomeCups.length > 0
-    const useIgFollow = igFollowDiscount.available && igFollowCups.length > 0
+    // Ask for both; the server verifies each against Supabase and silently
+    // ignores one the customer doesn't hold. Same flags the quote was priced
+    // with, so the created order can't come back cheaper or dearer than shown.
+    const useWelcome = welcomeAvailable
+    const useIgFollow = igFollowDiscount.available
 
     try {
       // applyLoyaltyReward (legacy) + loyaltyRewardCount (new) both gate
@@ -415,35 +319,13 @@ export default function CheckoutScreen() {
       })
       reportPaymentStep({ step: 'create-order', orderId, payMethod })
 
-      let amountCents = total
-      if (appDownloadWins) {
-        // Server replaces the entire discount set — bundle AND flash — with
-        // the app-download ticket (exclusive, best single discount); mirror
-        // that pick. When rewardCount > 0 the redeem response below overrides
-        // with the server's own post-discount total anyway.
-        amountCents = Math.max(amountCents - appDownloadCandidateCents, 0)
-      } else if (flashWins) {
-        // Server attaches the flash discount instead of the whole
-        // welcome/IG/tier bundle (exclusive, best single discount) — mirror
-        // that pick so the pay sheet shows what Square will capture. When
-        // rewardCount > 0 the redeem response below overrides with the
-        // server's own post-discount total anyway.
-        amountCents = Math.max(amountCents - flashCandidateCents, 0)
-      } else {
-        if (useWelcome) amountCents = Math.max(amountCents - welcomeAmount, 0)
-        if (useIgFollow) amountCents = Math.max(amountCents - igFollowAmount, 0)
-        if (rewardCount === 0) {
-          // Tier discount + diamond free toppings are applied server-side in
-          // /api/orders; mirror them here so the Apple/Google Pay sheet shows
-          // the amount Square will actually capture. When rewardCount > 0 the
-          // /api/loyalty/redeem response below returns updatedAmountCents
-          // which already includes the tier discounts — don't double-apply.
-          amountCents = Math.max(
-            amountCents - tierPreview.toppingCoveredCents - tierPreview.tierDiscountCents,
-            0,
-          )
-        }
-      }
+      // What Square will capture, from the order Square just priced. Every
+      // discount the server attached is already in it — there is nothing left
+      // to mirror, and mirroring is what made the pay sheet disagree with the
+      // charge in the first place (#40).
+      let amountCents = Number(createdOrder?.totalMoney?.amount ?? total)
+      if (!Number.isFinite(amountCents) || amountCents < 0) amountCents = total
+
       if (rewardCount > 0) {
         let redeemRes: { ok: boolean; updatedAmountCents?: string; error?: string }
         try {
@@ -479,16 +361,6 @@ export default function CheckoutScreen() {
       }
 
       const isFreeOrder = amountCents <= 0
-      // Surcharges mirror the SUBTOTAL_PHASE service charges attached
-      // server-side; add them to the Apple/Google Pay sheet total so the
-      // user sees the real amount Square will capture. PH → Platform → Card
-      // matches the server's receipt ordering.
-      if (!isFreeOrder) {
-        if (phSurchargeCents > 0) amountCents += phSurchargeCents
-        if (platformFeeCents > 0) amountCents += platformFeeCents
-        if (surchargeCents > 0) amountCents += surchargeCents
-        if (deliveryFeeCents > 0) amountCents += deliveryFeeCents
-      }
 
       // Upload any draw doodles whose paths haven't been persisted yet.
       // Run all uploads in parallel; abort the whole pay flow if any fails.
@@ -729,22 +601,7 @@ export default function CheckoutScreen() {
           maxRewardCount={maxRewardCount}
           onIncrement={() => setRewardCount((n) => Math.min(maxRewardCount, n + 1))}
           onDecrement={() => setRewardCount((n) => Math.max(0, n - 1))}
-          welcome={
-            !bundleReplaced && welcomeDiscountForSummary
-              ? {
-                  amountCents: welcomeDiscountForSummary.amountCents,
-                  coveredCount: welcomeDiscountForSummary.coveredCount,
-                }
-              : null
-          }
-          igFollow={
-            !bundleReplaced && igFollowDiscountForSummary
-              ? {
-                  amountCents: igFollowDiscountForSummary.amountCents,
-                  coveredCount: igFollowDiscountForSummary.coveredCount,
-                }
-              : null
-          }
+          promos={orderQuote?.discounts ?? []}
         />
         <PaymentBlock
           payMethod={payMethod}
@@ -755,30 +612,19 @@ export default function CheckoutScreen() {
         <NotesBlock value={note} onChange={setNote} />
         <SummaryBlock
           subtotal={total}
-          flash={flashPromoForSummary}
-          appDownload={appDownloadForSummary}
-          welcome={bundleReplaced ? null : welcomeDiscountForSummary}
-          igFollow={bundleReplaced ? null : igFollowDiscountForSummary}
-          rewardDiscount={rewardDiscountCents}
+          quote={orderQuote}
           rewardCount={rewardCount}
-          tier={tier}
-          tierDiscountCents={bundleReplaced ? 0 : tierPreview.tierDiscountCents}
-          toppingCoveredCents={bundleReplaced ? 0 : tierPreview.toppingCoveredCents}
-          toppingCoveredCount={tierPreview.toppingCoveredCount}
-          toppingsRemaining={toppingsRemaining}
-          surcharge={surchargeCents}
-          platformFee={platformFeeCents}
-          phSurcharge={phSurchargeCents}
           delivery={
             fulfillmentType === 'DELIVERY'
               ? {
-                  pending: deliveryFeesPending(fulfillmentType, isFreeRedeem, quote.kind),
-                  feeCents: quote.kind === 'ok' ? quote.feeCents : 0,
-                  serviceFeeCents: quote.kind === 'ok' ? quote.serviceFeeCents : 0,
+                  pending: deliveryFeesPending(
+                    fulfillmentType,
+                    isFreeRedeem,
+                    quote.kind,
+                  ),
                 }
               : null
           }
-          deliveryAddOnCents={deliveryFeeCents}
         />
         {(error || orderError || payError) && (
           <Text style={styles.errorText}>{error || orderError || payError}</Text>
@@ -958,8 +804,7 @@ function RewardsBlock({
   maxRewardCount,
   onIncrement,
   onDecrement,
-  welcome,
-  igFollow,
+  promos,
 }: {
   stars: number
   goal: number
@@ -968,8 +813,8 @@ function RewardsBlock({
   maxRewardCount: number
   onIncrement: () => void
   onDecrement: () => void
-  welcome: { amountCents: number; coveredCount: number } | null
-  igFollow: { amountCents: number; coveredCount: number } | null
+  /** Discounts the server actually attached, with its own labels. */
+  promos: QuoteAmount[]
 }) {
   const title = canRedeem ? 'Free drink available' : `${stars} / ${goal} stars`
   const progressPct = Math.min(goal > 0 ? stars / goal : 0, 1) * 100
@@ -1024,18 +869,15 @@ function RewardsBlock({
             Redeeming {rewardCount} free drink{rewardCount === 1 ? '' : 's'}.
           </Text>
         )}
-        {welcome && welcome.coveredCount > 0 && (
-          <Text style={styles.welcomeHint}>
-            Welcome 30% off applied to {welcome.coveredCount} drink
-            {welcome.coveredCount === 1 ? '' : 's'} — saves {formatPrice(welcome.amountCents)}
+        {/* One hint per discount the server attached — its label already
+            says which promo and how many drinks it covers. This used to
+            hard-code Welcome and IG Follow, so a newer promo silently had
+            no hint at all. */}
+        {promos.map((p) => (
+          <Text key={p.uid} style={styles.welcomeHint}>
+            {p.name} — saves {formatPrice(quoteCents(p.amountCents))}
           </Text>
-        )}
-        {igFollow && igFollow.coveredCount > 0 && (
-          <Text style={styles.welcomeHint}>
-            IG Follow 10% off applied to {igFollow.coveredCount} drink
-            {igFollow.coveredCount === 1 ? '' : 's'} — saves {formatPrice(igFollow.amountCents)}
-          </Text>
-        )}
+        ))}
       </View>
     </CardBlock>
   )
@@ -1123,132 +965,82 @@ function NotesBlock({ value, onChange }: { value: string; onChange: (s: string) 
   )
 }
 
+// The money block, rendered straight from the server's quote.
+//
+// Every discount and fee row — including its LABEL — comes out of
+// /api/orders/quote, because only the server knows how many cups a promo
+// covered and which promo won the exclusive better-of. Nothing is decided
+// here; a promo added server-side shows up with no app release (#40).
 function SummaryBlock({
   subtotal,
-  flash,
-  appDownload,
-  welcome,
-  igFollow,
-  rewardDiscount,
+  quote,
   rewardCount: rewardCountForSummary,
-  tier,
-  tierDiscountCents,
-  toppingCoveredCents,
-  toppingCoveredCount,
-  toppingsRemaining,
-  surcharge,
-  platformFee: platformFeeAmt,
-  phSurcharge,
   delivery,
-  deliveryAddOnCents: deliveryAddOnCentsAmt,
 }: {
+  /** Local cart subtotal — shown only until the first quote lands. */
   subtotal: number
-  flash: { amountCents: number; percentage: number } | null
-  appDownload: { amountCents: number; percentage: number } | null
-  welcome: { amountCents: number; percentage: number; coveredCount: number } | null
-  igFollow: { amountCents: number; percentage: number; coveredCount: number } | null
-  rewardDiscount: number
+  quote: OrderQuote | null
   rewardCount: number
-  tier: MembershipTier
-  tierDiscountCents: number
-  toppingCoveredCents: number
-  toppingCoveredCount: number
-  toppingsRemaining: number
-  surcharge: number
-  platformFee: number
-  phSurcharge: number
-  delivery?: { pending: boolean; feeCents: number; serviceFeeCents: number } | null
-  deliveryAddOnCents?: number
+  /** Delivery chosen but the address quote hasn't resolved yet. */
+  delivery?: { pending: boolean } | null
 }) {
-  const discountTotal =
-    (flash?.amountCents ?? 0) +
-    (appDownload?.amountCents ?? 0) +
-    (welcome?.amountCents ?? 0) +
-    (igFollow?.amountCents ?? 0) +
-    rewardDiscount +
-    toppingCoveredCents +
-    tierDiscountCents
-  const total = Math.max(
-    subtotal - discountTotal + surcharge + platformFeeAmt + phSurcharge + (deliveryAddOnCentsAmt ?? 0),
-    0,
+  const rewardCents = quoteCents(quote?.rewardCupsSumCents)
+  const deliveryFee = quote?.serviceCharges.find((sc) => sc.uid === 'delivery-fee')
+  const serviceFee = quote?.serviceCharges.find((sc) => sc.uid === 'service-fee')
+  const otherCharges = (quote?.serviceCharges ?? []).filter(
+    (sc) => sc.uid !== 'delivery-fee' && sc.uid !== 'service-fee',
   )
+  const total = quote ? quoteCents(quote.netTotalCents) : subtotal
+
   return (
     <View style={styles.summaryCard}>
-      <SummaryRow label="Subtotal" amountCents={subtotal} muted />
-      {flash && flash.amountCents > 0 && (
+      <SummaryRow
+        label="Subtotal"
+        amountCents={quote ? quoteCents(quote.subtotalCents) : subtotal}
+        muted
+      />
+      {(quote?.discounts ?? []).map((d) => (
         <SummaryRow
-          label={`Flash Sale ${flash.percentage}% off (today only)`}
-          amountCents={-flash.amountCents}
+          key={d.uid}
+          label={d.name}
+          amountCents={-quoteCents(d.amountCents)}
           muted
         />
-      )}
-      {appDownload && appDownload.amountCents > 0 && (
-        <SummaryRow
-          label={`App Download ${appDownload.percentage}% off`}
-          amountCents={-appDownload.amountCents}
-          muted
-        />
-      )}
-      {welcome && welcome.amountCents > 0 && (
-        <SummaryRow
-          label={`Welcome ${welcome.percentage}% off (${welcome.coveredCount} drink${welcome.coveredCount === 1 ? '' : 's'})`}
-          amountCents={-welcome.amountCents}
-          muted
-        />
-      )}
-      {igFollow && igFollow.amountCents > 0 && (
-        <SummaryRow
-          label={`IG Follow ${igFollow.percentage}% off (${igFollow.coveredCount} drink${igFollow.coveredCount === 1 ? '' : 's'})`}
-          amountCents={-igFollow.amountCents}
-          muted
-        />
-      )}
-      {rewardDiscount > 0 && (
+      ))}
+      {rewardCountForSummary > 0 && (
         <SummaryRow
           label={`Reward discount${rewardCountForSummary > 1 ? ` ×${rewardCountForSummary}` : ''}`}
-          amountCents={-rewardDiscount}
+          amountCents={-rewardCents}
           muted
         />
       )}
-      {toppingCoveredCents > 0 && (
+      {otherCharges.map((sc) => (
         <SummaryRow
-          label={`Free toppings ×${toppingCoveredCount} (${toppingsRemaining} left this month)`}
-          amountCents={-toppingCoveredCents}
+          key={sc.uid}
+          label={sc.name}
+          amountCents={quoteCents(sc.amountCents)}
           muted
         />
-      )}
-      {tierDiscountCents > 0 && (
-        <SummaryRow
-          label={`${tier === 'diamond' ? 'Diamond' : 'Gold'} Member −5%`}
-          amountCents={-tierDiscountCents}
-          muted
-        />
-      )}
-      {phSurcharge > 0 && (
-        <SummaryRow
-          label={`${PH_SURCHARGE.name} (${PH_SURCHARGE.percentage}%)`}
-          amountCents={phSurcharge}
-          muted
-        />
-      )}
-      {platformFeeAmt > 0 && (
-        <SummaryRow
-          label={`${PLATFORM_FEE.name} (${PLATFORM_FEE.percentage}%)`}
-          amountCents={platformFeeAmt}
-          muted
-        />
-      )}
-      {surcharge > 0 && (
-        <SummaryRow
-          label={`${CARD_SURCHARGE.name} (${CARD_SURCHARGE.percentage}%)`}
-          amountCents={surcharge}
-          muted
-        />
-      )}
+      ))}
       {delivery && (
         <>
-          <SummaryTextRow label="Delivery Fee" value={feeValueText(delivery.pending, delivery.feeCents)} />
-          <SummaryTextRow label="Service Fee (5%)" value={feeValueText(delivery.pending, delivery.serviceFeeCents)} />
+          {/* A zero delivery fee is attached as no charge at all, so "no row"
+              means free — but only once a quote exists. Before that it's
+              unknown, and printing FREE would be a promise we can't keep. */}
+          <SummaryTextRow
+            label="Delivery Fee"
+            value={feeValueText(
+              delivery.pending || !quote,
+              quoteCents(deliveryFee?.amountCents),
+            )}
+          />
+          <SummaryTextRow
+            label={serviceFee?.name ?? 'Service Fee (5%)'}
+            value={feeValueText(
+              delivery.pending || !quote,
+              quoteCents(serviceFee?.amountCents),
+            )}
+          />
         </>
       )}
       <View style={styles.summaryDivider} />
