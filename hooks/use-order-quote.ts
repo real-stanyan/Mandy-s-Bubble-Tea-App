@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import type { OrderQuote } from '@/lib/order-quote'
+import { staleCartFrom, type StaleCart } from '@/lib/stale-cart'
 
 export type { OrderQuote, QuoteAmount } from '@/lib/order-quote'
 export { quoteCents, serviceChargeCents } from '@/lib/order-quote'
+export type { StaleCart } from '@/lib/stale-cart'
 
 // Asks the server what this cart costs. The answer replaces what checkout used
 // to work out for itself — welcome / IG follow / tier / diamond toppings /
@@ -27,8 +29,9 @@ export function useOrderQuote(
    * nothing in the cart, so nothing in the body would move.
    */
   refreshKey: string | number | boolean = '',
-): { quote: OrderQuote | null; loading: boolean } {
+): { quote: OrderQuote | null; loading: boolean; blocked: StaleCart | null } {
   const [quote, setQuote] = useState<OrderQuote | null>(null)
+  const [blocked, setBlocked] = useState<StaleCart | null>(null)
   const [loading, setLoading] = useState(false)
   // The serialized body doubles as the effect key: a re-render that produces
   // an identical cart must not refetch. `null` means "nothing to price".
@@ -50,11 +53,23 @@ export function useOrderQuote(
           // stale-while-revalidate behaviour. A failure (offline, Square down)
           // leaves the previous one up; checkout falls back to the plain cart
           // subtotal when there has never been one.
-          if (json?.ok) setQuote(json)
+          if (json?.ok) {
+            setQuote(json)
+            setBlocked(null)
+          }
           setLoading(false)
         })
-        .catch(() => {
+        .catch((err) => {
           if (cancelled) return
+          const stale = staleCartFrom(err)
+          if (stale) {
+            // Drop the old quote as well as flagging it. It was priced for a
+            // cart that no longer exists, and leaving it up would keep a
+            // believable total on screen underneath the warning that says not
+            // to believe it.
+            setQuote(null)
+            setBlocked(stale)
+          }
           setLoading(false)
         })
     }, DEBOUNCE_MS)
@@ -67,5 +82,10 @@ export function useOrderQuote(
     // a whole, so the extra entry can never cause a second fetch.
   }, [key, effectKey])
 
-  return { quote: key ? quote : null, loading: key ? loading : false }
+  // An emptied cart drops both without a state write during render.
+  return {
+    quote: key ? quote : null,
+    loading: key ? loading : false,
+    blocked: key ? blocked : null,
+  }
 }

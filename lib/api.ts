@@ -43,6 +43,29 @@ export function appVersionString(): string {
   return build != null ? `${version}+${build}` : version
 }
 
+/**
+ * A non-2xx response, with the status and parsed body kept intact.
+ *
+ * `apiFetch` used to throw a plain Error, which flattened every failure into
+ * one string — so a caller could not tell "the server refused this cart" from
+ * "the network blipped". Checkout needs that difference: a 409 stale cart has
+ * to be shown to the customer, while everything else is safe to swallow (see
+ * hooks/use-order-quote.ts). The message format is unchanged, so anything
+ * already rendering `e.message` keeps rendering the same text.
+ */
+export class ApiError extends Error {
+  readonly status: number
+  /** Parsed JSON body when the server sent JSON, else the raw text. */
+  readonly body: unknown
+
+  constructor(status: number, body: unknown, text: string) {
+    super(`API ${status}: ${text}`)
+    this.name = 'ApiError'
+    this.status = status
+    this.body = body
+  }
+}
+
 let cachedToken: string | null = null
 let hydratePromise: Promise<void> | null = null
 let refreshPromise: Promise<string | null> | null = null
@@ -138,7 +161,13 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 
   if (!res.ok) {
     const text = await res.text().catch(() => 'Unknown error')
-    throw new Error(`API ${res.status}: ${text}`)
+    let body: unknown = text
+    try {
+      body = JSON.parse(text)
+    } catch {
+      // Not JSON (an HTML error page, an empty body). Keep the text.
+    }
+    throw new ApiError(res.status, body, text)
   }
   return res.json()
 }
