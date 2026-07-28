@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { getOrderNonce, deriveIdempotencyKey } from '@/lib/order-nonce'
 import { buildOrderLines } from '@/lib/order-lines'
+import { staleCartFrom } from '@/lib/stale-cart'
 import type { CartItem, Order } from '@/types/square'
 
 interface CreateOrderParams {
@@ -91,7 +92,16 @@ export function useCreateOrder(): CreateOrderHook {
 
       return { orderId: orderRes.orderId, order: orderRes.order }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to create order'
+      // A cart can go stale between the quote and the tap (the catalog is
+      // edited from the Square dashboard mid-session). The server says so in
+      // plain English; without this the customer would read the raw
+      // `API 409: {"ok":false,...}`.
+      const stale = staleCartFrom(e)
+      const msg = stale
+        ? stale.message
+        : e instanceof Error
+          ? e.message
+          : 'Failed to create order'
       setError(msg)
       throw e
     } finally {

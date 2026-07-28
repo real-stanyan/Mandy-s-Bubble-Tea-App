@@ -248,11 +248,17 @@ export default function CheckoutScreen() {
   // server's, and did (#40). Now the server decides and this screen renders.
   // Signed out there is nothing to price — every promo resolves off the
   // session, and the endpoint 401s. The screen shows the cart subtotal.
-  const { quote: orderQuote } = useOrderQuote(
+  const { quote: orderQuote, blocked: quoteBlocked } = useOrderQuote(
     quoteBody,
     items.length > 0 && !!profile,
     phActive,
   )
+
+  // The server refused to price this cart because it holds an item the catalog
+  // no longer has. /api/orders will refuse to create it for the same reason, so
+  // showing a total and an enabled pay button would only send the customer into
+  // a failure they can't diagnose (#94).
+  const cartHasRetiredItems = quoteBlocked !== null
 
   const rewardDiscountCents = quoteCents(orderQuote?.rewardCupsSumCents)
   const promoDiscountCents = quoteCents(orderQuote?.discountTotalCents)
@@ -280,6 +286,7 @@ export default function CheckoutScreen() {
     // Defensive: UI should already have the button disabled, but guard the
     // submit path in case acceptance flips between render and tap.
     if (!canAcceptOrders().accepting) return
+    if (cartHasRetiredItems) return
 
     setProcessing(true)
     setError(null)
@@ -508,7 +515,12 @@ export default function CheckoutScreen() {
   const acceptance = useOrderAcceptance()
   const deliveryReady = fulfillmentType !== 'DELIVERY' || quote.kind === 'ok'
   const payDisabled =
-    isLoading || !acceptance.accepting || !allLabeled || !deliveryReady || squareInitFailed
+    isLoading ||
+    !acceptance.accepting ||
+    !allLabeled ||
+    !deliveryReady ||
+    squareInitFailed ||
+    cartHasRetiredItems
 
   if (authLoading && !profile) {
     return (
@@ -558,6 +570,19 @@ export default function CheckoutScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 130 }}
       >
         <InlineHeader onBack={handleBack} total={displayedTotal} />
+        {quoteBlocked && (
+          <Pressable
+            onPress={handleBack}
+            accessibilityRole="button"
+            accessibilityLabel={`${quoteBlocked.message} Go back to your cart.`}
+            style={styles.staleCartCard}
+          >
+            <Text style={styles.staleCartTitle}>{quoteBlocked.message}</Text>
+            <Text style={styles.staleCartAction}>
+              Remove them and add them again — tap here to go back.
+            </Text>
+          </Pressable>
+        )}
         <Image
           source={
             fulfillmentType === 'PICKUP'
@@ -1452,6 +1477,30 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: T.ink2,
     textAlign: 'center',
+  },
+  staleCartCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#fef2f2',
+    borderRadius: RADIUS.small,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  staleCartTitle: {
+    fontFamily: FONT.sans,
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '700',
+    color: '#b91c1c',
+  },
+  staleCartAction: {
+    fontFamily: FONT.sans,
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 4,
+    color: '#b91c1c',
   },
   errorText: {
     marginHorizontal: 16,
