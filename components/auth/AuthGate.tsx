@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
+import Animated, { FadeOut } from 'react-native-reanimated'
+import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { BRAND } from '@/lib/constants'
+import { BreathingGlow } from '@/components/ui/BreathingGlow'
+import { T } from '@/constants/theme'
 
 // Gate the whole app: unauthenticated (or session without a finished profile)
 // lands on /login; authenticated users that stray onto /login are kicked back
@@ -76,13 +79,24 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
+      {/* Both overlays sit on dark ink, so the status bar has to invert with
+          them — the app's own `style="dark"` is unreadable against it. */}
+      {(showOverlay || showFetchError) && <StatusBar style="light" />}
       {showOverlay && (
-        <View style={styles.splash} pointerEvents="auto">
-          <ActivityIndicator size="large" color={BRAND.color} />
-        </View>
+        // Fade out rather than cutting: the app underneath is cream, and a hard
+        // dark-to-light swap at the end of the entrance undoes the calm the
+        // glow just spent five seconds building.
+        <Animated.View
+          style={styles.splash}
+          pointerEvents="auto"
+          exiting={FadeOut.duration(420)}
+        >
+          <BreathingGlow />
+        </Animated.View>
       )}
       {showFetchError && (
         <View style={styles.errorOverlay} pointerEvents="auto">
+          <BreathingGlow />
           <Text style={styles.errorTitle}>Trouble connecting</Text>
           <Text style={styles.errorBody}>
             We couldn&apos;t reach Mandy&apos;s server. Check your connection and try again.
@@ -93,7 +107,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             disabled={retrying}
           >
             {retrying ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={T.ink} />
             ) : (
               <Text style={styles.retryText}>Retry</Text>
             )}
@@ -109,33 +123,33 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ECEBE6',
     zIndex: 9999,
   },
+  // Sits on the same glow as the splash — a connection failure is still part of
+  // the entrance, so it shouldn't hard-cut from dark ink to a cream error card.
   errorOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ECEBE6',
     paddingHorizontal: 32,
     zIndex: 9999,
   },
   errorTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#141413',
+    color: T.cream,
     marginBottom: 8,
     textAlign: 'center',
   },
   errorBody: {
     fontSize: 14,
-    color: '#3A3A37',
+    color: 'rgba(255,243,222,0.72)',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
   },
   retryBtn: {
-    backgroundColor: BRAND.color,
+    backgroundColor: T.peach,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 999,
@@ -143,5 +157,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   retryBtnDisabled: { opacity: 0.6 },
-  retryText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  retryText: { color: T.ink, fontWeight: '600', fontSize: 14 },
 })
