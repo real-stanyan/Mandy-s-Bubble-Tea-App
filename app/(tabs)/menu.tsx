@@ -24,6 +24,12 @@ import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
 import { displayNameFor, imageSourceFor, TOP10_CATEGORY_SLUG } from '@/lib/menu/top10-presets'
+import {
+  WEEKLY_SPECIALS_CATEGORY_ID,
+  WEEKLY_SPECIALS_CATEGORY_NAME,
+  orderedWeeklySpecialNames,
+  originalPriceCentsFor,
+} from '@/lib/menu/weekly-specials'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { IMG_THUMB } from '@/lib/optimized-image'
 import { Icon } from '@/components/brand/Icon'
@@ -104,9 +110,30 @@ export default function MenuScreen() {
     )
   }, [items, query])
 
+  // Weekly Specials — a virtual shelf pinned first, not a real Square
+  // category, so it can't be built by the category-id filter below (no item
+  // declares membership in a category that doesn't exist in Square). Matched
+  // by name instead; silently empty if none of this week's names match the
+  // current catalog (a rename, or the promo isn't live) — never a broken
+  // empty section.
+  const specialItems = useMemo(() => {
+    if (items.length === 0) return []
+    const byName = new Map<string, CatalogItem>()
+    for (const it of items) {
+      const key = (it.itemData?.name ?? '').trim().toLowerCase()
+      if (key && !byName.has(key)) byName.set(key, it)
+    }
+    const out: CatalogItem[] = []
+    for (const name of orderedWeeklySpecialNames()) {
+      const hit = byName.get(name)
+      if (hit) out.push(hit)
+    }
+    return out
+  }, [items])
+
   const sections = useMemo<MenuSection[]>(() => {
     if (categories.length === 0 || items.length === 0) return []
-    return categories
+    const base = categories
       .map((cat) => ({
         category: cat,
         data: items.filter((item) =>
@@ -114,8 +141,21 @@ export default function MenuScreen() {
         ),
       }))
       .filter((s) => s.data.length > 0)
-      .map((s, i) => ({ category: s.category, index: i, data: s.data }))
-  }, [items, categories])
+    const withSpecials =
+      specialItems.length > 0
+        ? [
+            {
+              category: {
+                id: WEEKLY_SPECIALS_CATEGORY_ID,
+                name: WEEKLY_SPECIALS_CATEGORY_NAME,
+              } as CatalogCategory,
+              data: specialItems,
+            },
+            ...base,
+          ]
+        : base
+    return withSpecials.map((s, i) => ({ category: s.category, index: i, data: s.data }))
+  }, [items, categories, specialItems])
 
   const firstId = sections[0]?.category.id ?? null
   const currentActive = activeId ?? firstId
@@ -429,6 +469,8 @@ const ProductRow = memo(function ProductRow({
   const surcharge =
     categorySlug === TOP10_CATEGORY_SLUG ? item.itemData?.top10SurchargeCents ?? 0 : 0
   const price = rawPrice != null ? Number(rawPrice) + surcharge : undefined
+  const originalPriceCents = originalPriceCentsFor(rawName)
+  const isOnSpecial = originalPriceCents != null && price != null && originalPriceCents > price
   const variationName = firstVariation?.itemVariationData?.name
   const showVariationSubtitle =
     variationName && variationName.toLowerCase() !== 'regular'
@@ -483,7 +525,14 @@ const ProductRow = memo(function ProductRow({
           </Text>
         ) : null}
         {price != null ? (
-          <Text style={styles.rowPrice}>{formatPrice(price)}</Text>
+          <View style={styles.rowPriceRow}>
+            {isOnSpecial ? (
+              <Text style={styles.rowPriceOriginal}>{formatPrice(originalPriceCents)}</Text>
+            ) : null}
+            <Text style={[styles.rowPrice, isOnSpecial && styles.rowPriceSpecial]}>
+              {formatPrice(price)}
+            </Text>
+          </View>
         ) : null}
       </View>
       <Pressable
@@ -723,10 +772,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: T.ink3,
   },
+  rowPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  rowPriceOriginal: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: T.ink4,
+    textDecorationLine: 'line-through',
+  },
   rowPrice: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
     color: T.ink2,
+  },
+  rowPriceSpecial: {
+    color: '#dc2626',
   },
   addBtn: {
     width: 38,
