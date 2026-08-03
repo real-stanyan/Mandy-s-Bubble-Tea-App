@@ -19,6 +19,7 @@ import { hashColor } from '@/components/brand/color'
 import { T, TYPE, RADIUS } from '@/constants/theme'
 import { isBestseller } from '@/components/menu/bestsellers'
 import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierIds, imageSourceFor, lockedToppingsPriceCents } from '@/lib/menu/top10-presets'
+import { originalPriceCentsFor } from '@/lib/menu/weekly-specials'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { ImageSkeleton } from '@/components/ui/ImageSkeleton'
 import { IMG_HERO } from '@/lib/optimized-image'
@@ -344,6 +345,8 @@ export function ItemDetailContent({
     ),
   )
   const headlineAmount = baselineAmount + lockedSurcharge
+  const originalPriceCents = originalPriceCentsFor(item.itemData?.name ?? '')
+  const isOnSpecial = originalPriceCents != null && originalPriceCents > headlineAmount
   const baseCents = Number(selectedVariation?.itemVariationData?.priceMoney?.amount ?? 0)
   const modifierCents = modifierLists.reduce((sum, ml) => {
     const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
@@ -403,7 +406,16 @@ export function ItemDetailContent({
               {shownName}
             </Text>
             {headlineAmount > 0 ? (
-              <Text style={styles.headlinePrice}>{formatPrice(headlineAmount)}</Text>
+              <View style={styles.headlinePriceRow}>
+                {isOnSpecial ? (
+                  <Text style={styles.headlinePriceOriginal}>
+                    {formatPrice(originalPriceCents)}
+                  </Text>
+                ) : null}
+                <Text style={[styles.headlinePrice, isOnSpecial && styles.headlinePriceSpecial]}>
+                  {formatPrice(headlineAmount)}
+                </Text>
+              </View>
             ) : null}
           </View>
           {item.itemData?.description ? (
@@ -1018,11 +1030,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   titleText: { flex: 1 },
+  headlinePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginTop: 6,
+  },
+  headlinePriceOriginal: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    color: T.ink4,
+    textDecorationLine: 'line-through',
+  },
   headlinePrice: {
     fontFamily: 'Fraunces_500Medium',
     fontSize: 22,
     color: T.ink,
-    marginTop: 6,
+  },
+  headlinePriceSpecial: {
+    color: '#dc2626',
   },
 
   toppingList: {
