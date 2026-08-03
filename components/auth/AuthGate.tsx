@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { BRAND } from '@/lib/constants'
+import { BreathingGlow } from '@/components/ui/BreathingGlow'
 
 // Gate the whole app: unauthenticated (or session without a finished profile)
 // lands on /login; authenticated users that stray onto /login are kicked back
@@ -78,7 +79,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       {children}
       {showOverlay && (
         <View style={styles.splash} pointerEvents="auto">
-          <ActivityIndicator size="large" color={BRAND.color} />
+          <BreathingGlow />
         </View>
       )}
       {showFetchError && (
@@ -109,7 +110,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ECEBE6',
     zIndex: 9999,
   },
   errorOverlay: {
