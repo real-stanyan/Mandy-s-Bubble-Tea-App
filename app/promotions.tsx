@@ -8,16 +8,23 @@ import {
   useAppDownloadStatus,
   appDownloadAvailable,
 } from '@/components/account/AppDownloadDiscountCard'
+import {
+  TastingPromoCard,
+  useTastingPromoStatus,
+  tastingPromoAvailable,
+} from '@/components/account/TastingPromoCard'
 import { LOYALTY } from '@/lib/constants'
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 
 export default function PromotionsScreen() {
   const { loyalty, welcomeDiscount, igFollowDiscount, flashPromo, starsPerReward } = useAuth()
   const appDownloadStatus = useAppDownloadStatus()
+  const tastingStatus = useTastingPromoStatus()
   const stars = loyalty?.balance ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
   const rewardsCount = perReward > 0 ? Math.floor(stars / perReward) : 0
   const hasAny =
+    tastingPromoAvailable(tastingStatus) ||
     flashPromo.available ||
     welcomeDiscount.available ||
     igFollowDiscount.available ||
@@ -28,6 +35,8 @@ export default function PromotionsScreen() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionLabel}>YOUR REWARDS</Text>
+
+        <TastingPromoCard status={tastingStatus} />
 
         <FlashPromoCard />
 
