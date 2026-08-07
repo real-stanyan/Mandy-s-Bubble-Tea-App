@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications'
 import { router } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { registerForPushAndUpload } from '@/lib/push-registration'
+import { safeInAppPath } from '@/lib/push-deep-link'
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -17,11 +18,17 @@ Notifications.setNotificationHandler({
 function handleResponse(response: Notifications.NotificationResponse | null) {
   if (!response) return
   const data = response.notification.request.content.data as
-    | { orderId?: string; kind?: string }
+    | { orderId?: string; kind?: string; url?: string }
     | undefined
   if (data?.kind === 'ready' && data.orderId) {
     router.push(`/order-detail?orderId=${data.orderId}`)
+    return
   }
+  // Campaign pushes (loyalty nudges, tasting promo) name their own screen.
+  // Until now these fell through and merely opened the app, so a "tap to
+  // order" notification landed the customer wherever they left off.
+  const path = safeInAppPath(data?.url)
+  if (path) router.push(path as Parameters<typeof router.push>[0])
 }
 
 export function usePushNotifications() {
