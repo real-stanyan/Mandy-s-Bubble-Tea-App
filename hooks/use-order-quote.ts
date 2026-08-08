@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
-import type { OrderQuote } from '@/lib/order-quote'
+import { isQuoteStale, type OrderQuote } from '@/lib/order-quote'
 import { staleCartFrom, type StaleCart } from '@/lib/stale-cart'
 
 export type { OrderQuote, QuoteAmount } from '@/lib/order-quote'
@@ -29,10 +29,30 @@ export function useOrderQuote(
    * nothing in the cart, so nothing in the body would move.
    */
   refreshKey: string | number | boolean = '',
-): { quote: OrderQuote | null; loading: boolean; blocked: StaleCart | null } {
+): {
+  quote: OrderQuote | null
+  loading: boolean
+  blocked: StaleCart | null
+  /**
+   * The cart on screen hasn't been answered yet — the request for it is
+   * debouncing or in flight, so `quote` (if any) was priced for a *previous*
+   * cart. Distinct from `loading`, which stays false through the 250ms
+   * debounce and so can't gate anything: tapping the reward stepper and then
+   * Pay lands inside exactly that window.
+   *
+   * Clears as soon as the current cart's request settles, including the
+   * failures this hook deliberately swallows (offline, Square down). Those
+   * fall back to the bare cart subtotal and still let the order through, so
+   * staying stale forever would strand the pay button.
+   */
+  stale: boolean
+} {
   const [quote, setQuote] = useState<OrderQuote | null>(null)
   const [blocked, setBlocked] = useState<StaleCart | null>(null)
   const [loading, setLoading] = useState(false)
+  // The effect key whose request has settled — compared against the current
+  // one to decide `stale`.
+  const [settledKey, setSettledKey] = useState<string | null>(null)
   // The serialized body doubles as the effect key: a re-render that produces
   // an identical cart must not refetch. `null` means "nothing to price".
   const key = enabled && body ? JSON.stringify(body) : null
@@ -58,6 +78,7 @@ export function useOrderQuote(
             setBlocked(null)
           }
           setLoading(false)
+          setSettledKey(effectKey)
         })
         .catch((err) => {
           if (cancelled) return
@@ -71,6 +92,8 @@ export function useOrderQuote(
             setBlocked(stale)
           }
           setLoading(false)
+          // A swallowed failure still answers this cart — see `stale`.
+          setSettledKey(effectKey)
         })
     }, DEBOUNCE_MS)
 
@@ -87,5 +110,6 @@ export function useOrderQuote(
     quote: key ? quote : null,
     loading: key ? loading : false,
     blocked: key ? blocked : null,
+    stale: isQuoteStale(effectKey, settledKey),
   }
 }

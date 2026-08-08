@@ -43,3 +43,39 @@ export function serviceChargeCents(
 ): number {
   return quoteCents(quote?.serviceCharges.find((sc) => sc.uid === uid)?.amountCents)
 }
+
+/**
+ * Does the quote on hand answer for the cart on screen?
+ *
+ * `settledKey` moves on *every* settled request, including the failures the
+ * hook deliberately swallows. A swallowed failure leaves the old quote up on
+ * purpose (checkout falls back to the bare cart subtotal, which is too high
+ * rather than too low) — but it has still answered, so it must not leave the
+ * pay button disabled forever.
+ */
+export function isQuoteStale(
+  currentKey: string | null,
+  settledKey: string | null,
+): boolean {
+  // Nothing to price: an empty or disabled cart is never "waiting".
+  if (currentKey === null) return false
+  return settledKey !== currentKey
+}
+
+/**
+ * Nothing will be charged for this order.
+ *
+ * Taken straight off the server-priced net total rather than re-deriving it
+ * from `isFreeRedeem` plus a delivery-fee rule: the reward covers the drinks
+ * but a DELIVERY redeem still pays its delivery + service fees, and a second
+ * copy of that rule on the client is the exact shape of bug ADR-0005 exists
+ * to prevent. No quote yet means "don't know" — the caller pairs this with
+ * `isQuoteStale` so the answer is only trusted when it's fresh.
+ */
+export function nothingToPay(
+  quote: OrderQuote | null,
+  rewardCount: number,
+): boolean {
+  if (rewardCount <= 0 || quote === null) return false
+  return quoteCents(quote.netTotalCents) <= 0
+}
