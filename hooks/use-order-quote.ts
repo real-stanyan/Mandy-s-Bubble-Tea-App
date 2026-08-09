@@ -46,6 +46,19 @@ export function useOrderQuote(
    * staying stale forever would strand the pay button.
    */
   stale: boolean
+  /**
+   * The quote object on hand was priced for the cart currently on screen —
+   * so its *contents* (net total, discounts, charges) can be believed, not
+   * just its arrival.
+   *
+   * Deliberately separate from `!stale`. `stale` answers "has this cart's
+   * request finished", which is the right question for enabling the pay
+   * button and must clear on swallowed failures. This answers "is the quote
+   * we're holding the answer to this cart", which a swallowed failure does
+   * NOT make true: the old quote stays up on purpose, and reading a total or
+   * a "this is free" out of it would describe the wrong cart.
+   */
+  quoteFresh: boolean
 } {
   const [quote, setQuote] = useState<OrderQuote | null>(null)
   const [blocked, setBlocked] = useState<StaleCart | null>(null)
@@ -53,6 +66,10 @@ export function useOrderQuote(
   // The effect key whose request has settled — compared against the current
   // one to decide `stale`.
   const [settledKey, setSettledKey] = useState<string | null>(null)
+  // The effect key the quote *on hand* was priced for. Moves only when the
+  // visible quote is replaced — unlike `settledKey`, a swallowed failure
+  // leaves it behind, because the stale quote is still the old cart's answer.
+  const [quotedKey, setQuotedKey] = useState<string | null>(null)
   // The serialized body doubles as the effect key: a re-render that produces
   // an identical cart must not refetch. `null` means "nothing to price".
   const key = enabled && body ? JSON.stringify(body) : null
@@ -76,6 +93,7 @@ export function useOrderQuote(
           if (json?.ok) {
             setQuote(json)
             setBlocked(null)
+            setQuotedKey(effectKey)
           }
           setLoading(false)
           setSettledKey(effectKey)
@@ -90,6 +108,9 @@ export function useOrderQuote(
             // to believe it.
             setQuote(null)
             setBlocked(stale)
+            // Holding nothing is an honest answer for this cart — checkout is
+            // blocked on the retired item anyway.
+            setQuotedKey(effectKey)
           }
           setLoading(false)
           // A swallowed failure still answers this cart — see `stale`.
@@ -111,5 +132,6 @@ export function useOrderQuote(
     loading: key ? loading : false,
     blocked: key ? blocked : null,
     stale: isQuoteStale(effectKey, settledKey),
+    quoteFresh: !isQuoteStale(effectKey, quotedKey),
   }
 }

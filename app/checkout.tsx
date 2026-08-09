@@ -254,6 +254,7 @@ export default function CheckoutScreen() {
     quote: orderQuote,
     blocked: quoteBlocked,
     stale: quoteStale,
+    quoteFresh,
   } = useOrderQuote(quoteBody, items.length > 0 && !!profile, phActive)
 
   // The server refused to price this cart because it holds an item the catalog
@@ -275,9 +276,10 @@ export default function CheckoutScreen() {
   const displayedTotal = orderQuote ? quoteCents(orderQuote.netTotalCents) : total
 
   // Whether a card gets charged at all, straight off the server-priced net
-  // total. Only meaningful once the quote has caught up with the cart, which
-  // is why the pay bar checks quoteStale first.
-  const payNothing = nothingToPay(orderQuote, rewardCount)
+  // total — and only when the quote in hand was priced for this cart. A
+  // swallowed re-quote failure clears `quoteStale` while leaving the previous
+  // cart's quote up, which is exactly when this must not answer.
+  const payNothing = nothingToPay(orderQuote, rewardCount, quoteFresh)
 
   const handleBack = () => {
     if (router.canGoBack()) {
