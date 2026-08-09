@@ -69,13 +69,22 @@ export function isQuoteStale(
  * from `isFreeRedeem` plus a delivery-fee rule: the reward covers the drinks
  * but a DELIVERY redeem still pays its delivery + service fees, and a second
  * copy of that rule on the client is the exact shape of bug ADR-0005 exists
- * to prevent. No quote yet means "don't know" — the caller pairs this with
- * `isQuoteStale` so the answer is only trusted when it's fresh.
+ * to prevent.
+ *
+ * `quoteAnswersCart` is required rather than left to the caller because
+ * "settled" and "answers this cart" are not the same thing, and the gap
+ * between them is invisible at a call site. A re-quote that fails is
+ * deliberately swallowed — the hook keeps the *previous* cart's quote on
+ * screen and reports itself settled, so the pay button doesn't stay disabled
+ * through an outage. Read `netTotalCents` off that quote and a cart that
+ * happened to be free a moment ago claims to still be free.
  */
 export function nothingToPay(
   quote: OrderQuote | null,
   rewardCount: number,
+  quoteAnswersCart: boolean,
 ): boolean {
+  if (!quoteAnswersCart) return false
   if (rewardCount <= 0 || quote === null) return false
   return quoteCents(quote.netTotalCents) <= 0
 }

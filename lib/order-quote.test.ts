@@ -102,21 +102,30 @@ describe('nothingToPay', () => {
     }) as OrderQuote
 
   it('is false with no reward applied', () => {
-    expect(nothingToPay(quote('0'), 0)).toBe(false)
+    expect(nothingToPay(quote('0'), 0, true)).toBe(false)
   })
 
   it('is false before a quote exists — "don\'t know" is not "free"', () => {
-    expect(nothingToPay(null, 1)).toBe(false)
+    expect(nothingToPay(null, 1, true)).toBe(false)
   })
 
   it('is true when the server prices the order at zero', () => {
-    expect(nothingToPay(quote('0'), 1)).toBe(true)
+    expect(nothingToPay(quote('0'), 1, true)).toBe(true)
   })
 
   it('is false when a delivery redeem still owes its fees', () => {
     // The reward covers the drinks; delivery + service fees are still charged
     // (the 2026-07-10 rule). Reading the server total instead of re-deriving
     // it is what keeps this correct without a second copy of that rule.
-    expect(nothingToPay(quote('845'), 1)).toBe(false)
+    expect(nothingToPay(quote('845'), 1, false)).toBe(false)
+    expect(nothingToPay(quote('845'), 1, true)).toBe(false)
+  })
+
+  it('refuses to answer off a quote priced for a different cart', () => {
+    // The gap this closes: a re-quote that fails is swallowed, so the request
+    // has "settled" (the pay button un-disables, by design — an outage must
+    // not strand it) while the quote on hand is still the PREVIOUS cart's.
+    // That quote saying $0 says nothing about the cart on screen.
+    expect(nothingToPay(quote('0'), 1, false)).toBe(false)
   })
 })
