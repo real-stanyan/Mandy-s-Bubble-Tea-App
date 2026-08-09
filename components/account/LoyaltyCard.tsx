@@ -1,5 +1,6 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Text, View } from 'react-native'
+import { apiFetch } from '@/lib/api'
 import { useRouter } from 'expo-router'
 import { Icon } from '@/components/brand/Icon'
 import { StarCupsRow } from '@/components/brand/StarCupsRow'
@@ -34,6 +35,30 @@ export const LoyaltyCard = memo(function LoyaltyCard({
   const currentStars = account.balance % goal
   const toGo = Math.max(0, goal - currentStars)
   const reached = account.balance >= goal
+
+  // Which drink earned each cup this cycle — fetched lazily (two Square
+  // calls server-side) and upgraded in place; placeholder colours cover the
+  // wait and every star the server can't attribute. Same contract as the
+  // web's membership card.
+  const [starDrinks, setStarDrinks] = useState<Array<string | null> | null>(null)
+  useEffect(() => {
+    if (currentStars <= 0) return
+    let cancelled = false
+    apiFetch<{ ok: boolean; drinks: Array<string | null> | null }>(
+      '/api/loyalty/star-drinks',
+    )
+      .then((json) => {
+        if (!cancelled && json?.ok && Array.isArray(json.drinks)) {
+          setStarDrinks(json.drinks)
+        }
+      })
+      .catch(() => {
+        /* placeholders are the fallback; nothing to surface */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentStars, account.balance])
 
   // Diamond's free-topping status now has its own pips block below the star
   // row, so the subline stays on tier progress (Diamond → "Top tier member").
@@ -112,7 +137,12 @@ export const LoyaltyCard = memo(function LoyaltyCard({
           </View>
         </View>
 
-        <StarCupsRow value={currentStars} total={goal} />
+        <StarCupsRow
+          value={currentStars}
+          total={goal}
+          drinks={currentStars > 0 ? starDrinks : null}
+          rewardReady={reached}
+        />
 
         <TierToppingsProgress tier={tier} remaining={freeToppingsRemaining} />
 
