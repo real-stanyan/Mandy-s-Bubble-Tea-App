@@ -70,24 +70,20 @@ export function feeValueText(pending: boolean, cents: number): string {
   return formatPrice(cents)
 }
 
+// Delivery is chosen but the address quote hasn't resolved, so the fee rows
+// have nothing trustworthy to show yet.
+//
+// Deliberately does NOT ask whether a loyalty reward covers the drinks. The
+// reward covers drinks; a DELIVERY redeem still pays its delivery + service
+// fees (the 2026-07-10 rule, and what app/checkout.tsx says above
+// `isFreeRedeem`). Short-circuiting on a free redeem printed "FREE" against
+// both fee rows while the address quote was still loading — a promise the
+// order then broke at payment.
 export function deliveryFeesPending(
   fulfillment: FulfillmentType,
-  isFreeRedeem: boolean,
   quoteKind: QuoteState['kind'],
 ): boolean {
-  return fulfillment === 'DELIVERY' && !isFreeRedeem && quoteKind !== 'ok'
-}
-
-// Cents to add to the order total for delivery (fee + 5% service), only when a
-// quote has resolved and the order isn't fully covered by a reward.
-export function deliveryAddOnCents(
-  fulfillment: FulfillmentType,
-  isFreeRedeem: boolean,
-  quote: QuoteState,
-): number {
-  if (fulfillment !== 'DELIVERY' || isFreeRedeem) return 0
-  if (quote.kind !== 'ok') return 0
-  return quote.feeCents + quote.serviceFeeCents
+  return fulfillment === 'DELIVERY' && quoteKind !== 'ok'
 }
 
 // ETA copy for the live tracking sheet, from the server's Google Directions
