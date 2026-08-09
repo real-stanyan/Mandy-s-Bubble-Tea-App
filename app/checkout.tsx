@@ -28,6 +28,8 @@ import {
   type OrderQuote,
   type QuoteAmount,
 } from '@/hooks/use-order-quote'
+import { nothingToPay } from '@/lib/order-quote'
+import { checkoutCta } from '@/lib/checkout-cta'
 import { buildOrderLines } from '@/lib/order-lines'
 import { usePayment } from '@/hooks/use-payment'
 import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
@@ -248,11 +250,11 @@ export default function CheckoutScreen() {
   // server's, and did (#40). Now the server decides and this screen renders.
   // Signed out there is nothing to price — every promo resolves off the
   // session, and the endpoint 401s. The screen shows the cart subtotal.
-  const { quote: orderQuote, blocked: quoteBlocked } = useOrderQuote(
-    quoteBody,
-    items.length > 0 && !!profile,
-    phActive,
-  )
+  const {
+    quote: orderQuote,
+    blocked: quoteBlocked,
+    stale: quoteStale,
+  } = useOrderQuote(quoteBody, items.length > 0 && !!profile, phActive)
 
   // The server refused to price this cart because it holds an item the catalog
   // no longer has. /api/orders will refuse to create it for the same reason, so
@@ -272,6 +274,11 @@ export default function CheckoutScreen() {
   // than inventing a total. Too high, never too low.
   const displayedTotal = orderQuote ? quoteCents(orderQuote.netTotalCents) : total
 
+  // Whether a card gets charged at all, straight off the server-priced net
+  // total. Only meaningful once the quote has caught up with the cart, which
+  // is why the pay bar checks quoteStale first.
+  const payNothing = nothingToPay(orderQuote, rewardCount)
+
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back()
@@ -287,6 +294,10 @@ export default function CheckoutScreen() {
     // submit path in case acceptance flips between render and tap.
     if (!canAcceptOrders().accepting) return
     if (cartHasRetiredItems) return
+    // The quote on hand was priced for a previous cart, so the bar is
+    // describing the wrong order. The button is already disabled for this;
+    // this is the stale-render backstop, same shape as the guards above.
+    if (quoteStale) return
 
     setProcessing(true)
     setError(null)
@@ -518,9 +529,22 @@ export default function CheckoutScreen() {
     isLoading ||
     !acceptance.accepting ||
     !allLabeled ||
+    // Mid-reprice: the total on screen and "is anything owed" both belong to
+    // the previous cart. Costs a re-tap; the alternative is paying against a
+    // number the customer wasn't shown.
+    quoteStale ||
     !deliveryReady ||
     squareInitFailed ||
     cartHasRetiredItems
+
+  const cta = checkoutCta({
+    accepting: acceptance.accepting,
+    nextOpenLabel: acceptance.nextOpenLabel,
+    busy: isLoading,
+    quoteStale,
+    nothingToPay: payNothing,
+    payMethodLabel: payLabel(payMethod),
+  })
 
   if (authLoading && !profile) {
     return (
@@ -676,15 +700,11 @@ export default function CheckoutScreen() {
           style={[styles.placeBtn, payDisabled && { opacity: 0.5 }, ctaShadow]}
         >
           <View style={{ flex: 1, paddingLeft: 18 }}>
-            <Text style={styles.placeEyebrow}>
-              {!acceptance.accepting ? 'Closed' : payLabel(payMethod)}
-            </Text>
-            <Text style={styles.placeTitle}>
-              {!acceptance.accepting ? `Opens ${acceptance.nextOpenLabel}` : 'Place order'}
-            </Text>
+            <Text style={styles.placeEyebrow}>{cta.eyebrow}</Text>
+            <Text style={styles.placeTitle}>{cta.title}</Text>
           </View>
           <View style={styles.placeAmount}>
-            {isLoading ? (
+            {cta.showSpinner ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.placeAmountText}>{formatPrice(displayedTotal)}</Text>
