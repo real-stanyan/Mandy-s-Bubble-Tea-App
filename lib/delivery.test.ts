@@ -32,7 +32,6 @@ import {
   quoteReasonCopy,
   feeValueText,
   deliveryFeesPending,
-  deliveryAddOnCents,
   etaText,
   distanceKmText,
 } from './delivery'
@@ -57,18 +56,17 @@ describe('fee display', () => {
     expect(feeValueText(false, 0)).toBe('FREE')
     expect(feeValueText(false, 499)).toBe(require('@/lib/utils').formatPrice(499))
   })
-  it('deliveryFeesPending only when DELIVERY + not free-redeem + quote not ok', () => {
-    expect(deliveryFeesPending('DELIVERY', false, 'loading')).toBe(true)
-    expect(deliveryFeesPending('DELIVERY', false, 'ok')).toBe(false)
-    expect(deliveryFeesPending('DELIVERY', true, 'loading')).toBe(false)
-    expect(deliveryFeesPending('PICKUP', false, 'loading')).toBe(false)
+  it('deliveryFeesPending only when DELIVERY + quote not ok', () => {
+    expect(deliveryFeesPending('DELIVERY', 'loading')).toBe(true)
+    expect(deliveryFeesPending('DELIVERY', 'ok')).toBe(false)
+    expect(deliveryFeesPending('PICKUP', 'loading')).toBe(false)
   })
-  it('deliveryAddOnCents adds fee+service only when applicable', () => {
-    const ok = { kind: 'ok' as const, feeCents: 499, serviceFeeCents: 100 }
-    expect(deliveryAddOnCents('DELIVERY', false, ok)).toBe(599)
-    expect(deliveryAddOnCents('DELIVERY', true, ok)).toBe(0)
-    expect(deliveryAddOnCents('PICKUP', false, ok)).toBe(0)
-    expect(deliveryAddOnCents('DELIVERY', false, { kind: 'loading' })).toBe(0)
+  it('stays pending on a free redeem — the reward covers drinks, not delivery', () => {
+    // A DELIVERY redeem still pays its delivery + service fees. Treating the
+    // redeem as "no fees to wait for" printed FREE against both rows while the
+    // address quote was still loading, on an order that then charged them.
+    expect(deliveryFeesPending('DELIVERY', 'loading')).toBe(true)
+    expect(feeValueText(deliveryFeesPending('DELIVERY', 'loading'), 0)).toBe('—')
   })
 })
 

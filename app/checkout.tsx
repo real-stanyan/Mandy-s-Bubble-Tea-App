@@ -262,14 +262,6 @@ export default function CheckoutScreen() {
   // a failure they can't diagnose (#94).
   const cartHasRetiredItems = quoteBlocked !== null
 
-  const rewardDiscountCents = quoteCents(orderQuote?.rewardCupsSumCents)
-  const promoDiscountCents = quoteCents(orderQuote?.discountTotalCents)
-  // Drinks fully covered by a loyalty reward. Not the same as "$0 order":
-  // a DELIVERY redeem still pays its delivery + service fees.
-  const isFreeRedeem =
-    rewardCount > 0 &&
-    quoteCents(orderQuote?.subtotalCents) - promoDiscountCents - rewardDiscountCents <= 0
-
   // No quote yet (first paint, or offline): show the bare cart subtotal rather
   // than inventing a total. Too high, never too low.
   const displayedTotal = orderQuote ? quoteCents(orderQuote.netTotalCents) : total
@@ -666,11 +658,7 @@ export default function CheckoutScreen() {
           delivery={
             fulfillmentType === 'DELIVERY'
               ? {
-                  pending: deliveryFeesPending(
-                    fulfillmentType,
-                    isFreeRedeem,
-                    quote.kind,
-                  ),
+                  pending: deliveryFeesPending(fulfillmentType, quote.kind),
                 }
               : null
           }
