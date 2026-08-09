@@ -24,6 +24,7 @@ import { SquareImage } from '@/components/ui/SquareImage'
 import { ImageSkeleton } from '@/components/ui/ImageSkeleton'
 import { IMG_HERO } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
+import { CupPreview } from '@/components/menu/CupPreview'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 const WARM_ICE_NAME = 'warm'
@@ -423,6 +424,21 @@ export function ItemDetailContent({
               {item.itemData.description}
             </Text>
           ) : null}
+
+          {/* Live cup preview — redraws as picks change. Same mapper as the
+              web's (lib/cup-visual mirrors it); anything it doesn't recognise
+              simply doesn't draw, the sections below stay the source of truth. */}
+          <View style={{ marginTop: 16 }}>
+            <CupPreview
+              drinkName={shownName}
+              picked={modifierLists.flatMap((ml) =>
+                ml.modifiers.map((mod) => ({
+                  name: mod.name,
+                  count: (selectedByList[ml.id] ?? EMPTY_COUNTS)[mod.id] ?? 0,
+                })),
+              )}
+            />
+          </View>
 
           {/* Size section (unified — single or multi variation) */}
           <ModifierSection
