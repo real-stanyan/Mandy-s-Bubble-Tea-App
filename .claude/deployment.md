@@ -51,11 +51,43 @@ eas build --profile production --platform all
 
 ## OTA Updates (Expo Updates)
 
+**Normally you do not run this by hand.** Merging a JS-only change to `main`
+publishes it automatically — see `.github/workflows/publish.yml` and
+`docs/adr/0001-publish-on-merge-fail-closed.md`. A merge that touches anything
+native (`ios/`, `android/`, `package.json`, `app.json`, `eas.json`, `patches/`,
+`scripts/patch-*.js`) publishes nothing and fails the job on purpose: those need
+a store build, not an OTA.
+
+To publish by hand anyway:
+
 ```bash
-eas update --branch production --message "description of changes"
+eas update --branch production --platform ios --environment production \
+  --message "description of changes"
 ```
 
-JS-only changes can be pushed OTA without a new app store build.
+Both flags are load-bearing, and both have already caused an incident:
+
+- `--platform ios` — the `production` branch is iOS-only, and the default
+  `--platform all` crashes at bundle time on the web export
+  (`ReferenceError: window is not defined`). Issue #46.
+- `--environment production` — takes `EXPO_PUBLIC_*` from the EAS `production`
+  environment instead of the local `.env.local`, which deliberately holds
+  sandbox/LAN values. Publishing without it shipped sandbox Square credentials
+  to every user. Issue #41.
+
+Worth a preflight before any manual publish — export the real bundle and read it:
+
+```bash
+eas env:exec production 'npx expo export --platform ios'
+grep -a -c -F 'mandybubbletea.com' dist/_expo/static/js/ios/*.hbc   # expect 1
+grep -a -c -F 'sq0idb-' dist/_expo/static/js/ios/*.hbc              # expect 0
+```
+
+Note an iOS bundle legitimately drops Android-only strings — the Square location
+id is only referenced under `Platform.OS === 'android'`, so its absence is
+correct, not a missing env var.
+
+JS-only changes reach installed apps this way; native changes need a store build.
 
 ## App Store Submission
 
