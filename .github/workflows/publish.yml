@@ -1,0 +1,94 @@
+## Publish on merge — see docs/adr/0001-publish-on-merge-fail-closed.md
+##
+## JS-only merges to main go out as an OTA immediately. Anything that might
+## need native code publishes nothing and fails the job on purpose: a silent
+## skip is the bug this workflow exists to close (#46).
+
+name: publish
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  # Never let two OTAs race to the production branch. Newer wins; an
+  # in-flight publish is not cancelled, so a half-uploaded update can't be
+  # left pointed at.
+  group: publish-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the merge's parent to diff against.
+          fetch-depth: 2
+
+      - name: Refuse to publish anything that might be native
+        run: |
+          set -euo pipefail
+          # Deliberately over-broad. Holding a JS-only merge for a human costs
+          # one acknowledgement; OTA-ing over a binary that can't run it costs
+          # a customer-visible break. app.json is here for runtimeVersion too:
+          # bumping it and then OTA-ing publishes an update no installed app
+          # is eligible for.
+          NATIVE_PATHS='^(ios/|android/|patches/|scripts/patch-.*\.js$|package\.json$|package-lock\.json$|app\.json$|eas\.json$)'
+          CHANGED="$(git diff --name-only HEAD^ HEAD)"
+          echo "Changed files:"
+          echo "$CHANGED" | sed 's/^/  /'
+          HITS="$(echo "$CHANGED" | grep -E "$NATIVE_PATHS" || true)"
+          if [ -n "$HITS" ]; then
+            echo
+            echo "::error::Native-capable paths changed — no OTA published. A store build may be required (see #49). Paths:"
+            echo "$HITS" | sed 's/^/  /'
+            exit 1
+          fi
+          echo "JS-only merge — safe to publish over the installed binary."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      # Same command as .github/workflows/ci.yml and the Gate section of
+      # AGENTS.md. Publishing must not be able to outrun the gate.
+      - run: npx tsc --noEmit
+
+      - name: Require the publish credential
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::EXPO_TOKEN repo secret is not set, so this merge cannot reach installed apps. Add it in Settings → Secrets → Actions (Expo account real_stanyan). Failing loudly on purpose — a merge that silently reaches nobody is issue #46."
+            exit 1
+          fi
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # --platform ios: the production branch is iOS-only, and the default
+      #   --platform all crashes at bundle time on the web export (#46).
+      # --environment production: take EXPO_PUBLIC_* from the EAS production
+      #   environment, never from whatever the runner happens to have (#41).
+      # The commit message goes in through the environment, never interpolated
+      # into the script: `${{ }}` inside a run block pastes attacker-influenced
+      # text straight into the shell, and a merge message is exactly that. Only
+      # the subject line is used — `eas update -m` wants one line.
+      - name: eas update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          MSG="$(printf '%s' "$HEAD_COMMIT_MESSAGE" | head -n 1)"
+          eas update \
+            --branch production \
+            --platform ios \
+            --environment production \
+            --non-interactive \
+            --message "$MSG"
