@@ -58,6 +58,17 @@ export function ChatSheet() {
     else ref.current?.dismiss()
   }, [isOpen])
 
+  // The voice-order pill wants the keyboard (and its dictation mic) up the
+  // moment the sheet lands — focus after the present animation settles.
+  // Native STT replaces this hand-off in the P3 binary (see the voice
+  // assistant spec).
+  const focusInputNonce = useChat((s) => s.focusInputNonce)
+  useEffect(() => {
+    if (!isOpen || focusInputNonce === 0) return
+    const timer = setTimeout(() => inputRef.current?.focus(), 420)
+    return () => clearTimeout(timer)
+  }, [isOpen, focusInputNonce])
+
   // Latest content into view on every list change — the proposal card is
   // the conversion action and must not hide below the fold.
   useEffect(() => {
