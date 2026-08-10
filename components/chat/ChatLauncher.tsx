@@ -4,6 +4,7 @@ import { usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path, Circle } from 'react-native-svg'
 import { T, IS_EVENING } from '@/constants/theme'
+import { useCartStore } from '@/store/cart'
 import { useChat } from '@/store/chat'
 import { chatUiStrings } from '@/lib/chat/ui-strings'
 
@@ -41,6 +42,8 @@ export function ChatLauncher() {
   const open = useChat((s) => s.open)
   const teaserSeen = useChat((s) => s.teaserSeen)
   const markTeaserSeen = useChat((s) => s.markTeaserSeen)
+  // Above the early return — hooks must run on every render path.
+  const hasCartBar = useCartStore((s) => s.items.length > 0)
   const [showTeaser, setShowTeaser] = useState(false)
 
   useEffect(() => {
@@ -66,8 +69,11 @@ export function ChatLauncher() {
     open()
   }
 
-  // Clears the tab bar (which already accounts for insets.bottom).
-  const bottom = 88 + insets.bottom
+  // Clears the tab bar (which already accounts for insets.bottom). With
+  // items in the cart, MiniCartBar floats at tabBarHeight+8 (~48px tall) —
+  // the launcher hops over it instead of sitting on View Cart (Stan's
+  // screenshot, 2026-08-10).
+  const bottom = 88 + insets.bottom + (hasCartBar ? 56 : 0)
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
