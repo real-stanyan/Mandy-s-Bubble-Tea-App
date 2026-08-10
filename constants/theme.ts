@@ -52,7 +52,7 @@ export const Fonts = Platform.select({
   },
 });
 
-export const T = {
+const DAY = {
   bg:        '#F2E8DF',
   bg2:       '#E8DAC6',
   paper:     '#FFF9F0',
@@ -71,6 +71,38 @@ export const T = {
   green:     '#3CA96E',
   greenDark: '#2E7F52',
 } as const;
+
+// Evening Mode — the web's "midnight cafe" palette (#177), same hexes on the
+// same token names: near-neutral espresso ground, a whisper of warmth in the
+// cards, gold accent, parchment text. peach/cream/star/sage carry over
+// unchanged, exactly as on web.
+const EVENING = {
+  ...DAY,
+  bg:        '#131110',
+  bg2:       '#221C16',
+  paper:     '#1A1512',
+  card:      '#262019',
+  ink:       '#F5EDE1',
+  ink2:      '#D8C8B4',
+  ink3:      'rgba(245,237,225,0.62)',
+  ink4:      'rgba(245,237,225,0.34)',
+  line:      'rgba(245,237,225,0.14)',
+  brand:     '#D9A24E',
+  brandDark: '#B5813A',
+  green:     '#4CC084',
+  greenDark: '#3CA96E',
+} as const;
+
+// Decided ONCE, at module load — before any component's StyleSheet.create
+// runs, which is what lets every static style pick up the evening values
+// with zero component changes. The cost is that crossing 18:00 mid-session
+// doesn't restyle until the next cold start; the web pays the same price
+// per page-load and nobody noticed. Same window as web: 18:00–06:00 device
+// time.
+const hour = new Date().getHours();
+export const IS_EVENING = hour >= 18 || hour < 6;
+
+export const T = (IS_EVENING ? EVENING : DAY) as typeof DAY;
 
 export const FONT = {
   serif: 'ShantellSans_700Bold',

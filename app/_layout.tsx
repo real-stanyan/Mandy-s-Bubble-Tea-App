@@ -25,7 +25,7 @@ import { AuthProvider } from '@/components/auth/AuthProvider';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useReadyVibration } from '@/hooks/use-ready-vibration';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
-import { T } from '@/constants/theme';
+import { T, IS_EVENING } from '@/constants/theme';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from '@expo-google-fonts/inter';
@@ -199,7 +199,7 @@ export default function RootLayout() {
             />
           </Stack>
           <ItemDetailSheet />
-          <StatusBar style="dark" />
+          <StatusBar style={IS_EVENING ? "light" : "dark"} />
           <PushMount />
           </AuthGate>
         </ThemeProvider>
