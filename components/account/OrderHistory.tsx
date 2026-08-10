@@ -11,7 +11,7 @@ import { effectiveOrderState as effectiveState } from '@/store/orders'
 import type { OrderHistoryItem } from '@/hooks/use-order-history'
 import { reorder } from '@/components/orders/reorder'
 import { useCatalogImageMap } from '@/hooks/use-catalog-image-map'
-import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
+import { T, TYPE, RADIUS, SHADOW, PIN } from '@/constants/theme'
 
 const STATE_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   COMPLETED: { label: 'COMPLETED', color: '#6b7260', bg: '#eae7dc' },
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   primaryBtn: {
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: RADIUS.pill,

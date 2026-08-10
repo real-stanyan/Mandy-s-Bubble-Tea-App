@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Icon } from '@/components/brand/Icon';
-import { T, TYPE, RADIUS } from '@/constants/theme';
+import { T, TYPE, RADIUS, PIN } from '@/constants/theme';
 
 // Limited-time campaign card: "Buy 2 drinks, get a fragrance-tag blind
 // box." Marketing only — the blind box is handed out in-store, so this
@@ -69,7 +69,7 @@ export function FragranceBlindBox() {
                 paddingHorizontal: 9,
                 paddingVertical: 3,
                 borderRadius: 4,
-                backgroundColor: T.ink,
+                backgroundColor: PIN.chip,
               }}
             >
               <Text
@@ -77,7 +77,7 @@ export function FragranceBlindBox() {
                   fontFamily: 'JetBrainsMono_700Bold',
                   fontSize: 10,
                   letterSpacing: 1.3,
-                  color: T.cream,
+                  color: PIN.onChip,
                 }}
               >
                 LIMITED · WHILE STOCKS LAST
@@ -90,7 +90,7 @@ export function FragranceBlindBox() {
                 fontSize: 24,
                 lineHeight: 26,
                 letterSpacing: -0.5,
-                color: T.ink,
+                color: PIN.ink,
               }}
             >
               {'2 drinks, '}
@@ -98,7 +98,7 @@ export function FragranceBlindBox() {
                 one surprise
               </Text>
             </Text>
-            <Text style={[TYPE.body, { marginTop: 8, color: T.ink2, lineHeight: 18 }]}>
+            <Text style={[TYPE.body, { marginTop: 8, color: PIN.ink2, lineHeight: 18 }]}>
               Buy any 2 drinks, get a fragrance-tag blind box — 10 designs, 10 scents.
             </Text>
           </View>
@@ -150,10 +150,10 @@ export function FragranceBlindBox() {
               backgroundColor: T.brand,
             }}
           >
-            <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 13, color: T.cream }}>
+            <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 13, color: PIN.onChip }}>
               Order now
             </Text>
-            <Icon name="arrow" color={T.cream} size={12} />
+            <Icon name="arrow" color={PIN.onChip} size={12} />
           </View>
         </LinearGradient>
       </Pressable>

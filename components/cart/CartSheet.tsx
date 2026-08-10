@@ -14,7 +14,7 @@ import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
 import { CartItemRow } from './CartItem'
 import { Icon } from '@/components/brand/Icon'
 import { formatPrice } from '@/lib/utils'
-import { T, FONT, RADIUS } from '@/constants/theme'
+import { T, FONT, RADIUS, PIN } from '@/constants/theme'
 
 export function CartSheet() {
   const open = useCartSheetStore((s) => s.open)
@@ -120,7 +120,7 @@ export function CartSheet() {
             activeOpacity={0.85}
           >
             <Text style={styles.checkoutText}>Checkout</Text>
-            <Icon name="arrow" size={14} color={T.cream} />
+            <Icon name="arrow" size={14} color={PIN.onChip} />
           </TouchableOpacity>
         </View>
       </View>
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: RADIUS.pill,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -252,6 +252,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.2,
-    color: T.cream,
+    color: PIN.onChip,
   },
 })

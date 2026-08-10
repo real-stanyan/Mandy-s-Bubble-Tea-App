@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import { T, FONT } from '@/constants/theme'
+import { T, FONT, PIN } from '@/constants/theme'
 
 export type OrdersFilter = 'all' | 'active' | 'past'
 
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pillActive: {
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
     borderColor: T.ink,
   },
   pillInactive: {

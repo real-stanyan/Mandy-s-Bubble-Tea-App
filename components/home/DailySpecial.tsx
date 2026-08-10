@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { CupArt } from '@/components/brand/CupArt';
 import { Icon } from '@/components/brand/Icon';
-import { T, TYPE, RADIUS } from '@/constants/theme';
+import { T, TYPE, RADIUS, PIN } from '@/constants/theme';
 
 export function DailySpecial() {
   const router = useRouter();
@@ -45,7 +45,7 @@ export function DailySpecial() {
                   paddingHorizontal: 9,
                   paddingVertical: 3,
                   borderRadius: 4,
-                  backgroundColor: T.ink,
+                  backgroundColor: PIN.chip,
                 }}
               >
                 <Text
@@ -53,7 +53,7 @@ export function DailySpecial() {
                     fontFamily: 'JetBrainsMono_700Bold',
                     fontSize: 10,
                     letterSpacing: 1.3,
-                    color: T.cream,
+                    color: PIN.onChip,
                   }}
                 >
                   NEW MEMBER OFFER
@@ -66,7 +66,7 @@ export function DailySpecial() {
                   fontSize: 24,
                   lineHeight: 26,
                   letterSpacing: -0.5,
-                  color: T.ink,
+                  color: PIN.ink,
                 }}
               >
                 {`First ${drinksRemaining} `}
@@ -74,7 +74,7 @@ export function DailySpecial() {
                 {`\n— ${pct}% off`}
               </Text>
               <Text
-                style={[TYPE.body, { marginTop: 8, color: T.ink2, lineHeight: 18, maxWidth: 180 }]}
+                style={[TYPE.body, { marginTop: 8, color: PIN.ink2, lineHeight: 18, maxWidth: 180 }]}
               >
                 Welcome gift for new members. Auto-applied at checkout.
               </Text>
@@ -90,13 +90,13 @@ export function DailySpecial() {
                 paddingHorizontal: 14,
                 paddingVertical: 8,
                 borderRadius: 999,
-                backgroundColor: T.ink,
+                backgroundColor: PIN.chip,
               }}
             >
-              <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 13, color: T.cream }}>
+              <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 13, color: PIN.onChip }}>
                 Start ordering
               </Text>
-              <Icon name="arrow" color={T.cream} size={12} />
+              <Icon name="arrow" color={PIN.onChip} size={12} />
             </View>
           </View>
 

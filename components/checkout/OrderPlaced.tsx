@@ -10,7 +10,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import { Icon } from '@/components/brand/Icon'
-import { T, FONT, RADIUS, SHADOW } from '@/constants/theme'
+import { T, FONT, RADIUS, SHADOW, PIN } from '@/constants/theme'
 import { formatPrice } from '@/lib/utils'
 
 export interface OrderPlacedProps {
@@ -76,7 +76,7 @@ export function OrderPlaced({
       <View style={styles.ctaWrap}>
         <Pressable onPress={onTrack} style={styles.cta}>
           <Text style={styles.ctaText}>Track my order</Text>
-          <Icon name="arrow" size={14} color={T.cream} />
+          <Icon name="arrow" size={14} color={PIN.onChip} />
         </Pressable>
       </View>
     </Animated.View>
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 54,
     borderRadius: 999,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -215,6 +215,6 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '700',
     letterSpacing: 0.2,
-    color: T.cream,
+    color: PIN.onChip,
   },
 })

@@ -104,6 +104,26 @@ export const IS_EVENING = hour >= 18 || hour < 6;
 
 export const T = (IS_EVENING ? EVENING : DAY) as typeof DAY;
 
+/** Theme-INVARIANT colors for poster faces and deliberately-dark chips.
+ *
+ *  Evening keeps light surfaces light (pastel tiles, cream/peach promo
+ *  gradients) and has no cream override — but T.ink flips light, so any
+ *  "T.ink on a light surface" or "dark T.ink chip with T.cream text"
+ *  pairing inverts into light-on-light after 18:00 (Stan's Account-page
+ *  screenshots, 2026-08-10). Web solved this in #177 by pinning exactly
+ *  these cases to day colors; PIN is the app's version of that rule.
+ *  Use PIN.* on any surface whose background does not change with the
+ *  theme; use T.* everywhere the background is a theme token. */
+export const PIN = {
+  ink: '#2A1E14',
+  ink2: '#5A4330',
+  ink3: 'rgba(42,30,20,0.55)',
+  /** Deliberately-dark chip/pill background (Expand, Reorder, Use…). */
+  chip: '#2A1E14',
+  /** Cream text/icon on that chip. */
+  onChip: '#FFF3DE',
+} as const;
+
 export const FONT = {
   serif: 'ShantellSans_700Bold',
   sans: 'ShantellSans_400Regular',

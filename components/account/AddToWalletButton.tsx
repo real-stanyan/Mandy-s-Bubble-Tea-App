@@ -12,7 +12,7 @@ import {
 import * as WebBrowser from 'expo-web-browser'
 import { supabase } from '@/lib/supabase'
 import { Icon } from '@/components/brand/Icon'
-import { T, TYPE, RADIUS, SPACING, SHADOW } from '@/constants/theme'
+import { T, TYPE, RADIUS, SPACING, SHADOW, PIN } from '@/constants/theme'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? 'https://mandybubbletea.com'
 
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     minWidth: 90,
     justifyContent: 'center',
     borderRadius: RADIUS.pill,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
   },
   ctaPressed: {
     opacity: 0.8,
