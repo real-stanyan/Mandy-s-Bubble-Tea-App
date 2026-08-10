@@ -34,7 +34,7 @@ export function TierDiscountChip({ tier }: { tier: MembershipTier }) {
     >
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
+          fontFamily: 'ShantellSans_600SemiBold',
           fontSize: 10,
           letterSpacing: 0.6,
           color: tint.text,

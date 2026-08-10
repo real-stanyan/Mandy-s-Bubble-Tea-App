@@ -229,14 +229,14 @@ export function CupPreview({ drinkName, picked }: Props) {
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[TYPE.eyebrow, { color: T.brand }]}>YOUR CUP</Text>
         <Text
-          style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: T.ink, marginTop: 4 }}
+          style={{ fontFamily: 'ShantellSans_600SemiBold', fontSize: 14, color: T.ink, marginTop: 4 }}
           numberOfLines={2}
         >
           {drinkName}
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_400Regular',
+            fontFamily: 'ShantellSans_400Regular',
             fontSize: 12.5,
             lineHeight: 18,
             color: T.ink3,

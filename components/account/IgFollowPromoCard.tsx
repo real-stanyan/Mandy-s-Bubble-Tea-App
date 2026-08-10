@@ -138,7 +138,7 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
                   <Text style={[styles.bigNum, { color: '#fff' }]}>10%</Text>
                   <Text
                     style={{
-                      fontFamily: 'Fraunces_500Medium',
+                      fontFamily: 'ShantellSans_700Bold',
                       fontSize: 18,
                       color: 'rgba(255,255,255,0.45)',
                       marginLeft: 6,
@@ -192,7 +192,7 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
               <Text style={[styles.bigNum, { color: T.ink }]}>10%</Text>
               <Text
                 style={{
-                  fontFamily: 'Fraunces_500Medium',
+                  fontFamily: 'ShantellSans_700Bold',
                   fontSize: 18,
                   color: T.ink4,
                   marginLeft: 6,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
   },
   bigNum: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 36,
     lineHeight: 36,
     letterSpacing: -0.8,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   followBtnText: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 14,
     color: '#fff',
   },
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   claimBtnText: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 14,
     color: T.ink,
   },
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     color: T.ink3,
   },
   errMsg: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 13,
     color: '#DC2626',
     marginTop: 8,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   activePillText: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 11,
     color: '#fff',
   },
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     backgroundColor: T.peach,
   },
   orderNowText: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 12.5,
     color: T.brandDark,
   },

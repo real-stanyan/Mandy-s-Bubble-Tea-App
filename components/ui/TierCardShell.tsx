@@ -321,7 +321,7 @@ export function TierCardShell({ tier, onPress, entrance = false, children }: She
                 bottom: -20,
                 fontSize: 96,
                 lineHeight: 96,
-                fontFamily: 'Fraunces_500Medium',
+                fontFamily: 'ShantellSans_700Bold',
                 color: 'rgba(255,255,255,0.05)',
               }}
             >

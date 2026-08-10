@@ -233,13 +233,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   heading: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 18,
     letterSpacing: -0.3,
     color: T.ink,
   },
   seeAll: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 13,
     color: T.brand,
   },
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   name: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 15,
     color: T.ink,
     flexShrink: 1,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.4,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
   subtitle: {
     ...TYPE.body,
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
   secondaryBtn: {
     backgroundColor: 'transparent',
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     color: T.ink,
     fontWeight: '700',
     fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
   emptyContainer: {
     alignItems: 'center',

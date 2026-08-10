@@ -65,13 +65,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
     color: T.ink,
   },
   sub: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 12,
     color: T.ink2,
     marginTop: 1,
@@ -88,6 +88,6 @@ const styles = StyleSheet.create({
   useText: {
     color: T.cream,
     fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
 })

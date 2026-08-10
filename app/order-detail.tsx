@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 24,
     letterSpacing: -0.5,
     textAlign: 'center',
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pickupNumber: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 48,
     letterSpacing: -1,
     color: T.brand,
@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   summaryHeading: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
     color: T.ink,
@@ -923,7 +923,7 @@ const styles = StyleSheet.create({
   },
   itemVariationLabel: {
     color: T.ink4,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
   itemQty: {
     ...TYPE.priceSm,
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   backButtonText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 15,
     color: T.ink,
   },
@@ -975,7 +975,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  sheetTitle: { fontFamily: 'Fraunces_500Medium', fontSize: 21, color: T.ink, letterSpacing: -0.3 },
+  sheetTitle: { fontFamily: 'ShantellSans_700Bold', fontSize: 21, color: T.ink, letterSpacing: -0.3 },
   tilesRow: { flexDirection: 'row', gap: 10 },
   tile: {
     flex: 1,
@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
   },
   preHeading: {
     marginTop: 12,
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 21,
     letterSpacing: -0.3,
     color: TRACKING_AMBER_TEXT,
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
   },
   deliveredTitle: {
     marginTop: 18,
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 32,
     letterSpacing: -0.5,
     color: T.ink,
@@ -1232,12 +1232,12 @@ const styles = StyleSheet.create({
   },
   reorderText: {
     color: T.paper,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 15.5,
   },
   receiptLink: {
     marginTop: 13,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 12.5,
     color: T.ink3,
     textDecorationLine: 'underline',

@@ -101,13 +101,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headLabel: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
     color: T.ink,
   },
   headAction: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 12.5,
     color: T.brand,
   },
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 13.5,
     color: T.ink,
     lineHeight: 16,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: T.ink3,
     marginTop: 2,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
   },
   delta: {
     fontFamily: 'JetBrainsMono_700Bold',

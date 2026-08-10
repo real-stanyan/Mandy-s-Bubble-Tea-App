@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     color: T.ink3,
   },
   name: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 14,
     color: T.ink,
   },
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   callText: {
     color: '#fff',
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 12.5,
   },
 })

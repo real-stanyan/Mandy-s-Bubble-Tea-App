@@ -86,7 +86,7 @@ export function FragranceBlindBox() {
             <Text
               style={{
                 marginTop: 10,
-                fontFamily: 'Fraunces_500Medium',
+                fontFamily: 'ShantellSans_700Bold',
                 fontSize: 24,
                 lineHeight: 26,
                 letterSpacing: -0.5,
@@ -94,7 +94,7 @@ export function FragranceBlindBox() {
               }}
             >
               {'2 drinks, '}
-              <Text style={{ fontFamily: 'Fraunces_500Medium', fontStyle: 'italic' }}>
+              <Text style={{ fontFamily: 'ShantellSans_700Bold', fontStyle: 'italic' }}>
                 one surprise
               </Text>
             </Text>
@@ -150,7 +150,7 @@ export function FragranceBlindBox() {
               backgroundColor: T.brand,
             }}
           >
-            <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: T.cream }}>
+            <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 13, color: T.cream }}>
               Order now
             </Text>
             <Icon name="arrow" color={T.cream} size={12} />

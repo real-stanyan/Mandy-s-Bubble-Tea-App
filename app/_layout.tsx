@@ -28,12 +28,17 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { T } from '@/constants/theme';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import { useFonts, Fraunces_500Medium } from '@expo-google-fonts/fraunces';
+import { useFonts } from '@expo-google-fonts/inter';
+// The marker voice from the shop's posters, promoted to the app's one
+// typeface — the port of web's site-wide Shantell swap (Stan, 2026-08-10).
+// Fraunces/Inter imports dropped from the load list but the packages stay
+// installed one release as the rollback lever.
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-} from '@expo-google-fonts/inter';
+  ShantellSans_400Regular,
+  ShantellSans_500Medium,
+  ShantellSans_600SemiBold,
+  ShantellSans_700Bold,
+} from '@expo-google-fonts/shantell-sans';
 import { JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -59,10 +64,10 @@ function PushMount() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Fraunces_500Medium,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
+    ShantellSans_400Regular,
+    ShantellSans_500Medium,
+    ShantellSans_600SemiBold,
+    ShantellSans_700Bold,
     JetBrainsMono_700Bold,
   });
   useEffect(() => {

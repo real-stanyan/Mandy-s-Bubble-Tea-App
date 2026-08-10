@@ -73,8 +73,8 @@ export const T = {
 } as const;
 
 export const FONT = {
-  serif: 'Fraunces',
-  sans: 'Inter',
+  serif: 'ShantellSans_700Bold',
+  sans: 'ShantellSans_400Regular',
   mono: 'JetBrainsMono',
 } as const;
 
@@ -134,14 +134,14 @@ export const SHADOW = {
 } as const;
 
 export const TYPE = {
-  screenTitleSm:  { fontFamily: 'Fraunces_500Medium', fontSize: 22, letterSpacing: -0.5 },
-  screenTitleLg:  { fontFamily: 'Fraunces_500Medium', fontSize: 28, letterSpacing: -0.5 },
-  cardTitle:      { fontFamily: 'Fraunces_500Medium', fontSize: 17, letterSpacing: -0.3 },
-  productName:    { fontFamily: 'Fraunces_500Medium', fontSize: 26 },
-  productNameSm:  { fontFamily: 'Fraunces_500Medium', fontSize: 24 },
-  body:           { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19 },
-  bodyStrong:     { fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 19 },
-  label:          { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, lineHeight: 18 },
+  screenTitleSm:  { fontFamily: 'ShantellSans_700Bold', fontSize: 22, letterSpacing: -0.5 },
+  screenTitleLg:  { fontFamily: 'ShantellSans_700Bold', fontSize: 28, letterSpacing: -0.5 },
+  cardTitle:      { fontFamily: 'ShantellSans_700Bold', fontSize: 17, letterSpacing: -0.3 },
+  productName:    { fontFamily: 'ShantellSans_700Bold', fontSize: 26 },
+  productNameSm:  { fontFamily: 'ShantellSans_700Bold', fontSize: 24 },
+  body:           { fontFamily: 'ShantellSans_400Regular', fontSize: 13, lineHeight: 19 },
+  bodyStrong:     { fontFamily: 'ShantellSans_500Medium', fontSize: 13, lineHeight: 19 },
+  label:          { fontFamily: 'ShantellSans_600SemiBold', fontSize: 12.5, lineHeight: 18 },
   priceLg:        { fontFamily: 'JetBrainsMono_700Bold', fontSize: 22 },
   priceMd:        { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18 },
   priceSm:        { fontFamily: 'JetBrainsMono_700Bold', fontSize: 13 },

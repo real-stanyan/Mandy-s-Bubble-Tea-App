@@ -113,7 +113,7 @@ export function StoreCard() {
           </View>
           <Text
             style={{
-              fontFamily: 'Fraunces_500Medium',
+              fontFamily: 'ShantellSans_700Bold',
               fontSize: 16,
               letterSpacing: -0.3,
               color: T.ink,
@@ -145,7 +145,7 @@ export function StoreCard() {
             opacity: pressed ? 0.6 : 1,
           })}
         >
-          <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 12.5, color: T.ink }}>
+          <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 12.5, color: T.ink }}>
             Directions
           </Text>
         </Pressable>

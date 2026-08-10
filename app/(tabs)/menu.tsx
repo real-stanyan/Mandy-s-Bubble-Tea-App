@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   title: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 34,
     lineHeight: 38,
     color: T.ink,
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   statusText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 13,
   },
   searchBar: {
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 14,
     color: T.ink,
     paddingVertical: 0,
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 13,
     lineHeight: 19,
     color: T.ink3,
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 13,
     lineHeight: 19,
     color: T.ink3,
@@ -690,14 +690,14 @@ const styles = StyleSheet.create({
   },
   tabText: {
     flex: 1,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 12,
     lineHeight: 15,
     textAlign: 'center',
     color: T.ink3,
   },
   tabTextActive: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     color: T.brand,
   },
   mainWrap: {
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     color: T.ink,
   },
   rowSubtitle: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 11,
     color: T.ink3,
   },
@@ -778,13 +778,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowPriceOriginal: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 12,
     color: T.ink4,
     textDecorationLine: 'line-through',
   },
   rowPrice: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 14,
     color: T.ink2,
   },
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     backgroundColor: T.ink2,
   },
   soldOutPillText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 9,
     letterSpacing: 1.1,
     color: '#fff',

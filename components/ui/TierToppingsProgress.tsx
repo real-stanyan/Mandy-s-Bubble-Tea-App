@@ -48,7 +48,7 @@ export function TierToppingsProgress({ tier, remaining }: Props) {
           <Text style={{ fontSize: 13 }}>🧋</Text>
           <Text
             style={{
-              fontFamily: 'Inter_500Medium',
+              fontFamily: 'ShantellSans_500Medium',
               fontSize: 12,
               letterSpacing: 0.2,
               color: 'rgba(255,255,255,0.82)',
@@ -58,13 +58,13 @@ export function TierToppingsProgress({ tier, remaining }: Props) {
           </Text>
         </View>
         {left > 0 ? (
-          <Text style={{ fontFamily: 'Fraunces_500Medium', fontSize: 12, color: ICE_SOFT }}>
+          <Text style={{ fontFamily: 'ShantellSans_700Bold', fontSize: 12, color: ICE_SOFT }}>
             {`${left} of ${total} left`}
           </Text>
         ) : (
           <Text
             style={{
-              fontFamily: 'Inter_400Regular',
+              fontFamily: 'ShantellSans_400Regular',
               fontSize: 11,
               color: 'rgba(255,255,255,0.4)',
             }}

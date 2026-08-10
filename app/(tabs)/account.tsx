@@ -240,14 +240,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   howTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
     color: T.ink,
     marginBottom: 4,
   },
   howBullet: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 14,
     lineHeight: 20,
     color: T.ink2,

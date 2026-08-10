@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 24,
     letterSpacing: -0.5,
     textAlign: 'center',
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pickupNumber: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 48,
     letterSpacing: -1,
     color: T.brand,
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   infoValueLarge: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 22,
     letterSpacing: -0.3,
     color: T.ink,
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   },
   starsIcon: { fontSize: 18 },
   starsTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 16,
     letterSpacing: -0.3,
     color: '#fff',
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   summaryHeading: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 18,
     letterSpacing: -0.3,
     color: T.ink,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   },
   itemInfo: { flex: 1, gap: 2 },
   itemName: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 15,
     color: T.ink,
   },
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   },
   itemVariationLabel: {
     color: T.ink4,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
   itemQty: {
     ...TYPE.priceSm,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   homeButtonText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 15,
     color: T.ink,
   },

@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     color: T.brand,
   },
   rewardTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 20,
     letterSpacing: -0.3,
     color: T.ink,
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   emptyTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
     color: T.ink,
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   howTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
     color: T.ink,

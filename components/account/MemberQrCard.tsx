@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 4,
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
     color: T.ink,
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   expandText: {
     color: T.cream,
     fontSize: 11.5,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
   modalBackdrop: {
     flex: 1,
@@ -147,6 +147,6 @@ const styles = StyleSheet.create({
   modalCloseText: {
     color: T.cream,
     fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
   },
 })

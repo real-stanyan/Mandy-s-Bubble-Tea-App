@@ -62,7 +62,7 @@ export function DailySpecial() {
               <Text
                 style={{
                   marginTop: 10,
-                  fontFamily: 'Fraunces_500Medium',
+                  fontFamily: 'ShantellSans_700Bold',
                   fontSize: 24,
                   lineHeight: 26,
                   letterSpacing: -0.5,
@@ -70,7 +70,7 @@ export function DailySpecial() {
                 }}
               >
                 {`First ${drinksRemaining} `}
-                <Text style={{ fontFamily: 'Fraunces_500Medium', fontStyle: 'italic' }}>milk teas</Text>
+                <Text style={{ fontFamily: 'ShantellSans_700Bold', fontStyle: 'italic' }}>milk teas</Text>
                 {`\n— ${pct}% off`}
               </Text>
               <Text
@@ -93,7 +93,7 @@ export function DailySpecial() {
                 backgroundColor: T.ink,
               }}
             >
-              <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: T.cream }}>
+              <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 13, color: T.cream }}>
                 Start ordering
               </Text>
               <Icon name="arrow" color={T.cream} size={12} />

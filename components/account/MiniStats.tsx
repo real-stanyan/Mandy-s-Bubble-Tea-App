@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     backgroundColor: T.cream,
   },
   num: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 22,
     letterSpacing: -0.4,
     color: T.ink,

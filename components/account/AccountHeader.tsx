@@ -43,7 +43,7 @@ export const AccountHeader = memo(function AccountHeader({ profile }: Props) {
       >
         <Text
           style={{
-            fontFamily: 'Fraunces_500Medium',
+            fontFamily: 'ShantellSans_700Bold',
             fontSize: 22,
             letterSpacing: -0.5,
             color: '#fff',

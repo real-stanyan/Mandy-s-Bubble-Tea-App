@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   text: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 13,
     color: '#b91c1c',
   },
