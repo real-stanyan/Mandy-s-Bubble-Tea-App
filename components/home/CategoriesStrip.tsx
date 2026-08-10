@@ -90,13 +90,17 @@ export function CategoriesStrip() {
                   opacity: 0.85,
                 }}
               />
+              {/* Pinned day ink, not tokens: the tiles keep their pastel
+                  poster colors in evening mode, so evening's light ink went
+                  light-on-light (Stan's screenshot, 2026-08-10). Same idiom
+                  as the web's pinned poster faces. */}
               <Text
                 style={{
                   fontFamily: 'ShantellSans_700Bold',
                   fontSize: 15,
                   lineHeight: 17,
                   letterSpacing: -0.2,
-                  color: T.ink,
+                  color: '#2A1E14',
                 }}
               >
                 {c.label}
@@ -108,7 +112,7 @@ export function CategoriesStrip() {
                     position: 'absolute',
                     bottom: 12,
                     left: 12,
-                    color: T.ink3,
+                    color: 'rgba(42,30,20,0.55)',
                     fontSize: 10.5,
                     letterSpacing: 1,
                   },

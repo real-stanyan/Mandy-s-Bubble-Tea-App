@@ -5,6 +5,7 @@
  *  pack, everything else English — the store is in Queensland. */
 export type ChatUiStrings = {
   launcherAria: string
+  launcherLabel: string
   drawerTitle: string
   teaser: string
   inputPlaceholder: string
@@ -23,9 +24,10 @@ export type ChatUiStrings = {
 }
 
 const ZH: ChatUiStrings = {
-  launcherAria: '打开点单助手',
+  launcherAria: '打开 Mandy 点单助手',
+  launcherLabel: 'Hi Mandy!',
   drawerTitle: '点单助手',
-  teaser: '嗨！我是 AI 点单助手 🧋 可以帮你推荐、点单、答疑～',
+  teaser: '嗨！我是 Mandy 🧋 帮你推荐、点单、有问必答～',
   inputPlaceholder: '想喝点什么？',
   send: '发送',
   emptyStateHint:
@@ -43,9 +45,10 @@ const ZH: ChatUiStrings = {
 }
 
 const EN: ChatUiStrings = {
-  launcherAria: 'Open the order assistant',
+  launcherAria: 'Open Mandy, the order assistant',
+  launcherLabel: 'Hi Mandy!',
   drawerTitle: 'Order assistant',
-  teaser: "Hi! I'm the AI order assistant 🧋 — ask me for picks, orders, or help.",
+  teaser: "Hi! I'm Mandy 🧋 — ask me for picks, orders, or help.",
   inputPlaceholder: 'What are you in the mood for?',
   send: 'Send',
   emptyStateHint:

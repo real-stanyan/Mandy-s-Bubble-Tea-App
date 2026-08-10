@@ -3,23 +3,28 @@ import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path, Circle } from 'react-native-svg'
-import { T } from '@/constants/theme'
+import { T, IS_EVENING } from '@/constants/theme'
 import { useChat } from '@/store/chat'
 import { chatUiStrings } from '@/lib/chat/ui-strings'
 
+/** Evening brand is a light gold — white-on-gold is exactly the unreadable
+ *  blob Stan screenshotted, so the pill's content flips to day-ink on it.
+ *  IS_EVENING is startup-fixed, same contract as T itself. */
+const ON_BRAND = IS_EVENING ? '#2A1E14' : '#FFFFFF'
+
 /** Speech bubble with three boba pearls — same glyph as the web launcher. */
-function BobaChatIcon({ size = 28 }: { size?: number }) {
+function BobaChatIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
       <Path
         d="M12 3.2c-5 0-9 3.4-9 7.6 0 2.1 1 4 2.6 5.4-.2 1.1-.7 2.2-1.6 3 1.5.1 3-.4 4.2-1.2 1.2.4 2.4.6 3.8.6 5 0 9-3.4 9-7.6s-4-7.8-9-7.8Z"
-        stroke="#fff"
+        stroke={ON_BRAND}
         strokeWidth={1.8}
         strokeLinejoin="round"
       />
-      <Circle cx={8.4} cy={11} r={1.3} fill="#fff" />
-      <Circle cx={12} cy={11} r={1.3} fill="#fff" />
-      <Circle cx={15.6} cy={11} r={1.3} fill="#fff" />
+      <Circle cx={8.4} cy={11} r={1.3} fill={ON_BRAND} />
+      <Circle cx={12} cy={11} r={1.3} fill={ON_BRAND} />
+      <Circle cx={15.6} cy={11} r={1.3} fill={ON_BRAND} />
     </Svg>
   )
 }
@@ -78,15 +83,17 @@ export function ChatLauncher() {
         </View>
       ) : null}
 
+      {/* A named pill, not an anonymous circle with an "AI" tag — "Hi
+          Mandy!" tells the customer there's someone to talk to (Stan,
+          2026-08-10: no AI branding, and the badge was light-on-light in
+          evening theme anyway). */}
       <Pressable
         onPress={openChat}
         accessibilityLabel={t.launcherAria}
         style={({ pressed }) => [styles.fab, { bottom }, pressed && styles.fabPressed]}
       >
         <BobaChatIcon />
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>AI</Text>
-        </View>
+        <Text style={styles.fabLabel}>{t.launcherLabel}</Text>
       </Pressable>
     </View>
   )
@@ -96,12 +103,13 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: T.brand,
+    height: 52,
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: T.brand,
     shadowColor: T.brandDark,
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -109,20 +117,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabPressed: { transform: [{ scale: 0.95 }] },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    borderRadius: 999,
-    backgroundColor: T.ink,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  badgeText: {
-    fontFamily: 'JetBrainsMono_700Bold',
-    fontSize: 9,
-    lineHeight: 10,
-    color: T.cream,
+  fabLabel: {
+    fontFamily: 'ShantellSans_700Bold',
+    fontSize: 14,
+    color: ON_BRAND,
   },
   teaser: {
     position: 'absolute',
