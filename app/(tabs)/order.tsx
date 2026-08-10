@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   title: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 28,
     letterSpacing: -0.5,
     color: T.ink,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   sectionLabel: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 16,
     color: T.ink,
     letterSpacing: -0.2,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   emptyTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 16,
     color: T.ink2,
     marginBottom: 4,

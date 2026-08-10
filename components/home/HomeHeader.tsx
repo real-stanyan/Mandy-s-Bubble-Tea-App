@@ -29,7 +29,7 @@ export function HomeHeader() {
           <Text style={[TYPE.body, { color: T.ink3 }]}>{salutation}</Text>
           <Text
             style={{
-              fontFamily: 'Fraunces_500Medium',
+              fontFamily: 'ShantellSans_700Bold',
               fontSize: 30,
               lineHeight: 33,
               letterSpacing: -0.8,
@@ -127,13 +127,13 @@ export function HomeHeader() {
         }}
       >
         <Icon name="pin" color={T.brand} size={10} />
-        <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11.5, color: T.ink2 }}>
+        <Text style={{ fontFamily: 'ShantellSans_400Regular', fontSize: 11.5, color: T.ink2 }}>
           Southport · 34 Davenport St
         </Text>
-        <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11.5, color: T.ink3 }}>·</Text>
+        <Text style={{ fontFamily: 'ShantellSans_400Regular', fontSize: 11.5, color: T.ink3 }}>·</Text>
         <Text
           style={{
-            fontFamily: 'Inter_500Medium',
+            fontFamily: 'ShantellSans_500Medium',
             fontSize: 11.5,
             color: status.open ? T.greenDark : T.ink3,
           }}

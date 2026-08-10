@@ -936,7 +936,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionHint: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 11,
     color: T.ink3,
   },
@@ -954,18 +954,18 @@ const styles = StyleSheet.create({
   chipUnselected: { backgroundColor: T.paper, borderColor: T.line },
   chipSelected: { backgroundColor: T.brand, borderColor: T.brand },
   chipDisabled: { backgroundColor: T.bg, borderColor: T.line, opacity: 0.5 },
-  chipLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: T.ink },
-  chipLabelSelected: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#fff' },
-  chipLabelDisabled: { fontFamily: 'Inter_500Medium', fontSize: 14, color: T.ink4 },
-  chipPrice: { fontFamily: 'Inter_500Medium', fontSize: 12, color: T.ink3, marginLeft: 4 },
+  chipLabel: { fontFamily: 'ShantellSans_500Medium', fontSize: 14, color: T.ink },
+  chipLabelSelected: { fontFamily: 'ShantellSans_600SemiBold', fontSize: 14, color: '#fff' },
+  chipLabelDisabled: { fontFamily: 'ShantellSans_500Medium', fontSize: 14, color: T.ink4 },
+  chipPrice: { fontFamily: 'ShantellSans_500Medium', fontSize: 12, color: T.ink3, marginLeft: 4 },
   chipPriceSelected: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 12,
     color: 'rgba(255,255,255,0.85)',
     marginLeft: 4,
   },
   chipPriceDisabled: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 12,
     color: T.ink4,
     marginLeft: 4,
@@ -992,15 +992,15 @@ const styles = StyleSheet.create({
   },
   ctaAdded: { backgroundColor: T.greenDark, justifyContent: 'center' },
   ctaDisabled: { backgroundColor: T.ink4 },
-  ctaLeft: { fontFamily: 'Fraunces_500Medium', fontSize: 16, color: '#fff' },
+  ctaLeft: { fontFamily: 'ShantellSans_700Bold', fontSize: 16, color: '#fff' },
   ctaRight: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 15,
     color: 'rgba(255,255,255,0.9)',
   },
   ctaAddedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   ctaAddedText: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 16,
     color: '#fff',
     marginLeft: 8,
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
     borderColor: T.brand,
     backgroundColor: 'transparent',
   },
-  retryText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: T.brand },
+  retryText: { fontFamily: 'ShantellSans_600SemiBold', fontSize: 13, color: T.brand },
 
   bestsellerPill: {
     alignSelf: 'flex-start',
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bestsellerText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 10,
     letterSpacing: 1.4,
     color: T.ink,
@@ -1053,13 +1053,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   headlinePriceOriginal: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 16,
     color: T.ink4,
     textDecorationLine: 'line-through',
   },
   headlinePrice: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 22,
     color: T.ink,
   },
@@ -1096,17 +1096,17 @@ const styles = StyleSheet.create({
   },
   toppingLabel: {
     flex: 1,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 15,
     color: T.ink,
   },
   toppingPrice: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 13,
     color: T.ink3,
   },
   toppingSoldOut: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 11,
     letterSpacing: 0.6,
     color: T.ink3,
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   toppingStepperMinus: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 18,
     lineHeight: 18,
     color: T.ink,
@@ -1139,12 +1139,12 @@ const styles = StyleSheet.create({
   toppingStepperCount: {
     minWidth: 20,
     textAlign: 'center',
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 13,
     color: T.ink,
   },
   toppingStepperPrice: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 12,
     color: T.ink3,
     marginLeft: 6,
@@ -1155,7 +1155,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   toppingChevron: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 14,
     color: T.ink3,
     lineHeight: 14,
@@ -1168,7 +1168,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(196,58,16,0.12)',
   },
   requiredPillText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 10,
     letterSpacing: 1.2,
     color: T.brand,
@@ -1181,7 +1181,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(196,58,16,0.12)',
   },
   includedPillText: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 10,
     letterSpacing: 1.2,
     color: T.brand,
@@ -1207,7 +1207,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperMinus: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 22,
     lineHeight: 22,
     color: T.ink,
@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
   stepperCount: {
     minWidth: 24,
     textAlign: 'center',
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 16,
     color: T.ink,
   },

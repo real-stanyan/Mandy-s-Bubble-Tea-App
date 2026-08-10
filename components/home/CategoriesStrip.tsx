@@ -92,7 +92,7 @@ export function CategoriesStrip() {
               />
               <Text
                 style={{
-                  fontFamily: 'Fraunces_500Medium',
+                  fontFamily: 'ShantellSans_700Bold',
                   fontSize: 15,
                   lineHeight: 17,
                   letterSpacing: -0.2,

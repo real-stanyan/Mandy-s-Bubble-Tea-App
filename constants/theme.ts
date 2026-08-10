@@ -52,7 +52,7 @@ export const Fonts = Platform.select({
   },
 });
 
-export const T = {
+const DAY = {
   bg:        '#F2E8DF',
   bg2:       '#E8DAC6',
   paper:     '#FFF9F0',
@@ -72,9 +72,41 @@ export const T = {
   greenDark: '#2E7F52',
 } as const;
 
+// Evening Mode — the web's "midnight cafe" palette (#177), same hexes on the
+// same token names: near-neutral espresso ground, a whisper of warmth in the
+// cards, gold accent, parchment text. peach/cream/star/sage carry over
+// unchanged, exactly as on web.
+const EVENING = {
+  ...DAY,
+  bg:        '#131110',
+  bg2:       '#221C16',
+  paper:     '#1A1512',
+  card:      '#262019',
+  ink:       '#F5EDE1',
+  ink2:      '#D8C8B4',
+  ink3:      'rgba(245,237,225,0.62)',
+  ink4:      'rgba(245,237,225,0.34)',
+  line:      'rgba(245,237,225,0.14)',
+  brand:     '#D9A24E',
+  brandDark: '#B5813A',
+  green:     '#4CC084',
+  greenDark: '#3CA96E',
+} as const;
+
+// Decided ONCE, at module load — before any component's StyleSheet.create
+// runs, which is what lets every static style pick up the evening values
+// with zero component changes. The cost is that crossing 18:00 mid-session
+// doesn't restyle until the next cold start; the web pays the same price
+// per page-load and nobody noticed. Same window as web: 18:00–06:00 device
+// time.
+const hour = new Date().getHours();
+export const IS_EVENING = hour >= 18 || hour < 6;
+
+export const T = (IS_EVENING ? EVENING : DAY) as typeof DAY;
+
 export const FONT = {
-  serif: 'Fraunces',
-  sans: 'Inter',
+  serif: 'ShantellSans_700Bold',
+  sans: 'ShantellSans_400Regular',
   mono: 'JetBrainsMono',
 } as const;
 
@@ -134,14 +166,14 @@ export const SHADOW = {
 } as const;
 
 export const TYPE = {
-  screenTitleSm:  { fontFamily: 'Fraunces_500Medium', fontSize: 22, letterSpacing: -0.5 },
-  screenTitleLg:  { fontFamily: 'Fraunces_500Medium', fontSize: 28, letterSpacing: -0.5 },
-  cardTitle:      { fontFamily: 'Fraunces_500Medium', fontSize: 17, letterSpacing: -0.3 },
-  productName:    { fontFamily: 'Fraunces_500Medium', fontSize: 26 },
-  productNameSm:  { fontFamily: 'Fraunces_500Medium', fontSize: 24 },
-  body:           { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19 },
-  bodyStrong:     { fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 19 },
-  label:          { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, lineHeight: 18 },
+  screenTitleSm:  { fontFamily: 'ShantellSans_700Bold', fontSize: 22, letterSpacing: -0.5 },
+  screenTitleLg:  { fontFamily: 'ShantellSans_700Bold', fontSize: 28, letterSpacing: -0.5 },
+  cardTitle:      { fontFamily: 'ShantellSans_700Bold', fontSize: 17, letterSpacing: -0.3 },
+  productName:    { fontFamily: 'ShantellSans_700Bold', fontSize: 26 },
+  productNameSm:  { fontFamily: 'ShantellSans_700Bold', fontSize: 24 },
+  body:           { fontFamily: 'ShantellSans_400Regular', fontSize: 13, lineHeight: 19 },
+  bodyStrong:     { fontFamily: 'ShantellSans_500Medium', fontSize: 13, lineHeight: 19 },
+  label:          { fontFamily: 'ShantellSans_600SemiBold', fontSize: 12.5, lineHeight: 18 },
   priceLg:        { fontFamily: 'JetBrainsMono_700Bold', fontSize: 22 },
   priceMd:        { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18 },
   priceSm:        { fontFamily: 'JetBrainsMono_700Bold', fontSize: 13 },

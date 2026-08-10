@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   toastTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 22,
     letterSpacing: -0.3,
     color: '#fff',
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   },
   toastSub: {
     marginTop: 4,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 12.5,
     letterSpacing: 0.4,
     color: 'rgba(255,255,255,0.7)',

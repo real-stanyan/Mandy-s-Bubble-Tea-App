@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   },
   empty: { paddingVertical: 60, alignItems: 'center', gap: 6 },
   emptyTitle: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 18,
     color: T.ink,
   },

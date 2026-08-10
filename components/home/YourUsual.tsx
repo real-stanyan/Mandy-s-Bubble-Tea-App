@@ -79,7 +79,7 @@ export function YourUsual() {
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text
               style={{
-                fontFamily: 'Fraunces_500Medium',
+                fontFamily: 'ShantellSans_700Bold',
                 fontSize: 18,
                 lineHeight: 21,
                 letterSpacing: -0.3,

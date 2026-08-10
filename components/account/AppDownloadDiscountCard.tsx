@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     color: T.ink3,
   },
   badge: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 32,
     letterSpacing: -0.5,
     color: T.brand,

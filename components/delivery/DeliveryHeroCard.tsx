@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     marginTop: 10,
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 20,
     letterSpacing: -0.3,
     lineHeight: 24,

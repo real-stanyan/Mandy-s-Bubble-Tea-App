@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 4,
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 18,
     letterSpacing: -0.3,
     color: T.ink,
   },
   body: {
     marginTop: 4,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'ShantellSans_400Regular',
     fontSize: 12.5,
     lineHeight: 18,
     color: T.ink2,

@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1 },
   title: {
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 22,
     letterSpacing: -0.4,
     color: T.ink,

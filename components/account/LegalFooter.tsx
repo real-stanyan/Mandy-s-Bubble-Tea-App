@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   link: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'ShantellSans_500Medium',
     fontSize: 12,
     color: T.ink3,
   },

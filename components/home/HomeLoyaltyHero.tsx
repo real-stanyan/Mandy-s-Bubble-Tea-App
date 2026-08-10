@@ -46,7 +46,7 @@ export function HomeLoyaltyHero() {
             <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }}>
               <Text
                 style={{
-                  fontFamily: 'Fraunces_500Medium',
+                  fontFamily: 'ShantellSans_700Bold',
                   fontSize: 36,
                   lineHeight: 36,
                   letterSpacing: -0.8,
@@ -57,7 +57,7 @@ export function HomeLoyaltyHero() {
               </Text>
               <Text
                 style={{
-                  fontFamily: 'Fraunces_500Medium',
+                  fontFamily: 'ShantellSans_700Bold',
                   fontSize: 24,
                   color: 'rgba(255,255,255,0.45)',
                   marginLeft: 6,
@@ -89,7 +89,7 @@ export function HomeLoyaltyHero() {
               />
               <Text
                 style={{
-                  fontFamily: 'Inter_600SemiBold',
+                  fontFamily: 'ShantellSans_600SemiBold',
                   fontSize: 10.5,
                   letterSpacing: 1.6,
                   color: 'rgba(255,255,255,0.9)',
@@ -120,7 +120,7 @@ export function HomeLoyaltyHero() {
               '🎉 Free drink ready to redeem'
             ) : (
               <>
-                <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#fff' }}>{toGo}</Text>
+                <Text style={{ fontFamily: 'ShantellSans_600SemiBold', color: '#fff' }}>{toGo}</Text>
                 {` stars until a free drink`}
               </>
             )}
@@ -138,7 +138,7 @@ export function HomeLoyaltyHero() {
           >
             <Text
               style={{
-                fontFamily: 'Inter_500Medium',
+                fontFamily: 'ShantellSans_500Medium',
                 fontSize: 12.5,
                 color: reached ? T.brandDark : '#fff',
               }}

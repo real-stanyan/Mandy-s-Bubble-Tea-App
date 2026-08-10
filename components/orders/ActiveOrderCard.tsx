@@ -262,13 +262,13 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 4,
-    fontFamily: 'Fraunces_500Medium',
+    fontFamily: 'ShantellSans_700Bold',
     fontSize: 22,
     letterSpacing: -0.5,
     lineHeight: 26,
   },
   titleRef: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'ShantellSans_600SemiBold',
     fontSize: 20,
     letterSpacing: 0,
   },
