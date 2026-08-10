@@ -14,7 +14,7 @@ import { sendChat, MAX_CHARS } from '@/lib/chat/api'
 import { chatUiStrings } from '@/lib/chat/ui-strings'
 import { ApiError } from '@/lib/api'
 import { Icon } from '@/components/brand/Icon'
-import { T, RADIUS } from '@/constants/theme'
+import { T, RADIUS, PIN } from '@/constants/theme'
 import { DrinkProposalCard } from './DrinkProposalCard'
 import { CheckoutCard } from './CheckoutCard'
 
@@ -263,9 +263,9 @@ const styles = StyleSheet.create({
   rowUser: { alignItems: 'flex-end' },
   rowBot: { alignItems: 'flex-start' },
   bubble: { maxWidth: '88%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
-  bubbleUser: { backgroundColor: T.ink },
+  bubbleUser: { backgroundColor: PIN.chip },
   bubbleBot: { backgroundColor: T.cream },
-  bubbleUserText: { fontFamily: 'ShantellSans_400Regular', fontSize: 14, color: T.paper },
+  bubbleUserText: { fontFamily: 'ShantellSans_400Regular', fontSize: 14, color: PIN.onChip },
   bubbleBotText: { fontFamily: 'ShantellSans_400Regular', fontSize: 14, color: '#2A1E14' },
   cardWrap: { marginTop: 8, width: '92%' },
   suggestions: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

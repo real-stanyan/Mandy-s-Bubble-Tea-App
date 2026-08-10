@@ -2,7 +2,7 @@ import { memo, useState } from 'react'
 import { View, Text, StyleSheet, Pressable, Modal, TouchableOpacity } from 'react-native'
 import QRCode from 'react-native-qrcode-svg'
 import { Icon } from '@/components/brand/Icon'
-import { T, RADIUS, SPACING } from '@/constants/theme'
+import { T, RADIUS, SPACING, PIN } from '@/constants/theme'
 
 interface Props {
   customerId: string
@@ -30,7 +30,7 @@ export const MemberQrCard = memo(function MemberQrCard({ customerId, phoneE164 }
           <Text style={styles.memberId} numberOfLines={1}>{memberId}</Text>
           <View style={styles.expandBtn}>
             <Text style={styles.expandText}>Expand</Text>
-            <Icon name="chevR" color={T.cream} size={10} />
+            <Icon name="chevR" color={PIN.onChip} size={10} />
           </View>
         </View>
       </Pressable>
@@ -107,10 +107,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
   },
   expandText: {
-    color: T.cream,
+    color: PIN.onChip,
     fontSize: 11.5,
     fontFamily: 'ShantellSans_600SemiBold',
   },
@@ -142,10 +142,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: RADIUS.pill,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
   },
   modalCloseText: {
-    color: T.cream,
+    color: PIN.onChip,
     fontSize: 13,
     fontFamily: 'ShantellSans_600SemiBold',
   },

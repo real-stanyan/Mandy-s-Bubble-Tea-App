@@ -23,7 +23,7 @@ import type { SvgPath } from '@/lib/doodle/types'
 import { GALLERY_HASHES, GALLERY_MANIFEST } from '@/lib/doodle/gallery-manifest.generated'
 import { fetchGallery, presetImageSource } from '@/lib/doodle/gallery-remote'
 import type { RemotePreset } from '@/lib/doodle/gallery-remote'
-import { T, FONT, RADIUS } from '@/constants/theme'
+import { T, FONT, RADIUS, PIN } from '@/constants/theme'
 
 interface Props {
   visible: boolean
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   },
   navBtn: {
     flex: 1, paddingVertical: 12, borderRadius: RADIUS.pill,
-    backgroundColor: T.ink, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: PIN.chip, alignItems: 'center', justifyContent: 'center',
   },
   navBtnDisabled: { opacity: 0.3 },
   navBtnText: { fontFamily: FONT.sans, fontSize: 14, fontWeight: '700', color: T.cream },

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { Icon } from '@/components/brand/Icon'
-import { T, RADIUS, SPACING } from '@/constants/theme'
+import { T, RADIUS, SPACING, PIN } from '@/constants/theme'
 
 interface Props {
   rewardsCount: number
@@ -23,7 +23,7 @@ export const PromotionsCard = memo(function PromotionsCard({ rewardsCount }: Pro
         style={styles.card}
       >
         <View style={styles.iconTile}>
-          <Icon name="gift" color={T.cream} size={22} />
+          <Icon name="gift" color={PIN.onChip} size={22} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>{label}</Text>
@@ -35,7 +35,7 @@ export const PromotionsCard = memo(function PromotionsCard({ rewardsCount }: Pro
           activeOpacity={0.85}
         >
           <Text style={styles.useText}>Use</Text>
-          <Icon name="chevR" color={T.cream} size={12} />
+          <Icon name="chevR" color={PIN.onChip} size={12} />
         </TouchableOpacity>
       </LinearGradient>
     </View>
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -83,10 +83,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: RADIUS.pill,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
   },
   useText: {
-    color: T.cream,
+    color: PIN.onChip,
     fontSize: 12,
     fontFamily: 'ShantellSans_600SemiBold',
   },
