@@ -68,12 +68,12 @@ const styles = StyleSheet.create({
     fontFamily: 'ShantellSans_700Bold',
     fontSize: 17,
     letterSpacing: -0.3,
-    color: T.ink,
+    color: PIN.ink,
   },
   sub: {
     fontFamily: 'ShantellSans_400Regular',
     fontSize: 12,
-    color: T.ink2,
+    color: PIN.ink2,
     marginTop: 1,
   },
   useBtn: {

@@ -1,6 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { router } from 'expo-router'
-import { T, RADIUS } from '@/constants/theme'
+import { T, RADIUS, PIN, IS_EVENING } from '@/constants/theme'
 import { useCartStore } from '@/store/cart'
 import { useChat } from '@/store/chat'
 import { chatUiStrings } from '@/lib/chat/ui-strings'
@@ -103,5 +103,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaPressed: { backgroundColor: T.brandDark },
-  ctaText: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: '#fff' },
+  ctaText: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: IS_EVENING ? PIN.ink : '#fff' },
 })
