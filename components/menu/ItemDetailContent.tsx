@@ -371,7 +371,11 @@ export function ItemDetailContent({
 
   return (
     <View style={styles.container}>
-      <ScrollComponent>
+      {/* Child order matters: hero(0), title block(1), cup(2), the rest(3).
+          stickyHeaderIndices pins the cup once it reaches the top, so the
+          live preview stays in view while the customer scrolls the modifier
+          lists — web's stickyPreview parity (ItemOrderForm.tsx). */}
+      <ScrollComponent stickyHeaderIndices={[2]}>
         {customHero ? (
           <Image
             source={customHero}
@@ -396,7 +400,7 @@ export function ItemDetailContent({
           </View>
         )}
 
-        <View style={styles.content}>
+        <View style={styles.contentTop}>
           {isBestseller(item.itemData?.name) ? (
             <View style={styles.bestsellerPill}>
               <Text style={styles.bestsellerText}>BESTSELLER</Text>
@@ -424,22 +428,26 @@ export function ItemDetailContent({
               {item.itemData.description}
             </Text>
           ) : null}
+        </View>
 
-          {/* Live cup preview — redraws as picks change. Same mapper as the
-              web's (lib/cup-visual mirrors it); anything it doesn't recognise
-              simply doesn't draw, the sections below stay the source of truth. */}
-          <View style={{ marginTop: 16 }}>
-            <CupPreview
-              drinkName={shownName}
-              picked={modifierLists.flatMap((ml) =>
-                ml.modifiers.map((mod) => ({
-                  name: mod.name,
-                  count: (selectedByList[ml.id] ?? EMPTY_COUNTS)[mod.id] ?? 0,
-                })),
-              )}
-            />
-          </View>
+        {/* Live cup preview — redraws as picks change. Same mapper as the
+            web's (lib/cup-visual mirrors it); anything it doesn't recognise
+            simply doesn't draw, the sections below stay the source of truth.
+            Direct ScrollComponent child so stickyHeaderIndices can pin it;
+            solid paper background because the form scrolls underneath. */}
+        <View style={styles.stickyCup}>
+          <CupPreview
+            drinkName={shownName}
+            picked={modifierLists.flatMap((ml) =>
+              ml.modifiers.map((mod) => ({
+                name: mod.name,
+                count: (selectedByList[ml.id] ?? EMPTY_COUNTS)[mod.id] ?? 0,
+              })),
+            )}
+          />
+        </View>
 
+        <View style={styles.content}>
           {/* Size section (unified — single or multi variation) */}
           <ModifierSection
             eyebrow="SIZE"
@@ -926,7 +934,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: T.paper },
   hero: { width: '100%', aspectRatio: 1, backgroundColor: T.sage },
   heroFallback: { alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20 },
+  contentTop: { paddingHorizontal: 20, paddingTop: 20 },
+  // Solid bg, not transparent: this block pins to the top of the scroll
+  // (stickyHeaderIndices) and the modifier sections slide beneath it —
+  // text ghosting through the cup reads as a rendering bug (same call as
+  // web's ItemOrderForm sticky card).
+  stickyCup: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 10,
+    backgroundColor: T.paper,
+  },
+  content: { padding: 20, paddingTop: 0 },
 
   section: { marginTop: 20 },
   sectionHeader: {
