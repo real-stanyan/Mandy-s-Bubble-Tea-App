@@ -34,6 +34,12 @@ function BobaChatIcon({ size = 24 }: { size?: number }) {
  *  form — mirrors the web's ChatGate. */
 const HIDDEN_PREFIXES = ['/checkout', '/order-confirmation']
 
+/** Voice ordering is built but OFF (Stan, 2026-08-10 — "语音功能先下线").
+ *  The pill and its focus hand-off stay in the tree behind this flag;
+ *  flip to true when the voice project resumes (P3 native STT, see
+ *  docs/superpowers/specs/2026-08-10-voice-assistant.md). */
+const VOICE_ENABLED = false
+
 export function ChatLauncher() {
   const t = chatUiStrings()
   const insets = useSafeAreaInsets()
@@ -98,26 +104,28 @@ export function ChatLauncher() {
           placement). Today it opens the chat with the keyboard up, whose
           mic key is system dictation; the P3 binary swaps this to native
           speech recognition without moving the button. */}
-      <Pressable
-        onPress={openVoice}
-        accessibilityLabel={t.voiceOrderAria}
-        style={({ pressed }) => [styles.voiceFab, { bottom }, pressed && styles.fabPressed]}
-      >
-        <Svg viewBox="0 0 24 24" width={22} height={22} fill="none">
-          <Path
-            d="M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3Z"
-            stroke={ON_BRAND}
-            strokeWidth={1.8}
-          />
-          <Path
-            d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"
-            stroke={ON_BRAND}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-          />
-        </Svg>
-        <Text style={styles.fabLabel}>{t.voiceOrder}</Text>
-      </Pressable>
+      {VOICE_ENABLED ? (
+        <Pressable
+          onPress={openVoice}
+          accessibilityLabel={t.voiceOrderAria}
+          style={({ pressed }) => [styles.voiceFab, { bottom }, pressed && styles.fabPressed]}
+        >
+          <Svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+            <Path
+              d="M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3Z"
+              stroke={ON_BRAND}
+              strokeWidth={1.8}
+            />
+            <Path
+              d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"
+              stroke={ON_BRAND}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.fabLabel}>{t.voiceOrder}</Text>
+        </Pressable>
+      ) : null}
 
       {/* A named pill, not an anonymous circle with an "AI" tag — "Hi
           Mandy!" tells the customer there's someone to talk to (Stan,
