@@ -101,7 +101,9 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
           <Text style={[styles.bigNum, styles.bigNumMuted, styles.strikethrough]}>
             10% off
           </Text>
-          <Text style={[TYPE.body, { color: T.ink3, marginTop: 8 }]}>
+          {/* Pinned: cardMuted's #FAFAFA stays light in evening mode, where
+              T.ink3 flips light — same poster-face idiom as CategoriesStrip. */}
+          <Text style={[TYPE.body, { color: 'rgba(42,30,20,0.55)', marginTop: 8 }]}>
             Thanks for following @mandysbubbletea!
           </Text>
         </View>
