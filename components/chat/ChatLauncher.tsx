@@ -68,6 +68,11 @@ export function ChatLauncher() {
     dismissTeaser()
     open()
   }
+  const openVoice = () => {
+    dismissTeaser()
+    useChat.getState().requestInputFocus()
+    open()
+  }
 
   // Clears the tab bar (which already accounts for insets.bottom). With
   // items in the cart, MiniCartBar floats at tabBarHeight+8 (~48px tall) —
@@ -88,6 +93,31 @@ export function ChatLauncher() {
           <View style={styles.teaserTail} />
         </View>
       ) : null}
+
+      {/* Stand-alone voice entry — bottom centre, left of Hi Mandy (Stan's
+          placement). Today it opens the chat with the keyboard up, whose
+          mic key is system dictation; the P3 binary swaps this to native
+          speech recognition without moving the button. */}
+      <Pressable
+        onPress={openVoice}
+        accessibilityLabel={t.voiceOrderAria}
+        style={({ pressed }) => [styles.voiceFab, { bottom }, pressed && styles.fabPressed]}
+      >
+        <Svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+          <Path
+            d="M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3Z"
+            stroke={ON_BRAND}
+            strokeWidth={1.8}
+          />
+          <Path
+            d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"
+            stroke={ON_BRAND}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+        </Svg>
+        <Text style={styles.fabLabel}>{t.voiceOrder}</Text>
+      </Pressable>
 
       {/* A named pill, not an anonymous circle with an "AI" tag — "Hi
           Mandy!" tells the customer there's someone to talk to (Stan,
@@ -123,6 +153,25 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabPressed: { transform: [{ scale: 0.95 }] },
+  voiceFab: {
+    position: 'absolute',
+    alignSelf: 'center',
+    // Nudged left of true centre — at centre its right edge slid under
+    // the Hi Mandy! pill on a 375pt screen (same collision web hit).
+    transform: [{ translateX: -36 }],
+    height: 52,
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: T.brand,
+    shadowColor: T.brandDark,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
   fabLabel: {
     fontFamily: 'ShantellSans_700Bold',
     fontSize: 14,

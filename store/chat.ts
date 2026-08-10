@@ -23,12 +23,16 @@ interface ChatState {
   /** In-memory, not persisted: the teaser greets once per app launch —
    *  same cadence as the web's per-browser-session flag. */
   teaserSeen: boolean
+  /** Bumped by the voice-order pill; ChatSheet focuses the input so the
+   *  keyboard (with its dictation mic) pops the moment the sheet opens. */
+  focusInputNonce: number
   open: () => void
   close: () => void
   push: (message: ChatMessage) => void
   setThinking: (value: boolean) => void
   markAdded: (messageId: string) => void
   markTeaserSeen: () => void
+  requestInputFocus: () => void
   clear: () => void
 }
 
@@ -46,6 +50,7 @@ export const useChat = create<ChatState>()((set) => ({
   isOpen: false,
   isThinking: false,
   teaserSeen: false,
+  focusInputNonce: 0,
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
   push: (message) => set((s) => ({ messages: [...s.messages, message] })),
@@ -55,5 +60,6 @@ export const useChat = create<ChatState>()((set) => ({
       messages: s.messages.map((m) => (m.id === messageId ? { ...m, added: true } : m)),
     })),
   markTeaserSeen: () => set({ teaserSeen: true }),
+  requestInputFocus: () => set((st) => ({ focusInputNonce: st.focusInputNonce + 1 })),
   clear: () => set({ messages: [] }),
 }))
