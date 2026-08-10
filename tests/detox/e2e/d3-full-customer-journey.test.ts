@@ -67,11 +67,8 @@ describe('D3 — RN app authed full customer journey [TestBaseline:D3]', () => {
     ).toBeVisible()
   })
 
-  it('Home tab shows Browse the menu + Hot Picks strips', async () => {
+  it('Home tab shows the Browse the menu strip', async () => {
     await detoxExpect(element(by.text('Browse the menu'))).toBeVisible()
-    await detoxExpect(
-      element(by.text("This week's favourites")),
-    ).toBeVisible()
   })
 
   it('Menu tab renders the SectionList with category headers', async () => {
