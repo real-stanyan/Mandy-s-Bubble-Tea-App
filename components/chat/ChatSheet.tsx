@@ -14,7 +14,7 @@ import { sendChat, MAX_CHARS } from '@/lib/chat/api'
 import { chatUiStrings } from '@/lib/chat/ui-strings'
 import { ApiError } from '@/lib/api'
 import { Icon } from '@/components/brand/Icon'
-import { T, RADIUS, PIN } from '@/constants/theme'
+import { T, RADIUS, PIN, IS_EVENING } from '@/constants/theme'
 import { DrinkProposalCard } from './DrinkProposalCard'
 import { CheckoutCard } from './CheckoutCard'
 
@@ -23,7 +23,7 @@ function SendIcon({ size = 20 }: { size?: number }) {
     <Svg viewBox="0 0 24 24" width={size} height={size} fill="none">
       <Path
         d="M4.5 12 3 4.5c-.2-.9.7-1.6 1.5-1.2l16 7.6c.8.4.8 1.8 0 2.2l-16 7.6c-.8.4-1.7-.3-1.5-1.2L4.5 12Zm0 0h7"
-        stroke="#fff"
+        stroke={IS_EVENING ? PIN.ink : "#fff"}
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -44,6 +44,12 @@ export function ChatSheet() {
 
   const [draft, setDraft] = useState('')
   const ref = useRef<BottomSheetModal>(null)
+  // Uncontrolled input (no `value` prop): RN's controlled TextInput pushes
+  // `value` back into the native field on every render, which resets the
+  // IME composition buffer — pinyin input died mid-word (Stan's report,
+  // 2026-08-10). draft state still tracks the text for the send button;
+  // the field itself is cleared through this ref after a send.
+  const inputRef = useRef<React.ComponentRef<typeof BottomSheetTextInput>>(null)
   const scrollRef = useRef<React.ComponentRef<typeof BottomSheetScrollView>>(null)
   const snapPoints = useMemo(() => ['85%'], [])
 
@@ -84,6 +90,7 @@ export function ChatSheet() {
     // POST through before React re-renders the disabled state.
     if (!text || useChat.getState().isThinking) return
     setDraft('')
+    inputRef.current?.clear()
     push({ id: newMessageId(), role: 'user', content: text })
     setThinking(true)
 
@@ -198,7 +205,7 @@ export function ChatSheet() {
 
       <View style={styles.inputRow}>
         <BottomSheetTextInput
-          value={draft}
+          ref={inputRef}
           onChangeText={setDraft}
           maxLength={MAX_CHARS}
           placeholder={t.inputPlaceholder}

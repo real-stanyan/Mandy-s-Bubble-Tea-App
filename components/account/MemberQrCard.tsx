@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     fontFamily: 'JetBrainsMono_700Bold',
     fontSize: 14,
     letterSpacing: 1.5,
-    color: T.ink,
+    color: PIN.ink,
   },
   modalClose: {
     marginTop: 4,

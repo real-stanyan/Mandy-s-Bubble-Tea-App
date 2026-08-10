@@ -1,6 +1,7 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { router } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { T, RADIUS } from '@/constants/theme'
+import { T, RADIUS, PIN, IS_EVENING } from '@/constants/theme'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { useCartStore } from '@/store/cart'
 import { useChat } from '@/store/chat'
@@ -57,11 +58,12 @@ export function DrinkProposalCard({
   const t = chatUiStrings()
   const addItem = useCartStore((s) => s.addItem)
   const markAdded = useChat((s) => s.markAdded)
+  const closeChat = useChat((s) => s.close)
 
   const cupCount = proposals.reduce((n, p) => n + p.quantity, 0)
   const orderTotal = proposals.reduce((sum, p) => sum + Number(p.totalCents), 0)
 
-  function handleAdd() {
+  function addAll(): void {
     // Live-store guard, same as the web card: a double-tap can beat the
     // re-render that disables the button.
     const already = useChat.getState().messages.find((m) => m.id === messageId)?.added
@@ -91,6 +93,15 @@ export function DrinkProposalCard({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
   }
 
+  /** Add (idempotent — a card already added just navigates) and go pay.
+   *  Payment itself stays on /checkout; this is a shortcut, not a second
+   *  payment surface. */
+  function handlePay() {
+    addAll()
+    closeChat()
+    router.push('/checkout')
+  }
+
   if (proposals.length === 0) return null
 
   return (
@@ -108,19 +119,29 @@ export function DrinkProposalCard({
         </View>
       ) : null}
 
-      <Pressable
-        onPress={handleAdd}
-        disabled={added}
-        style={({ pressed }) => [
-          styles.addBtn,
-          added && styles.addBtnDisabled,
-          pressed && !added && styles.addBtnPressed,
-        ]}
-      >
-        <Text style={styles.addBtnText}>
-          {added ? t.addedToCart : proposals.length > 1 ? t.addAllToCart(cupCount) : t.addToCart}
-        </Text>
-      </Pressable>
+      <View style={styles.btnRow}>
+        <Pressable
+          onPress={addAll}
+          disabled={added}
+          style={({ pressed }) => [
+            styles.addBtn,
+            added && styles.addBtnDisabled,
+            pressed && !added && styles.addBtnPressed,
+          ]}
+        >
+          <Text style={styles.addBtnText} numberOfLines={1}>
+            {added ? t.addedToCart : proposals.length > 1 ? t.addAllToCart(cupCount) : t.addToCart}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={handlePay}
+          style={({ pressed }) => [styles.payBtn, pressed && styles.payBtnPressed]}
+        >
+          <Text style={styles.payBtnText} numberOfLines={1}>
+            {t.payNow}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   )
 }
@@ -156,14 +177,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  btnRow: { marginTop: 12, flexDirection: 'row', gap: 8 },
   addBtn: {
-    marginTop: 12,
+    flex: 1,
     borderRadius: 999,
-    backgroundColor: T.brand,
-    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: T.brand,
+    paddingVertical: 9,
     alignItems: 'center',
   },
-  addBtnPressed: { backgroundColor: T.brandDark },
+  addBtnPressed: { opacity: 0.7 },
   addBtnDisabled: { opacity: 0.5 },
-  addBtnText: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: '#fff' },
+  addBtnText: {
+    fontFamily: 'ShantellSans_700Bold',
+    fontSize: 13.5,
+    color: T.brand,
+    paddingHorizontal: 4,
+  },
+  payBtn: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: T.brand,
+    paddingVertical: 10.5,
+    alignItems: 'center',
+  },
+  payBtnPressed: { backgroundColor: T.brandDark },
+  payBtnText: {
+    fontFamily: 'ShantellSans_700Bold',
+    fontSize: 13.5,
+    // Evening brand is light gold — white text on it is the blob Stan
+    // keeps catching. Day ink on gold, white on the day brown.
+    color: IS_EVENING ? PIN.ink : '#fff',
+    paddingHorizontal: 4,
+  },
 })
