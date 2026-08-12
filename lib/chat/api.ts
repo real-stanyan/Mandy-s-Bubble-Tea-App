@@ -18,10 +18,20 @@ export type ApiProposal = {
   totalCents: string
 }
 
+export type ApiPromotion = {
+  key: string
+  title: string
+  detail: string
+  href: string | null
+  cta: string | null
+}
+
 export type ChatResponse = {
   reply: string
   proposal: ApiProposal | null
   proposals?: ApiProposal[]
+  /** Server-authored promotion cards; the model only picks which one. */
+  promotions?: ApiPromotion[]
   action: 'checkout' | null
   suggestions: { itemId: string; itemName: string; categorySlug: string }[]
 }
