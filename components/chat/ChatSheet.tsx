@@ -17,6 +17,7 @@ import { Icon } from '@/components/brand/Icon'
 import { T, RADIUS, PIN, IS_EVENING } from '@/constants/theme'
 import { DrinkProposalCard } from './DrinkProposalCard'
 import { CheckoutCard } from './CheckoutCard'
+import { PromotionCard } from './PromotionCard'
 
 function SendIcon({ size = 20 }: { size?: number }) {
   return (
@@ -122,6 +123,7 @@ export function ChatSheet() {
             : undefined,
         suggestions: body.suggestions?.length ? body.suggestions : undefined,
         // A card, not an instant redirect — same call as the web.
+        promotions: body.promotions?.length ? body.promotions : undefined,
         checkoutCard: body.action === 'checkout' || undefined,
       }
       push(reply)
@@ -185,6 +187,16 @@ export function ChatSheet() {
               {proposals.length > 0 ? (
                 <View style={styles.cardWrap}>
                   <DrinkProposalCard messageId={m.id} proposals={proposals} added={m.added} />
+                </View>
+              ) : null}
+
+              {m.promotions?.length ? (
+                <View style={styles.cardWrap}>
+                  {m.promotions.map((p) => (
+                    <View key={p.key} style={styles.promoWrap}>
+                      <PromotionCard promotion={p} />
+                    </View>
+                  ))}
                 </View>
               ) : null}
 
@@ -286,6 +298,7 @@ const styles = StyleSheet.create({
   bubbleUserText: { fontFamily: 'ShantellSans_400Regular', fontSize: 14, color: PIN.onChip },
   bubbleBotText: { fontFamily: 'ShantellSans_400Regular', fontSize: 14, color: '#2A1E14' },
   cardWrap: { marginTop: 8, width: '92%' },
+  promoWrap: { marginBottom: 8 },
   suggestions: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   suggestionChip: {
     borderRadius: 999,

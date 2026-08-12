@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ApiProposal } from '@/lib/chat/api'
+import type { ApiProposal, ApiPromotion } from '@/lib/chat/api'
 
 export type ChatMessage = {
   id: string
@@ -7,6 +7,8 @@ export type ChatMessage = {
   content: string
   /** One entry per drink on assistant turns that proposed an order. */
   proposals?: ApiProposal[]
+  /** Promotion cards Mandy pointed at this turn. */
+  promotions?: ApiPromotion[]
   /** Set on assistant turns that should render the go-to-checkout card. */
   checkoutCard?: boolean
   /** Menu suggestions offered when the model degraded. */
