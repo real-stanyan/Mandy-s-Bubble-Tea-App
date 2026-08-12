@@ -68,7 +68,13 @@ Draft app 在所有必填项完成前无法发布。下面按「谁能答」分�
 
 隐私政策 URL：**https://mandybubbletea.com/privacy**（已验证 200 可访问）。
 
-### 🚩 阻塞项：隐私政策和 App 实际行为矛盾
+### ✅ 已解决：隐私政策和 App 实际行为矛盾
+
+> Stan 于 2026-08-13 批准，网站 PR #218、App PR #76 已合并。照片现在如实申报为收集项，并加了测试门禁（`lib/legal-matches-code.test.ts`）：声明和依赖对不上就挂。下面保留原始记录。
+
+---
+
+#### 原始问题
 
 `lib/legal.ts` §2「Mobile app data」这一条写着：
 
@@ -112,7 +118,42 @@ Draft app 在所有必填项完成前无法发布。下面按「谁能答」分�
 | 加邮箱 + 密码登录 | 最干净，也对普通用户有用（有人就是不想用手机号）。工作量最大 |
 | 申请豁免 | 说明 App 无需登录即可浏览核心内容 —— 但结账要登录，审核员大概率仍会要求账号 |
 
-我的建议是**第一种**，专门为审核开一个测试号，配套写清楚它的作用域和过期方式。这是安全相关的改动，需要你拍板再动。
+### 决定（2026-08-13）
+
+Stan 选了「固定测试号」，指定 **0404 978 238**，要求免验证登录。
+
+实施时查到两件事，都会影响这个选择：
+
+1. **这是门店的公开电话。** 它是 `BUSINESS.phone`，印在网站页脚、门店信息卡、隐私政策联系方式里，聊天机器人还会主动念给客人（「call us at 0404 978 238」）。设成**完全免验证**，等于任何看过网站的人都能登进这个账号。
+2. **这个号码已经有一个在用的账号。** Supabase 里 2026-07-12 创建，**2026-08-12 还登录过**。不是空号。
+
+所以落地方式是 **Supabase 的 test phone number**（这个机制本来就是为应用商店审核设计的）：**不发短信**，用一个固定验证码。审核员照样不需要收任何短信，但路人拿不到码。
+
+如果你要的就是字面意义的「零验证码」，说一声我改 —— 但那扇门对着公开号码开着。
+
+### 配置步骤（在 Supabase 后台，我碰不到也不该碰生产认证配置）
+
+1. Supabase Dashboard → 项目 `fsvtwivogyebugqhmjjy` → **Authentication → Sign In / Providers → Phone**
+2. 找到 **Test phone numbers**（或 Test OTP）
+3. 加一条：号码 `+61404978238`（App 发出去的就是这个格式，见 `lib/phone.ts` 的 `normalizeAUMobile`），验证码自己定一个 6 位数
+4. 保存后**自己先试一次**：在 App 里输入 `0404 978 238` → 应该**收不到短信**，直接输入那个固定码就能进
+
+第 4 步是唯一算数的验证 —— 后台保存成功不等于生效。
+
+### 填进 Play Console 的 App access
+
+选 **All or some functionality is restricted**，加一条：
+
+| 字段 | 内容 |
+|---|---|
+| Name | Phone sign-in (menu browsing is open; ordering requires an account) |
+| Username | `0404 978 238` |
+| Password | 你设的那 6 位固定码 |
+| Instructions | Open the app, go to the Account tab, tap Sign in, enter the phone number above, then enter the code above when prompted. No SMS is sent to this test number. |
+
+### 用完之后
+
+审核通过后建议**删掉那条 test phone**。它是为审核开的口子，没有理由长期留着 —— 而且这个号码还是门店公开电话。
 
 ---
 
