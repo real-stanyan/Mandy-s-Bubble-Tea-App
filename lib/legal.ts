@@ -36,7 +36,8 @@ export const LEGAL_CONTENT: Record<LegalKind, LegalDoc> = {
           'Personal information: name, phone number, email address, delivery address, and payment details processed via third-party providers.',
           'Order information: items purchased, preferences, transaction amounts, and promotion usage.',
           'Technical information: IP address, browser type, device information, cookies and usage data.',
-          'Mobile app data: push notification token (via Apple APNs or Google FCM), app version and platform, and anonymous sign-in identifiers when you choose Sign in with Apple or Google. We do not collect precise location, contacts, photos, or any data beyond what is listed here, and the app does not use third-party advertising or analytics SDKs.',
+          'Mobile app data: push notification token (via Apple APNs or Google FCM), app version and platform, and anonymous sign-in identifiers when you choose Sign in with Apple or Google.',
+          'Photos you choose to attach when reporting a problem with an order — only the images you select yourself, used to assess the issue. We do not collect precise location or contacts, and we never browse your photo library. We collect no data beyond what is listed here, and the app does not use third-party advertising or analytics SDKs.',
         ],
       },
       {
@@ -58,7 +59,7 @@ export const LEGAL_CONTENT: Record<LegalKind, LegalDoc> = {
         ],
         bullets: [
           'Square, Inc. (payments, catalog, order management, loyalty) — receives your name, phone number, order details, and payment information.',
-          'Supabase, Inc. (authentication, account database) — stores your phone number, name, and account metadata.',
+          'Supabase, Inc. (authentication, account database, file storage) — stores your phone number, name, account metadata, and any photos you attach to an order report.',
           'Expo / Apple APNs / Google FCM (push notification delivery) — receives your device push token and the notification payload.',
           'Apple Inc. and Google LLC — if you use Sign in with Apple or Google, they provide us with an anonymous user identifier and, if you consent, your name.',
           'Twilio Inc. (SMS delivery for one-time login codes, via Supabase) — receives your phone number and the OTP message body.',
