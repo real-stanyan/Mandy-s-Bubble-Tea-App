@@ -73,6 +73,15 @@
           "backgroundColor": "#2A1E14",
           "dark": {
             "backgroundColor": "#2A1E14"
+          },
+          "android": {
+            "image": "./assets/images/splash-icon-rounded.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#2A1E14",
+            "dark": {
+              "backgroundColor": "#2A1E14"
+            }
           }
         }
       ],
