@@ -1,5 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import path from 'node:path'
 
+// Lives in constants/, not app/. expo-router runs require.context over app/,
+// so every file there is pulled into the bundle — a test importing node:fs
+// took the Android build down at the Metro step with "Unable to resolve
+// module node:fs". Nothing under app/ may import a Node built-in.
 const SRC = readFileSync('app/login.tsx', 'utf8')
 const STYLES = SRC.slice(SRC.indexOf('const styles = StyleSheet.create('))
 
@@ -73,5 +78,47 @@ describe('sign-in typography', () => {
 
   it('has no Georgia or generic serif left', () => {
     expect(STYLES).not.toMatch(/Georgia|'serif'/)
+  })
+})
+
+/**
+ * This file started life in app/ and broke the Android build there.
+ *
+ * expo-router bundles app/ through require.context, so a test file in it is
+ * not inert — it is a module Metro must resolve. Importing node:fs failed at
+ * the EAGER_BUNDLE phase with "Unable to resolve module node:fs", after
+ * tsc and the whole jest suite had passed. Nothing local catches it; only a
+ * real bundle does.
+ */
+describe('app/ stays bundleable', () => {
+  it('contains no test files', () => {
+    const found: string[] = []
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir)) {
+        const full = path.join(dir, e)
+        if (statSync(full).isDirectory()) walk(full)
+        else if (/\.test\.tsx?$/.test(e)) found.push(full.replace(/\\/g, '/'))
+      }
+    }
+    walk('app')
+    expect(found).toEqual([])
+  })
+
+  it('imports no Node built-ins anywhere under app/', () => {
+    const offenders: string[] = []
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir)) {
+        const full = path.join(dir, e)
+        if (statSync(full).isDirectory()) walk(full)
+        else if (/\.tsx?$/.test(e)) {
+          const src = readFileSync(full, 'utf8')
+          if (/from\s+'node:|require\(['"]node:/.test(src)) {
+            offenders.push(full.replace(/\\/g, '/'))
+          }
+        }
+      }
+    }
+    walk('app')
+    expect(offenders).toEqual([])
   })
 })
