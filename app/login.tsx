@@ -59,7 +59,28 @@ const tokens = {
   surface: T.card,
 }
 
-const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' })
+/**
+ * Sign-in was set in Georgia with the system sans underneath it, while the
+ * rest of the app is Shantell Sans throughout. Two typefaces nobody else
+ * uses, on the first screen a new customer meets.
+ *
+ * React Native ignores fontWeight once a custom family is named, so weight
+ * has to be chosen by family — hence the map rather than a single constant.
+ * Every face here is already loaded in _layout, so this adds no download.
+ *
+ * The old design leaned on italic for its second heading line. Shantell has
+ * no italic loaded and RN would synthesise or drop it depending on platform,
+ * so the two lines separate by weight instead.
+ */
+const TYPE = {
+  display: 'ShantellSans_700Bold',
+  displaySoft: 'ShantellSans_500Medium',
+  action: 'ShantellSans_600SemiBold',
+  body: 'ShantellSans_400Regular',
+  bodyMed: 'ShantellSans_500Medium',
+  /** Letterspaced micro-labels, matching the eyebrows on the checkout card. */
+  eyebrow: 'JetBrainsMono_700Bold',
+} as const
 
 type Stage = 'landing' | 'phone' | 'otp' | 'name'
 const RESEND_COOLDOWN = 30
@@ -903,19 +924,16 @@ const styles = StyleSheet.create({
 
   wordmarkRow: { alignItems: 'center', marginBottom: 28 },
   wordmarkItalic: {
-    fontFamily: SERIF,
-    fontStyle: 'italic',
-    fontWeight: '500',
+    fontFamily: TYPE.displaySoft,
     fontSize: 26,
     color: tokens.ink,
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
   },
   wordmarkBold: {
-    fontFamily: SERIF,
-    fontWeight: '600',
+    fontFamily: TYPE.display,
     fontSize: 26,
     color: tokens.ink,
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
   },
   wordmarkDot: {
     width: 5,
@@ -942,8 +960,8 @@ const styles = StyleSheet.create({
 
   heroHeadingWrap: { marginBottom: 28 },
   heroEyebrow: {
+    fontFamily: TYPE.eyebrow,
     fontSize: 10.5,
-    fontWeight: '700',
     letterSpacing: 2.2,
     color: tokens.accent,
     marginBottom: 10,
@@ -959,38 +977,38 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   heroHeading: {
-    fontFamily: SERIF,
-    fontWeight: '400',
-    fontSize: 40,
-    lineHeight: 42,
-    letterSpacing: -1.2,
+    fontFamily: TYPE.displaySoft,
+    fontSize: 38,
+    lineHeight: 46,
+    letterSpacing: -0.8,
     color: tokens.ink,
   },
+  // Second line carries the emphasis by weight, not by a synthesised italic.
   heroHeadingItalic: {
-    fontStyle: 'italic',
-    fontWeight: '500',
+    fontFamily: TYPE.display,
   },
   heroSub: {
+    fontFamily: TYPE.body,
     marginTop: 12,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
     color: tokens.ink3,
-    maxWidth: 280,
+    maxWidth: 300,
   },
 
   stageTitle: {
-    fontFamily: SERIF,
-    fontWeight: '500',
+    fontFamily: TYPE.display,
     fontSize: 30,
     letterSpacing: -0.8,
     color: tokens.ink,
   },
   stageSub: {
+    fontFamily: TYPE.body,
     marginTop: 8,
     fontSize: 14,
     color: tokens.ink3,
   },
-  stageSubBold: { color: tokens.ink, fontWeight: '600' },
+  stageSubBold: { color: tokens.ink, fontFamily: TYPE.action },
 
   btn: {
     width: '100%',
@@ -1010,8 +1028,8 @@ const styles = StyleSheet.create({
     borderColor: tokens.line,
   },
   btnGoogleText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontFamily: TYPE.action,
+    fontSize: 17,
     color: tokens.ink,
     letterSpacing: -0.3,
   },
@@ -1030,16 +1048,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   btnPhoneText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontFamily: TYPE.action,
+    fontSize: 17,
     color: tokens.accentOn,
     letterSpacing: -0.3,
   },
 
   btnPrimary: { backgroundColor: tokens.accent },
   btnPrimaryText: {
+    fontFamily: TYPE.action,
     fontSize: 16,
-    fontWeight: '500',
     color: tokens.accentOn,
     letterSpacing: -0.2,
   },
@@ -1052,10 +1070,10 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: tokens.line },
   dividerLabel: {
-    fontSize: 12,
+    fontFamily: TYPE.eyebrow,
+    fontSize: 10.5,
     color: tokens.ink3,
     letterSpacing: 1.4,
-    fontWeight: '500',
   },
 
   phoneRow: { flexDirection: 'row', gap: 8 },
@@ -1070,9 +1088,10 @@ const styles = StyleSheet.create({
     borderColor: tokens.line,
     backgroundColor: tokens.surface,
   },
-  flagText: { fontSize: 20, lineHeight: 22 },
-  phonePrefixText: { fontSize: 16, color: tokens.ink, fontWeight: '500' },
+  flagText: { fontSize: 20, lineHeight: 22, fontFamily: TYPE.body },
+  phonePrefixText: { fontSize: 16, color: tokens.ink, fontFamily: TYPE.bodyMed },
   phoneInput: {
+    fontFamily: TYPE.bodyMed,
     flex: 1,
     height: 54,
     borderRadius: 999,
@@ -1097,8 +1116,9 @@ const styles = StyleSheet.create({
   },
   otpSlotActive: { borderColor: tokens.ink },
   otpSlotFilled: { borderColor: tokens.ink },
-  otpSlotText: { fontSize: 26, fontWeight: '500', color: tokens.ink },
+  otpSlotText: { fontSize: 26, fontFamily: TYPE.display, color: tokens.ink },
   otpHiddenInput: {
+    fontFamily: TYPE.body,
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1114,16 +1134,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  mutedText: { fontSize: 13, color: tokens.ink3 },
+  mutedText: { fontSize: 13, color: tokens.ink3, fontFamily: TYPE.body },
   linkText: {
+    fontFamily: TYPE.action,
     fontSize: 13,
     color: tokens.ink2,
     textDecorationLine: 'underline',
   },
 
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontFamily: TYPE.eyebrow,
+    fontSize: 10.5,
     color: tokens.ink3,
     marginBottom: 6,
     letterSpacing: 0.3,
@@ -1136,11 +1157,13 @@ const styles = StyleSheet.create({
     borderColor: tokens.line,
     backgroundColor: tokens.surface,
     paddingHorizontal: 16,
+    fontFamily: TYPE.body,
     fontSize: 16,
     color: tokens.ink,
   },
 
   backLink: {
+    fontFamily: TYPE.action,
     textAlign: 'center',
     fontSize: 13,
     color: tokens.ink3,
@@ -1156,9 +1179,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(180,67,43,0.25)',
     backgroundColor: 'rgba(180,67,43,0.06)',
   },
-  errorText: { color: tokens.danger, fontSize: 13, lineHeight: 18 },
+  errorText: { color: tokens.danger, fontSize: 13, lineHeight: 18, fontFamily: TYPE.body },
 
   footer: {
+    fontFamily: TYPE.body,
     marginTop: 28,
     fontSize: 11.5,
     lineHeight: 17,
@@ -1176,8 +1200,8 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   loadingOverlayText: {
+    fontFamily: TYPE.bodyMed,
     fontSize: 14,
-    fontWeight: '500',
     color: tokens.ink2,
     letterSpacing: -0.1,
   },
