@@ -6,7 +6,7 @@ import { CardBlock } from '@/components/checkout/CardBlock'
 import { DoodleModal } from './DoodleModal'
 import type { DoodleSlot } from '@/lib/doodle/cartToSlots'
 import type { SvgPath } from '@/lib/doodle/types'
-import { presetImageSourceForHash } from '@/lib/doodle/gallery-remote'
+import { PresetImage } from './PresetImage'
 import { T, FONT, RADIUS } from '@/constants/theme'
 
 interface Props {
@@ -40,17 +40,12 @@ function CupPreview({ slot }: { slot: DoodleSlot }) {
     )
   }
   if (s.kind === 'preset') {
-    // Resolve through the shared helper, not GALLERY_MANIFEST directly: a
-    // hash the server added after this binary shipped is not in the manifest,
-    // and indexing it returned undefined — a blank white square where the
-    // customer's chosen design should be.
-    return (
-      <ExpoImage
-        source={presetImageSourceForHash(s.hash)}
-        style={styles.preview}
-        contentFit="contain"
-      />
-    )
+    // PresetImage, not a direct manifest lookup: the art is in the binary for
+    // most builtins, in Supabase Storage for uploads, and on the web app for
+    // builtins added since this binary was cut. Only 225 of the 462 presets
+    // on offer are bundled, so indexing the manifest drew nothing at all for
+    // the rest — a blank white square where the chosen design should be.
+    return <PresetImage hash={s.hash} style={styles.preview} />
   }
   if (s.kind === 'photo') {
     return (
