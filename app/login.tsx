@@ -14,7 +14,18 @@ import {
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
-import Svg, { Circle, Path, Rect } from 'react-native-svg'
+import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg'
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated'
+import { T, PIN, IS_EVENING } from '@/constants/theme'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import * as Application from 'expo-application'
 import {
@@ -27,17 +38,25 @@ import { LegalModal } from '@/components/legal/LegalModal'
 import type { LegalKind } from '@/lib/legal'
 import { normalizeAUMobile } from '@/lib/phone'
 
+// Sign-in used to carry its own palette — a cool grey with a forest-green
+// accent — while every other screen is warm cream and brown. It was the first
+// screen a new customer saw and it looked like a different product's login
+// bolted on. These now come from the app's own tokens, so the screen follows
+// Evening Mode with everything else instead of staying stubbornly daylit.
 const tokens = {
-  bg: '#ECEBE6',
-  ink: '#141413',
-  ink2: '#3A3A37',
-  ink3: 'rgba(20,20,19,0.55)',
-  ink4: 'rgba(20,20,19,0.32)',
-  line: 'rgba(20,20,19,0.10)',
-  accent: '#1F3A32',
-  accentOn: '#F5F3EC',
+  bg: T.bg,
+  ink: T.ink,
+  ink2: T.ink2,
+  ink3: T.ink3,
+  ink4: T.ink4,
+  line: T.line,
+  accent: T.brand,
+  // Evening brand is a light gold — white on it measures about 2.3:1, the
+  // unreadable blob this codebase keeps re-learning. Same call the proposal
+  // and promotion cards already make.
+  accentOn: IS_EVENING ? PIN.ink : '#FFFFFF',
   danger: '#B4432B',
-  surface: '#FFFFFF',
+  surface: T.card,
 }
 
 const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' })
@@ -318,6 +337,9 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      {/* Behind every stage, not just the landing one, so moving between
+          them never feels like changing screens. */}
+      <AmbientGlow />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -415,17 +437,21 @@ function LandingStage({
 }) {
   return (
     <View>
-      <TeaIllustration />
+      <Rise step={0}>
+        <TeaIllustration />
+      </Rise>
 
-      <View style={styles.heroHeadingWrap}>
+      <Rise step={1} style={styles.heroHeadingWrap}>
+        <Text style={styles.heroEyebrow}>MANDY&rsquo;S REWARDS</Text>
         <Text style={styles.heroHeading}>Brewed for</Text>
         <Text style={[styles.heroHeading, styles.heroHeadingItalic]}>the regulars.</Text>
+        <View style={styles.heroRule} />
         <Text style={styles.heroSub}>
           Sign in to order ahead, stamp your card, and skip the line.
         </Text>
-      </View>
+      </Rise>
 
-      <View style={{ gap: 10 }}>
+      <Rise step={2} style={{ gap: 10 }}>
         {Platform.OS === 'ios' && (
           <AppleAuthentication.AppleAuthenticationButton
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
@@ -468,7 +494,7 @@ function LandingStage({
         </Pressable>
 
         {busy && <ActivityIndicator color={tokens.accent} style={{ marginTop: 12 }} />}
-      </View>
+      </Rise>
     </View>
   )
 }
@@ -697,6 +723,90 @@ function NameStage({
   )
 }
 
+// ─────────────────────────── Atmosphere ───────────────────────────
+
+/**
+ * A slow warm bloom behind the whole screen — the light over the counter,
+ * not a decoration. It drifts and breathes on a 9s cycle, which is slow
+ * enough that you notice the screen is alive without ever watching it move.
+ *
+ * One SVG node and two animated values. The cost has to stay near zero:
+ * this sits under a screen that low-end Android phones already find heavy,
+ * and a sign-in screen that stutters is worse than one that sits still.
+ */
+function AmbientGlow() {
+  const reduced = useReducedMotion()
+  const drift = useSharedValue(0)
+
+  useEffect(() => {
+    if (reduced) return
+    drift.value = withRepeat(
+      withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    )
+    return () => cancelAnimation(drift)
+  }, [drift, reduced])
+
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.55 + drift.value * 0.35,
+    transform: [
+      { translateY: -40 + drift.value * 30 },
+      { scale: 1 + drift.value * 0.12 },
+    ],
+  }))
+
+  return (
+    <Animated.View pointerEvents="none" style={[styles.glowWrap, style]}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 100">
+        <Defs>
+          <RadialGradient id="loginGlow" cx="50%" cy="42%" r="52%">
+            <Stop offset="0%" stopColor={T.peach} stopOpacity={0.55} />
+            <Stop offset="55%" stopColor={T.brand} stopOpacity={0.12} />
+            <Stop offset="100%" stopColor={T.brand} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Circle cx="50" cy="42" r="52" fill="url(#loginGlow)" />
+      </Svg>
+    </Animated.View>
+  )
+}
+
+/**
+ * Entrance choreography: each piece fades up a beat after the one above it,
+ * so the screen assembles instead of appearing. `step` is the position in
+ * the sequence, not a duration — keeps call sites readable and the rhythm
+ * consistent if a row is added or removed.
+ */
+function Rise({
+  step = 0,
+  children,
+  style: outer,
+}: {
+  step?: number
+  children: React.ReactNode
+  style?: object
+}) {
+  const reduced = useReducedMotion()
+  const t = useSharedValue(reduced ? 1 : 0)
+
+  useEffect(() => {
+    if (reduced) return
+    t.value = withDelay(
+      90 * step,
+      withTiming(1, { duration: 460, easing: Easing.out(Easing.cubic) }),
+    )
+    return () => cancelAnimation(t)
+  }, [t, step, reduced])
+
+  const style = useAnimatedStyle(() => ({
+    opacity: t.value,
+    transform: [{ translateY: (1 - t.value) * 14 }],
+  }))
+
+  return <Animated.View style={[outer, style]}>{children}</Animated.View>
+}
+
 // ─────────────────────────── Bits ───────────────────────────
 
 function Wordmark() {
@@ -748,8 +858,18 @@ function GoogleG() {
 function PhoneGlyph() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Rect x={6} y={2.5} width={12} height={19} rx={2.5} stroke={tokens.ink} strokeWidth={1.6} />
-      <Circle cx={12} cy={18} r={0.9} fill={tokens.ink} />
+      {/* Sits on the filled brand button now, so it takes the button's own
+          foreground rather than page ink. */}
+      <Rect
+        x={6}
+        y={2.5}
+        width={12}
+        height={19}
+        rx={2.5}
+        stroke={tokens.accentOn}
+        strokeWidth={1.6}
+      />
+      <Circle cx={12} cy={18} r={0.9} fill={tokens.accentOn} />
     </Svg>
   )
 }
@@ -770,6 +890,16 @@ function Footer({ onOpen }: { onOpen: (k: LegalKind) => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.bg },
   scroll: { paddingHorizontal: 28, paddingTop: 24, flexGrow: 1 },
+
+  // Absolutely positioned and taller than it is wide so the bloom's falloff
+  // lands inside the screen rather than washing flat across it.
+  glowWrap: {
+    position: 'absolute',
+    top: -80,
+    left: -60,
+    right: -60,
+    height: 520,
+  },
 
   wordmarkRow: { alignItems: 'center', marginBottom: 28 },
   wordmarkItalic: {
@@ -799,14 +929,35 @@ const styles = StyleSheet.create({
   teaBox: {
     width: '100%',
     aspectRatio: 2.3,
-    borderRadius: 18,
+    borderRadius: 22,
     marginBottom: 28,
     overflow: 'hidden',
-    backgroundColor: 'rgba(20,20,19,0.03)',
+    // A warm hairline instead of a grey wash: the illustration reads as a
+    // framed picture on the counter rather than a placeholder rectangle.
+    borderWidth: 1,
+    borderColor: tokens.line,
+    backgroundColor: T.cream,
   },
   teaImage: { width: '100%', height: '100%' },
 
   heroHeadingWrap: { marginBottom: 28 },
+  heroEyebrow: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 2.2,
+    color: tokens.accent,
+    marginBottom: 10,
+  },
+  // A hairline between the promise and the explanation. Cheap, and it stops
+  // the block reading as one undifferentiated paragraph of serif.
+  heroRule: {
+    width: 44,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: tokens.accent,
+    opacity: 0.5,
+    marginTop: 18,
+  },
   heroHeading: {
     fontFamily: SERIF,
     fontWeight: '400',
@@ -850,7 +1001,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
-  btnPressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
+  btnPressed: { opacity: 0.9, transform: [{ scale: 0.97 }] },
   btnDisabled: { opacity: 0.4 },
 
   btnGoogle: {
@@ -865,15 +1016,23 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
 
+  // Phone is the primary path — it is how most customers here actually sign
+  // in, and it was previously the faintest button on the screen. Filled in
+  // brand with pinned white on it: PIN, not a theme token, because brand goes
+  // light gold in Evening Mode and this label has to stay legible on it.
   btnPhone: {
-    backgroundColor: tokens.bg,
-    borderWidth: 1,
-    borderColor: tokens.ink2,
+    backgroundColor: tokens.accent,
+    borderWidth: 0,
+    shadowColor: PIN.chip,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 3,
   },
   btnPhoneText: {
     fontSize: 18,
     fontWeight: '600',
-    color: tokens.ink,
+    color: tokens.accentOn,
     letterSpacing: -0.3,
   },
 
