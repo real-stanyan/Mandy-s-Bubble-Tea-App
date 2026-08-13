@@ -124,6 +124,25 @@ export const PIN = {
   onChip: '#FFF3DE',
 } as const;
 
+/**
+ * The one filled call-to-action: Place order, Checkout, Continue with phone.
+ *
+ * PIN.chip was used for these, which is right by day — #2A1E14 on the cream
+ * page reads 13.4:1 — and invisible after sunset, where the same ink sits on
+ * a #131110 page at 1.16:1. Stan's screenshot of the pay bar is that number:
+ * the button had not lost its label, it had lost its edges.
+ *
+ * Brand carries the contrast in both: 5.03:1 on the day page, 8.27:1 on the
+ * night one. `on` flips because evening brand is a light gold and white on it
+ * measures 2.3:1 — the pairing this codebase keeps re-learning.
+ *
+ * One token so the next call site cannot get it wrong on its own.
+ */
+export const CTA = {
+  bg: (IS_EVENING ? EVENING : DAY).brand,
+  on: IS_EVENING ? '#2A1E14' : '#FFFFFF',
+} as const;
+
 export const FONT = {
   serif: 'ShantellSans_700Bold',
   sans: 'ShantellSans_400Regular',

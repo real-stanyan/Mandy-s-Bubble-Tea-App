@@ -32,6 +32,27 @@ export async function fetchGallery(): Promise<RemotePreset[]> {
 export function presetImageSource(item: RemotePreset): ImageSourcePropType {
   const bundled = GALLERY_MANIFEST[item.hash]
   if (bundled !== undefined) return bundled as ImageSourcePropType
+  if (!item.thumbUrl) return presetImageSourceForHash(item.hash)
   const uri = item.thumbUrl.startsWith('http') ? item.thumbUrl : `${API_BASE}${item.thumbUrl}`
   return { uri }
+}
+
+/**
+ * Same resolution from a hash alone, for the places that only stored one.
+ *
+ * A cart selection records `{ kind: 'preset', hash }` and nothing else, so
+ * the checkout preview looked the hash up in GALLERY_MANIFEST directly. That
+ * works for the art shipped in the binary and returns undefined for anything
+ * the server added later — the customer picked a design from the gallery and
+ * got a blank white square on their cup card (Stan's screenshot, 2026-08-13).
+ *
+ * The path is derivable: the gallery API builds thumbUrl as
+ * /cup-label/gallery/<hash>/binarized.png, verified serving 200 image/png.
+ * So the hash is enough, and no cart migration is needed to carry a URL that
+ * was always reconstructible.
+ */
+export function presetImageSourceForHash(hash: string): ImageSourcePropType {
+  const bundled = GALLERY_MANIFEST[hash]
+  if (bundled !== undefined) return bundled as ImageSourcePropType
+  return { uri: `${API_BASE}/cup-label/gallery/${hash}/binarized.png` }
 }

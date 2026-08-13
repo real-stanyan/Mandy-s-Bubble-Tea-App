@@ -14,7 +14,7 @@ import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
 import { CartItemRow } from './CartItem'
 import { Icon } from '@/components/brand/Icon'
 import { formatPrice } from '@/lib/utils'
-import { T, FONT, RADIUS, PIN } from '@/constants/theme'
+import { T, FONT, RADIUS, PIN, CTA } from '@/constants/theme'
 
 export function CartSheet() {
   const open = useCartSheetStore((s) => s.open)
@@ -120,7 +120,7 @@ export function CartSheet() {
             activeOpacity={0.85}
           >
             <Text style={styles.checkoutText}>Checkout</Text>
-            <Icon name="arrow" size={14} color={PIN.onChip} />
+            <Icon name="arrow" size={14} color={CTA.on} />
           </TouchableOpacity>
         </View>
       </View>
@@ -234,11 +234,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: T.ink2,
   },
+  // CTA, not PIN.chip — same reason as the pay bar: dark ink on the evening
+  // sheet is 1.16:1, so the primary action looked like a label rather than a
+  // button. Stan flagged this one in the same pass.
   checkoutBtn: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: RADIUS.pill,
-    backgroundColor: PIN.chip,
+    backgroundColor: CTA.bg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -252,6 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.2,
-    color: PIN.onChip,
+    color: CTA.on,
   },
 })

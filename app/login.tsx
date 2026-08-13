@@ -25,7 +25,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated'
-import { T, PIN, IS_EVENING } from '@/constants/theme'
+import { T, PIN, IS_EVENING, CTA } from '@/constants/theme'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import * as Application from 'expo-application'
 import {
@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
   // brand with pinned white on it: PIN, not a theme token, because brand goes
   // light gold in Evening Mode and this label has to stay legible on it.
   btnPhone: {
-    backgroundColor: tokens.accent,
+    backgroundColor: CTA.bg,
     borderWidth: 0,
     shadowColor: PIN.chip,
     shadowOffset: { width: 0, height: 8 },
@@ -1050,7 +1050,7 @@ const styles = StyleSheet.create({
   btnPhoneText: {
     fontFamily: TYPE.action,
     fontSize: 17,
-    color: tokens.accentOn,
+    color: CTA.on,
     letterSpacing: -0.3,
   },
 
