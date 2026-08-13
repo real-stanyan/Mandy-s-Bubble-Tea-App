@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg'
 import { useEffect } from 'react'
-import { T } from '@/constants/theme'
+import { PIN } from '@/constants/theme'
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg)
 
@@ -83,7 +83,11 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: T.ink,
+    // Pinned to the same #2A1E14 as the native splash backgroundColor in
+    // app.json. T.ink flips light after sunset, which would both wash the
+    // peach glow out and hand the user a light screen the instant the dark
+    // native splash handed off — the seam this component exists to hide.
+    backgroundColor: PIN.chip,
     overflow: 'hidden',
   },
 })

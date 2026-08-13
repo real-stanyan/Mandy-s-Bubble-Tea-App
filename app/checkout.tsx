@@ -46,7 +46,7 @@ import { CupArt } from '@/components/brand/CupArt'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
 import { hashColor } from '@/components/brand/color'
-import { T, FONT, RADIUS, SHADOW } from '@/constants/theme'
+import { T, FONT, RADIUS, SHADOW, PIN } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
 import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
@@ -1532,10 +1532,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
   },
+  // PIN, not T: T.ink is the TEXT colour and flips light after sunset, while
+  // T.cream has no evening override and stays light. Together they made the
+  // pay button a pale pill with pale text on it — the whole "Place order"
+  // control unreadable in Evening Mode (screenshot, 2026-08-13).
   placeBtn: {
     height: 64,
     borderRadius: RADIUS.pill,
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 6,
@@ -1545,7 +1549,7 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     letterSpacing: 1.3,
     fontWeight: '700',
-    color: T.cream,
+    color: PIN.onChip,
     textTransform: 'uppercase',
     opacity: 0.75,
   },
@@ -1555,7 +1559,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '500',
     letterSpacing: -0.3,
-    color: T.cream,
+    color: PIN.onChip,
     lineHeight: 22,
   },
   placeAmount: {

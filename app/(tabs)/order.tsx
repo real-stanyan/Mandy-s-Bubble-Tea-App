@@ -20,7 +20,7 @@ import {
 } from '@/store/orders'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { Icon } from '@/components/brand/Icon'
-import { T, FONT } from '@/constants/theme'
+import { T, FONT, PIN } from '@/constants/theme'
 import {
   OrdersFilterPills,
   type OrdersFilter,
@@ -350,8 +350,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
+  // Pinned: T.ink flips light in Evening Mode and this button's label is
+  // white, so the pair inverted into white-on-near-white after sunset.
   signInBtn: {
-    backgroundColor: T.ink,
+    backgroundColor: PIN.chip,
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 999,
