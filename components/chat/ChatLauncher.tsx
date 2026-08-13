@@ -31,8 +31,14 @@ function BobaChatIcon({ size = 24 }: { size?: number }) {
 }
 
 /** Screens where a floating chat button would sit on top of a funnel or a
- *  form — mirrors the web's ChatGate. */
-const HIDDEN_PREFIXES = ['/checkout', '/order-confirmation']
+ *  form — mirrors the web's ChatGate.
+ *
+ *  /login joined the list after a screenshot of the rebuilt sign-in screen
+ *  showed the teaser bubble covering "Continue with phone" outright — the
+ *  primary control on the screen, with only its icon left visible. Sign-in
+ *  is also the one place the assistant cannot help: it has no account to
+ *  act on and nothing to sell yet. */
+const HIDDEN_PREFIXES = ['/checkout', '/order-confirmation', '/login']
 
 /** Voice ordering is built but OFF (Stan, 2026-08-10 — "语音功能先下线").
  *  The pill and its focus hand-off stay in the tree behind this flag;
