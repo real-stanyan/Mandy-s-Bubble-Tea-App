@@ -20,7 +20,7 @@ import {
 } from '@/store/orders'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { Icon } from '@/components/brand/Icon'
-import { T, FONT, PIN } from '@/constants/theme'
+import { T, FONT, CTA } from '@/constants/theme'
 import {
   OrdersFilterPills,
   type OrdersFilter,
@@ -350,16 +350,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  // Pinned: T.ink flips light in Evening Mode and this button's label is
-  // white, so the pair inverted into white-on-near-white after sunset.
+  // Started as T.ink (light-on-light after sunset), then PIN.chip — which
+  // fixed the label and lost the button, since dark ink on the evening page
+  // is 1.16:1. It sits on a theme surface, so it needs the theme's own
+  // call-to-action fill.
   signInBtn: {
-    backgroundColor: PIN.chip,
+    backgroundColor: CTA.bg,
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 999,
   },
   signInText: {
-    color: '#fff',
+    color: CTA.on,
     fontFamily: FONT.sans,
     fontWeight: '700',
     fontSize: 13,

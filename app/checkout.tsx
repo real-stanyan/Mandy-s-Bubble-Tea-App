@@ -46,7 +46,7 @@ import { CupArt } from '@/components/brand/CupArt'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
 import { hashColor } from '@/components/brand/color'
-import { T, FONT, RADIUS, SHADOW, PIN } from '@/constants/theme'
+import { T, FONT, RADIUS, SHADOW, PIN, CTA } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
 import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
@@ -1532,14 +1532,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
   },
-  // PIN, not T: T.ink is the TEXT colour and flips light after sunset, while
-  // T.cream has no evening override and stays light. Together they made the
-  // pay button a pale pill with pale text on it — the whole "Place order"
-  // control unreadable in Evening Mode (screenshot, 2026-08-13).
+  // CTA, not PIN.chip. Pinning the dark ink fixed the label but cost the
+  // button its surface: #2A1E14 on the evening page is 1.16:1, so the pay bar
+  // read as loose text on the background with only the amount visible
+  // (Stan's screenshot, 2026-08-13). Brand holds an edge in both themes.
   placeBtn: {
     height: 64,
     borderRadius: RADIUS.pill,
-    backgroundColor: PIN.chip,
+    backgroundColor: CTA.bg,
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 6,
@@ -1549,7 +1549,7 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     letterSpacing: 1.3,
     fontWeight: '700',
-    color: PIN.onChip,
+    color: CTA.on,
     textTransform: 'uppercase',
     opacity: 0.75,
   },
@@ -1559,14 +1559,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '500',
     letterSpacing: -0.3,
-    color: PIN.onChip,
+    color: CTA.on,
     lineHeight: 22,
   },
+  // Inverted against the bar it sits on: the bar is CTA.bg, so the amount
+  // takes CTA.on as its surface and CTA.bg as its ink. That inverts with the
+  // theme for free — a white chip with brown figures by day, a dark chip with
+  // gold figures at night — where a fixed brand fill would have dissolved
+  // into the brand-coloured bar the moment the bar stopped being dark.
   placeAmount: {
     minWidth: 110,
     height: 52,
     borderRadius: RADIUS.pill,
-    backgroundColor: T.brand,
+    backgroundColor: CTA.on,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
@@ -1575,6 +1580,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT.mono,
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: CTA.bg,
   },
 })
