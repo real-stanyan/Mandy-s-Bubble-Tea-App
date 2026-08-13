@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg'
 import { useEffect } from 'react'
-import { PIN } from '@/constants/theme'
+import { T, PIN } from '@/constants/theme'
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg)
 
