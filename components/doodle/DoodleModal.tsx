@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -24,6 +25,10 @@ import { GALLERY_HASHES, GALLERY_MANIFEST } from '@/lib/doodle/gallery-manifest.
 import { fetchGallery, presetImageSource } from '@/lib/doodle/gallery-remote'
 import type { RemotePreset } from '@/lib/doodle/gallery-remote'
 import { T, FONT, RADIUS, PIN } from '@/constants/theme'
+
+/** Matches presetTile's 23% width: four across with a gap between. */
+const PRESET_COLUMNS = 4
+const presetKey = (item: RemotePreset) => item.hash
 
 interface Props {
   visible: boolean
@@ -316,46 +321,85 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
           })}
         </View>
 
+        {/* The preset gallery gets its own FlatList rather than living in the
+            ScrollView below. A ScrollView mounts every child at once, and this
+            gallery is 225 tiles, each decoding a bundled PNG — on an older
+            phone that is an out-of-memory stall the moment the tab opens
+            (reported 2026-08-13). A VirtualizedList cannot be nested inside a
+            ScrollView without losing the virtualisation that is the whole
+            point, so the two are siblings and the shared nav row is rendered
+            into whichever one is showing. */}
+        {viewTab === 'preset' ? (
+          <FlatList
+            data={galleryPresets}
+            keyExtractor={presetKey}
+            numColumns={PRESET_COLUMNS}
+            columnWrapperStyle={styles.presetRow}
+            contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
+            scrollEnabled={scrollEnabled}
+            // ~4 rows on screen at a time; render a screenful, keep a screen
+            // either side, and drop the rest.
+            initialNumToRender={PRESET_COLUMNS * 4}
+            maxToRenderPerBatch={PRESET_COLUMNS * 4}
+            windowSize={5}
+            removeClippedSubviews
+            ListHeaderComponent={
+              <View>
+                <Pressable
+                  onPress={handleSurprise}
+                  style={[styles.surpriseBtn, isSurprise && styles.surpriseBtnActive]}
+                >
+                  <Text
+                    style={[styles.surpriseBtnText, isSurprise && styles.surpriseBtnTextActive]}
+                  >
+                    🎁 Surprise me — random design{isSurprise ? '  ·  current' : ''}
+                  </Text>
+                </Pressable>
+                <Text style={styles.sectionHint}>
+                  Optional — leave it for a surprise, or tap a tile to choose your own.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const selected =
+                slot.selection?.kind === 'preset' && slot.selection.hash === item.hash
+              return (
+                <Pressable
+                  onPress={() => handlePickPreset(item.hash)}
+                  style={[styles.presetTile, selected && styles.presetTileActive]}
+                >
+                  <Image
+                    source={presetImageSource(item)}
+                    style={{ width: '100%', height: '100%' }}
+                    contentFit="contain"
+                  />
+                </Pressable>
+              )
+            }}
+            ListFooterComponent={
+              <View style={styles.nav}>
+                <Pressable
+                  onPress={goPrev}
+                  disabled={safeIdx === 0}
+                  style={[styles.navBtn, safeIdx === 0 && styles.navBtnDisabled]}
+                >
+                  <Text style={styles.navBtnText}>← Prev</Text>
+                </Pressable>
+                <Pressable
+                  onPress={goNext}
+                  disabled={safeIdx === slots.length - 1}
+                  style={[styles.navBtn, safeIdx === slots.length - 1 && styles.navBtnDisabled]}
+                >
+                  <Text style={styles.navBtnText}>Next →</Text>
+                </Pressable>
+              </View>
+            }
+          />
+        ) : (
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
           scrollEnabled={scrollEnabled}
         >
-          {viewTab === 'preset' && (
-            <View>
-              <Pressable
-                onPress={handleSurprise}
-                style={[styles.surpriseBtn, isSurprise && styles.surpriseBtnActive]}
-              >
-                <Text
-                  style={[styles.surpriseBtnText, isSurprise && styles.surpriseBtnTextActive]}
-                >
-                  🎁 Surprise me — random design{isSurprise ? '  ·  current' : ''}
-                </Text>
-              </Pressable>
-              <Text style={styles.sectionHint}>
-                Optional — leave it for a surprise, or tap a tile to choose your own.
-              </Text>
-              <View style={styles.presetGrid}>
-                {galleryPresets.map((item) => {
-                  const selected = slot.selection?.kind === 'preset' && slot.selection.hash === item.hash
-                  return (
-                    <Pressable
-                      key={item.hash}
-                      onPress={() => handlePickPreset(item.hash)}
-                      style={[styles.presetTile, selected && styles.presetTileActive]}
-                    >
-                      <Image
-                        source={presetImageSource(item)}
-                        style={{ width: '100%', height: '100%' }}
-                        contentFit="contain"
-                      />
-                    </Pressable>
-                  )
-                })}
-              </View>
-            </View>
-          )}
-
           {viewTab === 'draw' && (
             <View>
               <Text style={styles.sectionHint}>Draw freely. Switching tabs keeps your sketch.</Text>
@@ -524,6 +568,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
             </Pressable>
           </View>
         </ScrollView>
+        )}
       </View>
     </Modal>
   )
@@ -677,8 +722,10 @@ const styles = StyleSheet.create({
     fontFamily: FONT.sans, fontSize: 12, color: T.ink2,
     textAlign: 'center', maxWidth: 280,
   },
-  presetGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+  // Was presetGrid (flexWrap over all 225 tiles). FlatList lays the rows out
+  // itself, so this only has to space one row and separate it from the next.
+  presetRow: {
+    gap: 10, marginBottom: 10,
   },
   presetTile: {
     width: '23%', aspectRatio: 1, borderRadius: RADIUS.small,
