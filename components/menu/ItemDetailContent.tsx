@@ -29,9 +29,23 @@ import { CupPreview } from '@/components/menu/CupPreview'
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 const WARM_ICE_NAME = 'warm'
 
-// TOPPING list caps: up to 3 different kinds, each bumpable to 3.
-const TOPPING_MAX_DISTINCT = 3
-const TOPPING_MAX_PER_KIND = 3
+// TOPPING cap: three toppings on a drink, in total, and Oreo is free.
+//
+// Was three KINDS with three of each — up to nine on a cup, which is not what
+// "up to 3" reads as. Stan flattened it to a total of three (2026-08-14).
+// Three of one kind is fine; the total is what is capped.
+//
+// The app also never had the Oreo exemption the web menu has had all along,
+// so a customer adding Oreo here was spending one of their three on it while
+// the website gave it away. Both are the same rule now.
+const TOPPING_MAX_TOTAL = 3
+
+// Substring match, so a Square rename to "Oreo (New)" keeps the exemption and
+// a rename away from Oreo safely rejoins the cap. Same rule as the web's
+// lib/menu/topping-rules.ts.
+function isUncountedTopping(name: string): boolean {
+  return name.trim().toLowerCase().includes('oreo')
+}
 
 type CountMap = Record<string, number>
 const EMPTY_COUNTS: Readonly<CountMap> = Object.freeze({}) as Readonly<CountMap>
@@ -64,9 +78,13 @@ function totalInList(counts: CountMap): number {
   return sum
 }
 
-function distinctInList(counts: CountMap): number {
+/** Quantities summed, skipping Oreo. Two pearls and a jelly is three. */
+function cappedTotalInList(list: ModifierList, counts: CountMap): number {
   let n = 0
-  for (const v of Object.values(counts)) if (v > 0) n += 1
+  for (const mod of list.modifiers) {
+    if (isUncountedTopping(mod.name)) continue
+    n += counts[mod.id] ?? 0
+  }
   return n
 }
 
@@ -229,9 +247,11 @@ export function ItemDetailContent({
       if (current >= 1) return false
     }
     if (isToppingList(list.name)) {
-      if (current >= TOPPING_MAX_PER_KIND) return false
-      if (current === 0 && distinctInList(counts) >= TOPPING_MAX_DISTINCT)
-        return false
+      const mod = list.modifiers.find((m) => m.id === modifierId)
+      // Oreo neither counts toward the three nor is blocked by it.
+      if (!mod || !isUncountedTopping(mod.name)) {
+        if (cappedTotalInList(list, counts) >= TOPPING_MAX_TOTAL) return false
+      }
     }
     if (list.maxSelected != null && totalInList(counts) >= list.maxSelected)
       return false
@@ -920,7 +940,7 @@ function titleForList(name: string): string {
 function describeSelection(ml: ModifierList, isTopping: boolean): string {
   const { minSelected, maxSelected } = ml
   if (isTopping) {
-    return `Up to ${TOPPING_MAX_DISTINCT} kinds · max ${TOPPING_MAX_PER_KIND} of each`
+    return `Up to ${TOPPING_MAX_TOTAL} toppings in total · Oreo unlimited (doesn't count)`
   }
   if (minSelected === 0 && maxSelected === 1) return 'Pick one (optional)'
   if (minSelected === 1 && maxSelected === 1) return 'Pick one'
