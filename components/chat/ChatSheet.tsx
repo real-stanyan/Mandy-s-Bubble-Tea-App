@@ -18,6 +18,7 @@ import { T, RADIUS, PIN, IS_EVENING } from '@/constants/theme'
 import { DrinkProposalCard } from './DrinkProposalCard'
 import { CheckoutCard } from './CheckoutCard'
 import { PromotionCard } from './PromotionCard'
+import { SignInCard } from './SignInCard'
 
 function SendIcon({ size = 20 }: { size?: number }) {
   return (
@@ -125,6 +126,7 @@ export function ChatSheet() {
         // A card, not an instant redirect — same call as the web.
         promotions: body.promotions?.length ? body.promotions : undefined,
         checkoutCard: body.action === 'checkout' || undefined,
+        signInCard: body.signIn === true || undefined,
       }
       push(reply)
     } catch (err) {
@@ -206,6 +208,12 @@ export function ChatSheet() {
                 </View>
               ) : null}
 
+              {m.signInCard ? (
+                <View style={styles.cardWrap}>
+                  <SignInCard />
+                </View>
+              ) : null}
+
               {m.suggestions?.length ? (
                 <View style={styles.suggestions}>
                   {m.suggestions.map((s) => (
@@ -277,7 +285,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: T.line,
   },
-  title: { fontFamily: 'ShantellSans_700Bold', fontSize: 15, color: T.ink },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 15, color: T.ink },
   iconBtn: {
     width: 36,
     height: 36,
@@ -288,15 +296,15 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.6 },
   list: { flex: 1 },
   listContent: { padding: 16, gap: 12 },
-  hint: { fontFamily: 'ShantellSans_400Regular', fontSize: 13, color: T.ink3, lineHeight: 19 },
+  hint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: T.ink3, lineHeight: 19 },
   messageRow: { width: '100%' },
   rowUser: { alignItems: 'flex-end' },
   rowBot: { alignItems: 'flex-start' },
   bubble: { maxWidth: '88%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
   bubbleUser: { backgroundColor: PIN.chip },
   bubbleBot: { backgroundColor: T.cream },
-  bubbleUserText: { fontFamily: 'ShantellSans_400Regular', fontSize: 14, color: PIN.onChip },
-  bubbleBotText: { fontFamily: 'ShantellSans_400Regular', fontSize: 14, color: '#2A1E14' },
+  bubbleUserText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: PIN.onChip },
+  bubbleBotText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: '#2A1E14' },
   cardWrap: { marginTop: 8, width: '92%' },
   promoWrap: { marginBottom: 8 },
   suggestions: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -307,7 +315,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  suggestionText: { fontFamily: 'ShantellSans_400Regular', fontSize: 13, color: T.ink },
+  suggestionText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: T.ink },
   inputRow: {
     flexDirection: 'row',
     gap: 8,
@@ -325,7 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: T.card,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontFamily: 'ShantellSans_400Regular',
+    fontFamily: 'Inter_400Regular',
     fontSize: 15,
     color: T.ink,
   },

@@ -38,10 +38,10 @@ const styles = StyleSheet.create({
     backgroundColor: T.cream,
     padding: 12,
   },
-  title: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: PIN.ink },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 14, color: PIN.ink },
   detail: {
     marginTop: 4,
-    fontFamily: 'ShantellSans_400Regular',
+    fontFamily: 'Inter_400Regular',
     fontSize: 12,
     lineHeight: 18,
     color: PIN.ink2,
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   },
   ctaPressed: { backgroundColor: T.brandDark },
   ctaText: {
-    fontFamily: 'ShantellSans_700Bold',
+    fontFamily: 'Inter_700Bold',
     fontSize: 13.5,
     // Evening brand is light gold; white on it is the unreadable blob this
     // codebase keeps re-learning. Same call as the proposal card's Pay now.

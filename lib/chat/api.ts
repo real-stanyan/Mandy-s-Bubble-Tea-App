@@ -34,6 +34,9 @@ export type ChatResponse = {
   promotions?: ApiPromotion[]
   action: 'checkout' | null
   suggestions: { itemId: string; itemName: string; categorySlug: string }[]
+  /** True when the reply should carry a sign-in card — the server sets it
+   *  after an order-status lookup found the asker signed out. */
+  signIn?: boolean
 }
 
 /** Mirrors the route's own limits (web src/app/api/chat/route.ts) so the
