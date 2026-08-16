@@ -30,11 +30,13 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { T, IS_EVENING } from '@/constants/theme';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import { useFonts } from '@expo-google-fonts/inter';
+// Inter is back in the load list for exactly one surface: the chat sheet.
+// The box speaks for the shop (order status, sign-in, complaints) and Stan
+// wants that voice formal (2026-08-17, mirrors web's drawer opt-out); the
+// rest of the app keeps the marker pen.
+import { useFonts, Inter_400Regular, Inter_700Bold } from '@expo-google-fonts/inter';
 // The marker voice from the shop's posters, promoted to the app's one
 // typeface — the port of web's site-wide Shantell swap (Stan, 2026-08-10).
-// Fraunces/Inter imports dropped from the load list but the packages stay
-// installed one release as the rollback lever.
 import {
   ShantellSans_400Regular,
   ShantellSans_500Medium,
@@ -71,6 +73,8 @@ export default function RootLayout() {
     ShantellSans_600SemiBold,
     ShantellSans_700Bold,
     JetBrainsMono_700Bold,
+    Inter_400Regular,
+    Inter_700Bold,
   });
   useEffect(() => {
     if (fontsLoaded) {

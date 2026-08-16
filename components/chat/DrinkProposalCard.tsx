@@ -164,10 +164,10 @@ const styles = StyleSheet.create({
   },
   thumbEmoji: { fontSize: 20 },
   rowBody: { flex: 1, minWidth: 0, gap: 2 },
-  name: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: T.ink },
-  sub: { fontFamily: 'ShantellSans_400Regular', fontSize: 12, color: T.ink3 },
+  name: { fontFamily: 'Inter_700Bold', fontSize: 14, color: T.ink },
+  sub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: T.ink3 },
   rowRight: { alignItems: 'flex-end', gap: 2 },
-  price: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: T.brand },
+  price: { fontFamily: 'Inter_700Bold', fontSize: 14, color: T.brand },
   totalRow: {
     marginTop: 12,
     paddingTop: 8,
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   addBtnPressed: { opacity: 0.7 },
   addBtnDisabled: { opacity: 0.5 },
   addBtnText: {
-    fontFamily: 'ShantellSans_700Bold',
+    fontFamily: 'Inter_700Bold',
     fontSize: 13.5,
     color: T.brand,
     paddingHorizontal: 4,
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   payBtnPressed: { backgroundColor: T.brandDark },
   payBtnText: {
-    fontFamily: 'ShantellSans_700Bold',
+    fontFamily: 'Inter_700Bold',
     fontSize: 13.5,
     // Evening brand is light gold — white text on it is the blob Stan
     // keeps catching. Day ink on gold, white on the day brown.

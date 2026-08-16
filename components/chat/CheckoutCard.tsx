@@ -78,12 +78,12 @@ const styles = StyleSheet.create({
   lineName: {
     flex: 1,
     minWidth: 0,
-    fontFamily: 'ShantellSans_400Regular',
+    fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: T.ink,
   },
-  linePrice: { fontFamily: 'ShantellSans_700Bold', fontSize: 13, color: T.ink },
-  sub: { fontFamily: 'ShantellSans_400Regular', fontSize: 12, color: T.ink3, flexShrink: 1 },
+  linePrice: { fontFamily: 'Inter_700Bold', fontSize: 13, color: T.ink },
+  sub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: T.ink3, flexShrink: 1 },
   totalRow: {
     marginTop: 8,
     paddingTop: 8,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  total: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: T.brand },
+  total: { fontFamily: 'Inter_700Bold', fontSize: 14, color: T.brand },
   cta: {
     marginTop: 12,
     borderRadius: 999,
@@ -103,5 +103,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaPressed: { backgroundColor: T.brandDark },
-  ctaText: { fontFamily: 'ShantellSans_700Bold', fontSize: 14, color: IS_EVENING ? PIN.ink : '#fff' },
+  ctaText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: IS_EVENING ? PIN.ink : '#fff' },
 })
