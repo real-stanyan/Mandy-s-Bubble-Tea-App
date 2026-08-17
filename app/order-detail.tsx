@@ -33,6 +33,7 @@ import { useDeliveryTracking } from '@/hooks/use-delivery-tracking'
 import { DELIVERY_DRIVER, distanceKmText, etaText } from '@/lib/delivery'
 import { deriveDeliverySteps } from '@/lib/dispatch-steps'
 import { reorder } from '@/components/orders/reorder'
+import { ScheduledPickupCard } from '@/components/orders/ScheduledPickupCard'
 import { useCartStore } from '@/store/cart'
 import { T, FONT, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import {
@@ -641,6 +642,15 @@ export default function OrderDetailScreen() {
             <Text style={styles.pickupLabel}>{isDelivery ? 'ORDER NUMBER' : 'PICKUP NUMBER'}</Text>
             <Text style={styles.pickupNumber}>{pickupNumber}</Text>
           </View>
+
+          {/* Scheduled pickup: the chosen time + "I'm here" early release —
+              only while the order is still in flight. */}
+          {!isDelivery && !isTerminal && storeOrder?.scheduledPickupAt ? (
+            <ScheduledPickupCard
+              orderId={orderId ?? storeOrder.id}
+              pickupAt={storeOrder.scheduledPickupAt}
+            />
+          ) : null}
 
           <View style={styles.infoRow}>
             <View style={styles.infoBox}>

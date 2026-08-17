@@ -32,6 +32,8 @@ export interface OrderHistoryItem {
   firstItemName: string
   firstItemImageUrl: string | null
   lineItems: OrderHistoryLine[]
+  /** Scheduled pickup's chosen collection time (ISO), null/absent for ASAP. */
+  scheduledPickupAt?: string | null
 }
 
 // Unfinished = Square order still OPEN (covers both IN PROGRESS and READY,
