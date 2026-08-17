@@ -13,6 +13,8 @@ interface CreateOrderParams {
   loyaltyRewardCount?: number
   note?: string
   fulfillmentType?: 'PICKUP' | 'DELIVERY'
+  /** Scheduled pickup: minutes until collection (server re-validates). */
+  pickupOffsetMinutes?: number
   delivery?: {
     address: string
     lat: number
@@ -48,6 +50,7 @@ export function useCreateOrder(): CreateOrderHook {
     loyaltyRewardCount,
     note,
     fulfillmentType,
+    pickupOffsetMinutes,
     delivery,
   }: CreateOrderParams): Promise<CreateOrderResult> => {
     setLoading(true)
@@ -67,6 +70,13 @@ export function useCreateOrder(): CreateOrderHook {
         loyaltyRewardCount: loyaltyRewardCount ?? 0,
         note: note?.trim() ? note.trim() : undefined,
         fulfillmentType: fulfillmentType ?? 'PICKUP',
+        // Scheduled pickup pill — pickup-only; the server re-validates
+        // against the live clock (a stale pill 409s, never a late pickup).
+        ...(fulfillmentType !== 'DELIVERY' &&
+        pickupOffsetMinutes &&
+        pickupOffsetMinutes > 0
+          ? { pickupOffsetMinutes }
+          : {}),
         ...(fulfillmentType === 'DELIVERY' && delivery ? { delivery } : {}),
       }
 

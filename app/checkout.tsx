@@ -22,6 +22,7 @@ import { startActivityForPlacedOrder } from '@/lib/live-activity-sync'
 import { buildPaymentSelections } from '@/lib/doodle/build-payment-selections'
 import { deliveryFeesPending, feeValueText } from '@/lib/delivery'
 import { useCreateOrder } from '@/hooks/use-create-order'
+import { availablePickupOffsets, pickupClockLabel } from '@/lib/pickup-schedule'
 import {
   useOrderQuote,
   quoteCents,
@@ -122,6 +123,8 @@ export default function CheckoutScreen() {
   const { pay, loading: payLoading, error: payError } = usePayment()
 
   const [processing, setProcessing] = useState(false)
+  // Scheduled pickup: minutes until collection, 0 = ASAP. Pickup-only.
+  const [pickupOffset, setPickupOffset] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   // Non-alarming inline notice (e.g. user closed the payment sheet). Kept
@@ -317,6 +320,8 @@ export default function CheckoutScreen() {
         loyaltyRewardCount: rewardCount,
         note,
         fulfillmentType,
+        pickupOffsetMinutes:
+          fulfillmentType === 'PICKUP' && pickupOffset > 0 ? pickupOffset : undefined,
         delivery:
           fulfillmentType === 'DELIVERY'
             ? {
@@ -622,7 +627,7 @@ export default function CheckoutScreen() {
         {fulfillmentType === 'PICKUP' ? (
           <>
             <StoreBlock />
-            <PickupTimeBlock />
+            <PickupTimeBlock value={pickupOffset} onChange={setPickupOffset} />
           </>
         ) : (
           <>
@@ -781,15 +786,114 @@ function StoreBlock() {
   )
 }
 
-function PickupTimeBlock() {
+// "What time will you collect your drinks?" — the App port of the web
+// pills (web PR #280/#281 wording): lead with the ~clock time, keep the
+// countdown as the sub-line, and never promise the minute. The server
+// re-validates the offset, so an expired pill 409s rather than lies.
+function PickupTimeBlock({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (next: number) => void
+}) {
   const status = useStoreStatus()
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
+  const offsets = status.open ? availablePickupOffsets(now) : []
+
+  // A picked pill that has since expired must not ride into the order.
+  useEffect(() => {
+    if (value !== 0 && !offsets.includes(value)) onChange(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now])
+
+  if (!status.open) {
+    return <CardBlock eyebrow="Pickup time" title={`Opens ${status.nextLabel}`} />
+  }
+
   return (
-    <CardBlock
-      eyebrow="Pickup time"
-      title={status.open ? 'ASAP · ~6 min' : `Opens ${status.nextLabel}`}
-    />
+    <CardBlock eyebrow="Pickup time" title="What time will you collect?">
+      <View style={pickupStyles.row}>
+        <Pressable
+          onPress={() => onChange(0)}
+          style={[pickupStyles.pill, value === 0 && pickupStyles.pillActive]}
+        >
+          <Text style={[pickupStyles.pillLabel, value === 0 && pickupStyles.pillLabelActive]}>
+            ASAP
+          </Text>
+          <Text style={pickupStyles.pillSub}>ready in ~10 min</Text>
+        </Pressable>
+        {offsets.map((offset) => {
+          const active = value === offset
+          return (
+            <Pressable
+              key={offset}
+              onPress={() => onChange(offset)}
+              style={[pickupStyles.pill, active && pickupStyles.pillActive]}
+            >
+              <Text style={[pickupStyles.pillLabel, active && pickupStyles.pillLabelActive]}>
+                ~{pickupClockLabel(offset, now)}
+              </Text>
+              <Text style={pickupStyles.pillSub}>in {offset} min</Text>
+            </Pressable>
+          )
+        })}
+      </View>
+      <Text style={pickupStyles.hint}>
+        {value === 0
+          ? "We'll start making your drinks right away."
+          : `Ready around ${pickupClockLabel(value, now)} — we'll start a few minutes before, so they're fresh when you arrive. Here early? Tap "I'm here" on your order page.`}
+      </Text>
+    </CardBlock>
   )
 }
+
+const pickupStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  pill: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: T.line,
+    backgroundColor: T.card,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  pillActive: {
+    borderWidth: 2,
+    borderColor: T.brand,
+    backgroundColor: T.cream,
+  },
+  pillLabel: {
+    fontFamily: 'ShantellSans_700Bold',
+    fontSize: 13.5,
+    color: T.ink2,
+  },
+  pillLabelActive: { color: T.brand },
+  pillSub: {
+    marginTop: 1,
+    fontFamily: 'ShantellSans_400Regular',
+    fontSize: 10.5,
+    color: T.ink3,
+  },
+  hint: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    fontFamily: 'ShantellSans_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    color: T.ink3,
+  },
+})
 
 function OrderItemsBlock({ items }: { items: CartItem[] }) {
   const count = items.reduce((s, i) => s + i.quantity, 0)
