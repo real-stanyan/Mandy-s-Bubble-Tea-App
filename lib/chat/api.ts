@@ -39,6 +39,8 @@ export type ChatResponse = {
   signIn?: boolean
   /** True when the reply should render the mystery box card. */
   mysteryBox?: boolean
+  /** The validated secret code the box was unlocked with. */
+  mysteryBoxCode?: string
 }
 
 /** Mirrors the route's own limits (web src/app/api/chat/route.ts) so the

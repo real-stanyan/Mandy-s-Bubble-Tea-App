@@ -129,6 +129,8 @@ export function ChatSheet() {
         checkoutCard: body.action === 'checkout' || undefined,
         signInCard: body.signIn === true || undefined,
         mysteryBox: body.mysteryBox === true || undefined,
+        mysteryBoxCode:
+          typeof body.mysteryBoxCode === 'string' ? body.mysteryBoxCode : undefined,
       }
       push(reply)
     } catch (err) {
@@ -218,7 +220,7 @@ export function ChatSheet() {
 
               {m.mysteryBox ? (
                 <View style={styles.cardWrap}>
-                  <MysteryBoxCard />
+                  <MysteryBoxCard code={m.mysteryBoxCode ?? ''} />
                 </View>
               ) : null}
 

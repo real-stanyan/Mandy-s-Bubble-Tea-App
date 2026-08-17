@@ -80,7 +80,7 @@ function ConfettiPiece({ char, index }: { char: string; index: number }) {
   return <Animated.Text style={[styles.confetti, style]}>{char}</Animated.Text>
 }
 
-export function MysteryBoxCard() {
+export function MysteryBoxCard({ code }: { code: string }) {
   const t = chatUiStrings()
   const [phase, setPhase] = useState<Phase>('closed')
   const [prize, setPrize] = useState<{ label: string; expiresAt: string } | null>(null)
@@ -92,12 +92,16 @@ export function MysteryBoxCard() {
     try {
       const body = await apiFetch<OpenResponse>('/api/chat/mystery-box/open', {
         method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code }),
       })
       await suspense
       if (body?.ok && body.label && body.expiresAt) {
         setPrize({ label: body.label, expiresAt: body.expiresAt })
         setPhase('won')
-      } else if (body?.reason === 'already-today') {
+      } else if (body?.reason === 'already-used' || body?.reason === 'invalid-code') {
+        // invalid-code = the code was retired between offer and tap — same
+        // customer answer: watch the Instagram for the next one.
         setPhase('already')
       } else {
         setPhase('error')
