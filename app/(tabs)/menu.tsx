@@ -29,6 +29,7 @@ import {
   WEEKLY_SPECIALS_CATEGORY_NAME,
   orderedWeeklySpecialNames,
   originalPriceCentsFor,
+  normalizeItemName,
 } from '@/lib/menu/weekly-specials'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { IMG_THUMB } from '@/lib/optimized-image'
@@ -120,7 +121,7 @@ export default function MenuScreen() {
     if (items.length === 0) return []
     const byName = new Map<string, CatalogItem>()
     for (const it of items) {
-      const key = (it.itemData?.name ?? '').trim().toLowerCase()
+      const key = normalizeItemName(it.itemData?.name ?? '')
       if (key && !byName.has(key)) byName.set(key, it)
     }
     const out: CatalogItem[] = []
