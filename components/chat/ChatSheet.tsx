@@ -19,6 +19,7 @@ import { DrinkProposalCard } from './DrinkProposalCard'
 import { CheckoutCard } from './CheckoutCard'
 import { PromotionCard } from './PromotionCard'
 import { SignInCard } from './SignInCard'
+import { MysteryBoxCard } from './MysteryBoxCard'
 
 function SendIcon({ size = 20 }: { size?: number }) {
   return (
@@ -127,6 +128,7 @@ export function ChatSheet() {
         promotions: body.promotions?.length ? body.promotions : undefined,
         checkoutCard: body.action === 'checkout' || undefined,
         signInCard: body.signIn === true || undefined,
+        mysteryBox: body.mysteryBox === true || undefined,
       }
       push(reply)
     } catch (err) {
@@ -211,6 +213,12 @@ export function ChatSheet() {
               {m.signInCard ? (
                 <View style={styles.cardWrap}>
                   <SignInCard />
+                </View>
+              ) : null}
+
+              {m.mysteryBox ? (
+                <View style={styles.cardWrap}>
+                  <MysteryBoxCard />
                 </View>
               ) : null}
 

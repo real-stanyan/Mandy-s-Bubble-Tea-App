@@ -14,6 +14,8 @@ export type ChatMessage = {
   /** Set when the server answered a signed-out customer's order question —
    *  renders the sign-in card under the reply. */
   signInCard?: boolean
+  /** Set on turns that offered the mystery box — renders the closed box. */
+  mysteryBox?: boolean
   /** Menu suggestions offered when the model degraded. */
   suggestions?: { itemId: string; itemName: string; categorySlug: string }[]
   /** Locked once the customer pressed Add — single source of truth for the

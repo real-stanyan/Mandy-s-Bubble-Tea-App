@@ -37,6 +37,8 @@ export type ChatResponse = {
   /** True when the reply should carry a sign-in card — the server sets it
    *  after an order-status lookup found the asker signed out. */
   signIn?: boolean
+  /** True when the reply should render the mystery box card. */
+  mysteryBox?: boolean
 }
 
 /** Mirrors the route's own limits (web src/app/api/chat/route.ts) so the
