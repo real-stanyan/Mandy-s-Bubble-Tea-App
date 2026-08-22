@@ -71,15 +71,19 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      # --platform ios: the production branch is iOS-only, and the default
-      #   --platform all crashes at bundle time on the web export (#46).
+      # One platform per invocation, never --platform all: the default all
+      #   drags in the web export, which crashes at bundle time (#46).
+      #   Android publishes since 2026-08-18 — eas.json's production profile
+      #   now carries channel "production", so Android binaries built from it
+      #   are eligible for these updates (earlier Android builds were
+      #   channel-less and only ever run their embedded bundle).
       # --environment production: take EXPO_PUBLIC_* from the EAS production
       #   environment, never from whatever the runner happens to have (#41).
       # The commit message goes in through the environment, never interpolated
       # into the script: `${{ }}` inside a run block pastes attacker-influenced
       # text straight into the shell, and a merge message is exactly that. Only
       # the subject line is used — `eas update -m` wants one line.
-      - name: eas update
+      - name: eas update (ios)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
@@ -89,6 +93,20 @@ jobs:
           eas update \
             --branch production \
             --platform ios \
+            --environment production \
+            --non-interactive \
+            --message "$MSG"
+
+      - name: eas update (android)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          MSG="$(printf '%s' "$HEAD_COMMIT_MESSAGE" | head -n 1)"
+          eas update \
+            --branch production \
+            --platform android \
             --environment production \
             --non-interactive \
             --message "$MSG"
