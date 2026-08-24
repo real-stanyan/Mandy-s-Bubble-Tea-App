@@ -490,7 +490,10 @@ export function ItemDetailContent({
               return (
                 <Chip
                   key={v.id}
-                  label={v.itemVariationData?.name ?? 'Regular'}
+                  // "Regular" carries the capacity so the pill answers the
+                  // size question by itself (Stan, 2026-08-24); a real named
+                  // size (if one ever appears) renders untouched.
+                  label={sizeChipLabel(v.itemVariationData?.name ?? 'Regular')}
                   priceSuffix={priceSuffix}
                   selected={selected}
                   disabled={v.soldOut === true && !selected}
@@ -917,6 +920,13 @@ function ErrorView({ message, onRetry }: { message: string; onRetry: () => void 
       </Pressable>
     </View>
   )
+}
+
+/** "Regular" gains its capacity — every drink is one 700ml size, and the
+ *  bare word answered nothing. Any other (future, real) size name passes
+ *  through untouched. Same wording as the web's size chip. */
+function sizeChipLabel(name: string): string {
+  return /^regular$/i.test(name.trim()) ? `${name} (700ml)` : name
 }
 
 function eyebrowForList(name: string): string {
