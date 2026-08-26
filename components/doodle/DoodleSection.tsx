@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SvgXml } from 'react-native-svg'
 import { Image as ExpoImage } from 'expo-image'
@@ -8,6 +8,7 @@ import type { DoodleSlot } from '@/lib/doodle/cartToSlots'
 import type { SvgPath } from '@/lib/doodle/types'
 import { PresetImage } from './PresetImage'
 import { T, FONT, RADIUS } from '@/constants/theme'
+import { PHOTO_LABELS_OFFLINE, PHOTO_LABELS_OFFLINE_NOTICE } from '@/lib/doodle/label-mode'
 
 interface Props {
   slots: DoodleSlot[]
@@ -90,6 +91,29 @@ function sourceBadge(slot: DoodleSlot): string {
 }
 
 export function DoodleSection({ slots, onSlotChange }: Props) {
+  if (PHOTO_LABELS_OFFLINE) return <DoodleOfflineNotice slots={slots} onSlotChange={onSlotChange} />
+  return <DoodlePickerSection slots={slots} onSlotChange={onSlotChange} />
+}
+
+// Shown while the 40×30 text-only paper is loaded (lib/doodle/label-mode.ts).
+// Also drains any selection still persisted in the cart — a stale pending
+// AI/draw pick would otherwise block Pay with no picker left to clear it.
+function DoodleOfflineNotice({ slots, onSlotChange }: Props) {
+  useEffect(() => {
+    slots.forEach((slot, i) => {
+      if (slot.selection != null) onSlotChange(i, { ...slot, selection: null })
+    })
+  }, [slots, onSlotChange])
+
+  if (slots.length === 0) return null
+  return (
+    <CardBlock eyebrow="Cup labels" title="Back soon 💤">
+      <Text style={styles.hint}>{PHOTO_LABELS_OFFLINE_NOTICE}</Text>
+    </CardBlock>
+  )
+}
+
+function DoodlePickerSection({ slots, onSlotChange }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null)
   if (slots.length === 0) return null
 
