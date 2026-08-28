@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Image } from 'expo-image'
-import { Stack, useRouter } from 'expo-router'
+import { Stack, useFocusEffect, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCartStore } from '@/store/cart'
 import { FulfillmentSelector } from '@/components/checkout/FulfillmentSelector'
@@ -168,6 +168,17 @@ export default function CheckoutScreen() {
       return true
     })
   }, [slots])
+
+  // Live balance on entry: the redeem stepper must be clamped by what the
+  // server will actually honor, not by a home-tab snapshot. 2026-08-28: a
+  // customer's cached balance said 24 while 18 stars sat held on an
+  // abandoned order — the stepper offered 2 rewards, the server said
+  // "Not enough stars", and they retried into a wall for three minutes.
+  useFocusEffect(
+    useCallback(() => {
+      refreshAuth()
+    }, [refreshAuth]),
+  )
 
   const loyaltyBalance = loyalty?.balance ?? 0
   const perReward = starsPerReward || LOYALTY.starsForReward
@@ -361,6 +372,11 @@ export default function CheckoutScreen() {
             payMethod,
             message: redeemErr instanceof Error ? redeemErr.message : String(redeemErr),
           })
+          // Re-hydrate loyalty so the stepper re-clamps to the balance the
+          // server just judged by — retrying against a stale number is how
+          // the 2026-08-28 customer got stuck. Fire-and-forget: the error
+          // itself must surface regardless.
+          refreshAuth()
           throw redeemErr
         }
         if (!redeemRes.ok) {
@@ -370,6 +386,7 @@ export default function CheckoutScreen() {
             payMethod,
             message: redeemRes.error ?? 'Could not redeem reward',
           })
+          refreshAuth()
           throw new Error(redeemRes.error ?? 'Could not redeem reward')
         }
         if (typeof redeemRes.updatedAmountCents === 'string') {
