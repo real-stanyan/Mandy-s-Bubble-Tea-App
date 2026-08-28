@@ -80,17 +80,15 @@ export async function canUseApplePay(): Promise<boolean> {
   }
 }
 
-/** KILL SWITCH — flip back to true once Google Pay & Wallet Console
- *  grants production access for com.mandysbubbletea.app.
+/** KILL SWITCH — false hides Google Pay from checkout entirely.
  *
- *  2026-08-28 (Gold Coast Show Day, first real Android customers): every
- *  Google Pay attempt died in the sheet with OR_BIBED_11 — "this merchant
- *  is having trouble accepting your payment". Client config is correct
- *  (production environment, production Square application id); the missing
- *  piece is Google-side merchant approval, which only the console can
- *  grant. Until then the button is a guaranteed dead end, so don't show
- *  it — checkout falls back to card entry. */
-const GOOGLE_PAY_ENABLED = false
+ *  History: 2026-08-28 (Show Day, first real Android customers) every
+ *  Google Pay attempt died in the sheet with OR_BIBED_11 because the
+ *  merchant lacked Google Pay & Wallet Console production access; the
+ *  switch shipped false while approval was pending. Google approved the
+ *  same day and the switch went back to true. Keep it — the next
+ *  Google-side outage is one OTA away from a clean fallback to card. */
+const GOOGLE_PAY_ENABLED = true
 
 /** Check if Google Pay is available on this device */
 export async function canUseGooglePay(): Promise<boolean> {
