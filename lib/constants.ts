@@ -81,6 +81,9 @@ export const PUBLIC_HOLIDAYS_2026: PublicHolidayDef[] = [
   { name: 'Easter Monday',         date: '2026-04-06' },
   { name: 'ANZAC Day',             date: '2026-04-25' },
   { name: 'Labour Day',            date: '2026-05-04' },
+  // Regional show holiday — Gold Coast only, so it's not on the QLD state
+  // list. Kept in sync with the web repo's PUBLIC_HOLIDAYS_2026.
+  { name: 'Gold Coast Show Day',   date: '2026-08-28' },
   { name: "King's Birthday",       date: '2026-10-05' },
   { name: 'Christmas Eve',         date: '2026-12-24', startHour: 18 },
   { name: 'Christmas Day',         date: '2026-12-25' },
