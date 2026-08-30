@@ -132,6 +132,63 @@ function buildHeaders(
   return headers
 }
 
+/**
+ * Thrown by `apiFetchWithTimeout` when a request outlives its budget.
+ * Distinct from `ApiError` — nothing came back from the server at all.
+ */
+export class TimeoutError extends Error {
+  readonly timeoutMs: number
+
+  constructor(timeoutMs: number) {
+    super(`Request timed out after ${timeoutMs}ms`)
+    this.name = 'TimeoutError'
+    this.timeoutMs = timeoutMs
+  }
+}
+
+/**
+ * `apiFetch` with a deadline. React Native's fetch has no default timeout, so a
+ * socket that stalls (flaky cellular, captive portal, carrier NAT dropping the
+ * connection) leaves the promise pending forever — and any screen whose
+ * `loading` flag hangs off it spins until the app is force-quit.
+ *
+ * The AbortController closes the socket; the race is what actually guarantees
+ * settlement, because the abort can't reach the `supabase.auth.getSession()`
+ * hydration that runs before fetch is even called.
+ *
+ * Opt-in per call, and only safe for idempotent reads: aborting a POST that
+ * creates an order or takes a payment does NOT undo it server-side.
+ */
+export async function apiFetchWithTimeout<T>(
+  path: string,
+  timeoutMs: number,
+  options?: RequestInit,
+): Promise<T> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new TimeoutError(timeoutMs))
+    }, timeoutMs)
+  })
+  try {
+    return await Promise.race([
+      apiFetch<T>(path, { ...options, signal: controller.signal }),
+      deadline,
+    ])
+  } catch (e) {
+    // fetch rejects with a generic AbortError once the controller fires —
+    // report the cause the caller can act on.
+    if (controller.signal.aborted && !(e instanceof TimeoutError)) {
+      throw new TimeoutError(timeoutMs)
+    }
+    throw e
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (cachedToken === null && !hydratePromise) {
     await hydrateOnce()
