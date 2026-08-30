@@ -1,5 +1,10 @@
 import { create } from 'zustand'
-import { apiFetch } from '@/lib/api'
+import { ApiError, TimeoutError, apiFetchWithTimeout } from '@/lib/api'
+
+// History fans out to Square's order search + the full catalog server-side, so
+// it is the slowest read the app makes — but a customer staring at a spinner
+// gives up long before any honest request takes this long.
+const HISTORY_TIMEOUT_MS = 15_000
 
 export interface OrderHistoryLineModifier {
   id: string
@@ -104,20 +109,23 @@ export const useOrdersStore = create<OrdersState>((set) => ({
     set({ loading: true, error: null })
     inFlight = (async () => {
       try {
-        const historyRes = await apiFetch<{
+        const historyRes = await apiFetchWithTimeout<{
           ok: boolean
           orders: OrderHistoryItem[]
-        }>('/api/orders/history')
+        }>('/api/orders/history', HISTORY_TIMEOUT_MS)
         set(withActiveCount(historyRes.orders ?? []))
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Failed to load orders'
         // A signed-out caller hitting /api/orders/history gets a 401 —
         // that's not a user-facing error, it's expected. Only surface
         // real failures.
-        if (msg.includes('401')) {
+        if (e instanceof ApiError && e.status === 401) {
           set({ ...withActiveCount([]), error: null })
+        } else if (e instanceof TimeoutError) {
+          // The screen renders this verbatim, so it's copy, not a stack
+          // trace: the customer's move is to retry, not to read a message.
+          set({ error: "Couldn't reach the server. Check your connection." })
         } else {
-          set({ error: msg })
+          set({ error: e instanceof Error ? e.message : 'Failed to load orders' })
         }
       } finally {
         set({ loading: false })

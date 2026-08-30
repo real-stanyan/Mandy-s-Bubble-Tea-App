@@ -56,7 +56,7 @@ function subtitleText(activeCount: number, pastCount: number): string {
 export default function OrderScreen() {
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
-  const { orders, loading, refresh } = useOrderHistory()
+  const { orders, loading, error, refresh } = useOrderHistory()
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<OrdersFilter>('all')
   const replaceCart = useCartStore((s) => s.clearCart)
@@ -152,6 +152,36 @@ export default function OrderScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={T.brand} />
+      </View>
+    )
+  }
+
+  // A load that failed with nothing cached used to fall through to "No orders
+  // yet" — telling a customer with a history that they have none. Say what
+  // happened and give them the one action that helps.
+  if (error && orders.length === 0) {
+    return (
+      <View style={styles.center}>
+        <View style={styles.emptyIconCircle}>
+          <Icon name="receipt" color={T.ink4} size={28} />
+        </View>
+        <Text style={styles.emptyTitle}>Couldn&apos;t load your orders</Text>
+        <Text style={styles.muted}>{error}</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.signInBtn,
+            styles.retryBtn,
+            pressed && { opacity: 0.85 },
+          ]}
+          onPress={onPullRefresh}
+          disabled={refreshing}
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color={CTA.on} />
+          ) : (
+            <Text style={styles.signInText}>Try again</Text>
+          )}
+        </Pressable>
       </View>
     )
   }
@@ -359,6 +389,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 999,
+  },
+  // Fixed box so swapping the label for the spinner mid-retry doesn't
+  // resize the button under the user's finger.
+  retryBtn: {
+    minWidth: 108,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   signInText: {
     color: CTA.on,

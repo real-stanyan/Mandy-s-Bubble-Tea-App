@@ -1,6 +1,11 @@
 // store/orders.ts pulls in lib/api (Supabase env) at module init — not
 // needed for these pure helpers, so stub it out.
-jest.mock('@/lib/api', () => ({ apiFetch: jest.fn() }))
+jest.mock('@/lib/api', () => ({
+  apiFetch: jest.fn(),
+  apiFetchWithTimeout: jest.fn(),
+  ApiError: class ApiError extends Error {},
+  TimeoutError: class TimeoutError extends Error {},
+}))
 
 import { effectiveOrderState, isDeliveryOrder, isUnfinished } from './orders'
 
