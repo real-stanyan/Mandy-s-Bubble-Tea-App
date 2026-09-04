@@ -82,7 +82,16 @@ class GooglePayButtonView(context: Context, appContext: AppContext) :
   private fun dpToPx(dp: Float): Int =
     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
 
+  // Re-initializing with unchanged options is not free: the checkout
+  // flips `enabled` as the quote loads, every flip re-ran initialize(),
+  // and the second run drew the bare "G Pay" mark where the first had
+  // drawn "Pay with G Pay". Only re-run when the artwork options change.
+  private var appliedOptions: String? = null
+
   fun applyOptions() {
+    val key = "$theme/$type/$cornerRadiusDp"
+    if (key == appliedOptions) return
+    appliedOptions = key
     button.initialize(
       ButtonOptions.newBuilder()
         .setButtonTheme(theme)
