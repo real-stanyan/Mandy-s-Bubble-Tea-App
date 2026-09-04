@@ -616,7 +616,11 @@ export default function CheckoutScreen() {
       />
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 130 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          // The Google Pay bar is taller (summary line + button) than the pill.
+          paddingBottom: payMethod === 'google' && googlePayButtonAvailable ? 180 : 130,
+        }}
       >
         <InlineHeader onBack={handleBack} total={displayedTotal} />
         {quoteBlocked && (
@@ -727,7 +731,10 @@ export default function CheckoutScreen() {
             native module existed — an OTA to one of those keeps the old CTA
             rather than rendering nothing. */}
         {payMethod === 'google' && googlePayButtonAvailable && !payNothing ? (
-          <View>
+          // The pill variant floats over the page; this one carries copy, so it
+          // sits on an opaque strip of page colour — the totals card scrolled
+          // straight through the summary line otherwise (emulator, 2026-09-04).
+          <View style={styles.gpayBar}>
             <View style={styles.gpaySummary}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.gpayEyebrow}>{cta.eyebrow}</Text>
@@ -1698,13 +1705,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fecaca',
   },
+  // A solid panel, not a floating bar: the pay control and its total/gate
+  // line sit on their own paper surface with a top edge, so the order
+  // summary scrolls UNDER it instead of through it (Stan, 2026-09-04: 给
+  // 下方 PAY 专门做一个底框，不用悬浮无背景显示).
   ctaBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 12,
+    backgroundColor: T.paper,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: T.line,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#2A1E14',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 10,
   },
   // CTA, not PIN.chip. Pinning the dark ink fixed the label but cost the
   // button its surface: #2A1E14 on the evening page is 1.16:1, so the pay bar
@@ -1721,6 +1742,7 @@ const styles = StyleSheet.create({
   // Total + gate reason, above Google's button. It sits on the bar's own
   // background so the button keeps clear space on all four sides, and the
   // 10pt gap below is that clear space on top.
+  gpayBar: {},
   gpaySummary: {
     flexDirection: 'row',
     alignItems: 'center',

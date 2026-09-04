@@ -493,7 +493,7 @@ const SectionHeader = memo(function SectionHeader({
       <Text
         style={[
           styles.sectionTitle,
-          banner && styles.onBanner,
+          banner ? styles.onBanner : null,
           isSpecials && styles.onSpecials,
         ]}
         numberOfLines={1}
@@ -503,7 +503,7 @@ const SectionHeader = memo(function SectionHeader({
       <Text
         style={[
           styles.sectionSub,
-          banner && styles.onBannerSub,
+          banner ? styles.onBannerSub : null,
           isSpecials && styles.onSpecialsSub,
         ]}
         numberOfLines={1}
