@@ -14,7 +14,7 @@
 export type CupLabelPaperMode = 'text-40x30' | 'photo-50x80'
 
 function currentPaperMode(): CupLabelPaperMode {
-  return 'text-40x30'
+  return 'photo-50x80'
 }
 
 export const PHOTO_LABELS_OFFLINE = currentPaperMode() !== 'photo-50x80'
