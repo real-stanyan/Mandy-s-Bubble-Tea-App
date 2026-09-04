@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.line,
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 4,
     borderRadius: RADIUS.card,
     padding: 16,
     gap: 8,
