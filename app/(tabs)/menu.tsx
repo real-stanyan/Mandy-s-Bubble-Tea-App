@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
+import Animated, { FadeOut, StretchInY } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
@@ -400,7 +401,15 @@ export default function MenuScreen() {
                     activeOpacity={0.7}
                     style={[styles.tab, active && styles.tabActive]}
                   >
-                    {active ? <View style={styles.tabBar} /> : null}
+                    {active ? (
+                      // The brand bar stretches open on the new tab and fades off the
+                      // old one, so a category change reads as the bar moving.
+                      <Animated.View
+                        entering={StretchInY.springify().damping(16).stiffness(220)}
+                        exiting={FadeOut.duration(120)}
+                        style={styles.tabBar}
+                      />
+                    ) : null}
                     <Text
                       style={[styles.tabText, active && styles.tabTextActive]}
                       numberOfLines={2}

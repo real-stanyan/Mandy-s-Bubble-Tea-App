@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native'
+import { View, Text, StyleSheet, Platform } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import Animated, {
   useSharedValue,
@@ -10,6 +10,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import { Icon } from '@/components/brand/Icon'
+import { Reveal } from '@/components/ui/Reveal'
+import { PressScale } from '@/components/ui/PressScale'
 import { T, FONT, RADIUS, SHADOW, PIN } from '@/constants/theme'
 import { formatPrice } from '@/lib/utils'
 
@@ -51,12 +53,15 @@ export function OrderPlaced({
         <Animated.View style={[styles.checkBubble, checkStyle, iosSageShadow]}>
           <Icon name="check" size={40} color="#fff" />
         </Animated.View>
-        <Text style={styles.eyebrow}>Order placed</Text>
-        <Text style={styles.headline}>You’re all set</Text>
+        <Reveal index={1}><Text style={styles.eyebrow}>Order placed</Text></Reveal>
+        <Reveal index={2}><Text style={styles.headline}>You’re all set</Text></Reveal>
+        <Reveal index={3}>
         <Text style={styles.body}>
           Order <Text style={styles.bodyMono}>{pickupNumber}</Text> will be ready in ~6 min at Mandy’s — {storeName}.
         </Text>
+        </Reveal>
 
+        <Reveal index={4} style={{ alignSelf: 'stretch' }}>
         <View style={styles.infoCard}>
           <View style={styles.infoCol}>
             <Text style={styles.infoLabel}>Total charged</Text>
@@ -71,13 +76,14 @@ export function OrderPlaced({
             </View>
           </View>
         </View>
+        </Reveal>
       </View>
 
       <View style={styles.ctaWrap}>
-        <Pressable onPress={onTrack} style={styles.cta}>
+        <PressScale onPress={onTrack} haptic style={styles.cta}>
           <Text style={styles.ctaText}>Track my order</Text>
           <Icon name="arrow" size={14} color={PIN.onChip} />
-        </Pressable>
+        </PressScale>
       </View>
     </Animated.View>
   )
