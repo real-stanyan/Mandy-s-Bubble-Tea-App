@@ -1,5 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { T, FONT, RADIUS } from '@/constants/theme'
+import { Reveal } from '@/components/ui/Reveal'
 
 export interface CardBlockProps {
   eyebrow?: string
@@ -11,7 +12,7 @@ export interface CardBlockProps {
 
 export function CardBlock({ eyebrow, title, right, onEdit, children }: CardBlockProps) {
   return (
-    <View style={styles.card}>
+    <Reveal style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerText}>
           {eyebrow ? <Text style={styles.eyebrow} numberOfLines={1}>{eyebrow}</Text> : null}
@@ -25,7 +26,7 @@ export function CardBlock({ eyebrow, title, right, onEdit, children }: CardBlock
         ) : null}
       </View>
       {children}
-    </View>
+    </Reveal>
   )
 }
 

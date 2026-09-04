@@ -1,6 +1,7 @@
 // components/home/StoreCard.tsx
-import { Linking, Platform, Pressable, Text, View } from 'react-native';
+import { Linking, Platform, Text, View } from 'react-native';
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme';
+import { PressScale } from '@/components/ui/PressScale';
 import { getStoreStatus } from './helpers';
 
 const MAP_QUERY = '34 Davenport St Southport QLD 4215';
@@ -132,23 +133,23 @@ export function StoreCard() {
         </View>
 
         {/* Directions */}
-        <Pressable
+        <PressScale
           onPress={openDirections}
           hitSlop={6}
-          style={({ pressed }) => ({
+          haptic
+          style={{
             paddingHorizontal: 14,
             paddingVertical: 8,
             borderRadius: 999,
             borderWidth: 1,
             borderColor: T.ink4,
             backgroundColor: 'transparent',
-            opacity: pressed ? 0.6 : 1,
-          })}
+          }}
         >
           <Text style={{ fontFamily: 'ShantellSans_500Medium', fontSize: 12.5, color: T.ink }}>
             Directions
           </Text>
-        </Pressable>
+        </PressScale>
       </View>
     </View>
   );

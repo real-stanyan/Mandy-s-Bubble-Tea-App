@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { PressScale } from '@/components/ui/PressScale';
 import { useRouter } from 'expo-router';
 import { useMenu } from '@/hooks/use-menu';
 import { useMenuJumpStore } from '@/store/menuJump';
-import { T, TYPE, RADIUS } from '@/constants/theme';
+import { TYPE, RADIUS } from '@/constants/theme';
 import { SectionHead } from './SectionHead';
 import { resolveCategorySlug } from './helpers';
 
@@ -64,10 +65,11 @@ export function CategoriesStrip() {
         {HOME_CATEGORIES.map((c) => {
           const count = countsBySlug.get(c.slug);
           return (
-            <Pressable
+            <PressScale
               key={c.slug}
+              haptic
               onPress={() => jumpToMenu(c.slug)}
-              style={({ pressed }) => ({
+              style={{
                 width: 130,
                 height: 84,
                 borderRadius: RADIUS.tile + 4,
@@ -75,8 +77,7 @@ export function CategoriesStrip() {
                 padding: 12,
                 overflow: 'hidden',
                 position: 'relative',
-                opacity: pressed ? 0.92 : 1,
-              })}
+              }}
             >
               <View
                 style={{
@@ -120,7 +121,7 @@ export function CategoriesStrip() {
               >
                 {count == null ? '—' : `${count} drinks`}
               </Text>
-            </Pressable>
+            </PressScale>
           );
         })}
       </ScrollView>

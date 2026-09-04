@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { PressScale } from '@/components/ui/PressScale'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { DoodleModal } from './DoodleModal'
 import { StickerPreview, selectionSummary } from './StickerPreview'
@@ -63,7 +64,8 @@ function DoodlePickerSection({ slots, onSlotChange }: Props) {
           const chosen = slot.selection != null
           const cupFraction = slot.totalCups > 1 ? `${slot.cupIdx + 1}/${slot.totalCups}` : ''
           return (
-            <Pressable
+            <PressScale
+              haptic
               key={`${slot.lineId}:${slot.cupIdx}`}
               onPress={() => setOpenIdx(i)}
               accessibilityRole="button"
@@ -93,7 +95,7 @@ function DoodlePickerSection({ slots, onSlotChange }: Props) {
                   {chosen ? 'Change' : 'Choose'}
                 </Text>
               </View>
-            </Pressable>
+            </PressScale>
           )
         })}
       </ScrollView>

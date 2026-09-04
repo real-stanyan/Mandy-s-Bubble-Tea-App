@@ -18,6 +18,7 @@ import { FragranceBlindBox } from '@/components/home/FragranceBlindBox';
 import { CategoriesStrip } from '@/components/home/CategoriesStrip';
 import { StoreCard } from '@/components/home/StoreCard';
 import { T } from '@/constants/theme';
+import { Reveal } from '@/components/ui/Reveal';
 import { FRAGRANCE_BLIND_BOX_PROMO } from '@/lib/constants';
 
 export default function HomeScreen() {
@@ -32,17 +33,17 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <PublicHolidayBanner />
-        <HomeHeader />
+        <Reveal index={0}><HomeHeader /></Reveal>
         {FRAGRANCE_BLIND_BOX_PROMO && <FragranceBlindBox />}
-        <HomeLoyaltyHero />
+        <Reveal index={1}><HomeLoyaltyHero /></Reveal>
         {/* Above the app-download gift: a live tasting window is the more
             perishable of the two, and the one the push is driving traffic to. */}
-        <TastingPromoCard status={tastingStatus} />
-        <AppDownloadDiscountCard status={appDownloadStatus} />
-        <YourUsual />
-        <DailySpecial />
-        <CategoriesStrip />
-        <StoreCard />
+        <Reveal index={2}><TastingPromoCard status={tastingStatus} /></Reveal>
+        <Reveal index={2}><AppDownloadDiscountCard status={appDownloadStatus} /></Reveal>
+        <Reveal index={3}><YourUsual /></Reveal>
+        <Reveal index={4}><DailySpecial /></Reveal>
+        <Reveal index={5}><CategoriesStrip /></Reveal>
+        <Reveal index={6}><StoreCard /></Reveal>
       </ScrollView>
     </View>
   );
