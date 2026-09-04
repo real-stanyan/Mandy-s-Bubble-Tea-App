@@ -32,6 +32,7 @@ import { DeleteAccountBtn } from '@/components/account/DeleteAccountBtn'
 import { useOrderHistory } from '@/hooks/use-order-history'
 import { isUnfinished } from '@/store/orders'
 import { T } from '@/constants/theme'
+import { Reveal } from '@/components/ui/Reveal'
 import type { LoyaltyAccount } from '@/types/square'
 
 const EMPTY_LOYALTY: LoyaltyAccount = {
@@ -140,8 +141,9 @@ export default function AccountScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={T.brand} />
         }
       >
-        <AccountHeader profile={profile} />
-        <WelcomeDiscountCard />
+        <Reveal index={0}><AccountHeader profile={profile} /></Reveal>
+        <Reveal index={1}><WelcomeDiscountCard /></Reveal>
+        <Reveal index={2}>
         <LoyaltyCard
           account={account ?? EMPTY_LOYALTY}
           starsPerReward={perReward}
@@ -150,6 +152,8 @@ export default function AccountScreen() {
           starsToNext={starsToNext}
           freeToppingsRemaining={freeToppingsRemaining}
         />
+        </Reveal>
+        <Reveal index={3}>
         <MiniStats
           drinks={lifetime}
           rewards={rewardsCount}
@@ -157,12 +161,15 @@ export default function AccountScreen() {
           onPressDrinks={() => router.push('/(tabs)/order')}
           onPressRewards={() => router.push('/promotions')}
         />
+        </Reveal>
+        <Reveal index={4}>
         <MemberQrCard
           customerId={profile.square_customer_id}
           phoneE164={profile.phone_e164}
         />
-        <AddToWalletButton />
-        <PromotionsCard rewardsCount={rewardsCount} />
+        </Reveal>
+        <Reveal index={5}><AddToWalletButton /></Reveal>
+        <Reveal index={6}><PromotionsCard rewardsCount={rewardsCount} /></Reveal>
         {orders.length === 0 ? (
           <OrderHistory orders={orders} />
         ) : (
