@@ -35,6 +35,8 @@ import { buildOrderLines } from '@/lib/order-lines'
 import { usePayment } from '@/hooks/use-payment'
 import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
 import { useStoreStatus } from '@/hooks/use-store-status'
+import { useKitchenLoad } from '@/hooks/use-kitchen-load'
+import { KITCHEN_LOAD_FALLBACK, kitchenMoodLabel, type KitchenLoad } from '@/lib/kitchen-load'
 import { canAcceptOrders } from '@/components/home/helpers'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { PaymentErrorDialog } from '@/components/ui/PaymentErrorDialog'
@@ -125,6 +127,9 @@ export default function CheckoutScreen() {
   const [processing, setProcessing] = useState(false)
   // Scheduled pickup: minutes until collection, 0 = ASAP. Pickup-only.
   const [pickupOffset, setPickupOffset] = useState(0)
+  // Live "ready in" estimate — one poll, shared by the Pickup card and the
+  // ASAP pill so they never disagree.
+  const kitchen = useKitchenLoad()
   const [error, setError] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   // Non-alarming inline notice (e.g. user closed the payment sheet). Kept
@@ -640,11 +645,12 @@ export default function CheckoutScreen() {
           value={fulfillmentType}
           onChange={setFulfillmentType}
           drinksSubtotalCents={total}
+          pickupEtaLabel={kitchen?.label}
         />
         {fulfillmentType === 'PICKUP' ? (
           <>
             <StoreBlock />
-            <PickupTimeBlock value={pickupOffset} onChange={setPickupOffset} />
+            <PickupTimeBlock value={pickupOffset} onChange={setPickupOffset} kitchen={kitchen} />
           </>
         ) : (
           <>
@@ -810,10 +816,17 @@ function StoreBlock() {
 function PickupTimeBlock({
   value,
   onChange,
+  kitchen,
 }: {
   value: number
   onChange: (next: number) => void
+  /** Live kitchen load; undefined before the first poll, null when the
+   *  server could not measure it — both show the middle bracket. */
+  kitchen?: KitchenLoad | null
 }) {
+  // "~10 min" was a constant. The estimate now follows the cups on the
+  // bench (Stan, 2026-09-04): quiet 2–3, medium 5–7, busy 7–10.
+  const load = kitchen ?? KITCHEN_LOAD_FALLBACK
   const status = useStoreStatus()
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -842,7 +855,7 @@ function PickupTimeBlock({
           <Text style={[pickupStyles.pillLabel, value === 0 && pickupStyles.pillLabelActive]}>
             ASAP
           </Text>
-          <Text style={pickupStyles.pillSub}>ready in ~10 min</Text>
+          <Text style={pickupStyles.pillSub}>ready in {load.label}</Text>
         </Pressable>
         {offsets.map((offset) => {
           const active = value === offset
@@ -862,7 +875,7 @@ function PickupTimeBlock({
       </View>
       <Text style={pickupStyles.hint}>
         {value === 0
-          ? "We'll start making your drinks right away."
+          ? `We'll start making your drinks right away — at the counter in about ${load.label}.${kitchen ? ` We're ${kitchenMoodLabel(kitchen.level)}.` : ''}`
           : `Ready around ${pickupClockLabel(value, now)} — we'll start a few minutes before, so they're fresh when you arrive. Here early? Tap "I'm here" on your order page.`}
       </Text>
     </CardBlock>

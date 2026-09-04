@@ -1,21 +1,30 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { BRAND } from '@/lib/constants'
 import { deliverySubtitle, isDeliveryEligible, type FulfillmentType } from '@/lib/delivery'
+import { KITCHEN_LOAD_FALLBACK } from '@/lib/kitchen-load'
 
 type Props = {
   value: FulfillmentType
   onChange: (t: FulfillmentType) => void
   drinksSubtotalCents: number
+  /** Live ASAP estimate ("2–3 min") from /api/store-status — the same
+   *  number the pickup-time pills show, so the two cards agree. */
+  pickupEtaLabel?: string
 }
 
-export function FulfillmentSelector({ value, onChange, drinksSubtotalCents }: Props) {
+export function FulfillmentSelector({
+  value,
+  onChange,
+  drinksSubtotalCents,
+  pickupEtaLabel = KITCHEN_LOAD_FALLBACK.label,
+}: Props) {
   const eligible = isDeliveryEligible(drinksSubtotalCents)
   return (
     <View style={styles.row}>
       <Option
         active={value === 'PICKUP'}
         title="Pickup"
-        subtitle="~10 min · 34 Davenport St"
+        subtitle={`${pickupEtaLabel} · 34 Davenport St`}
         onPress={() => onChange('PICKUP')}
         testID="fulfillment-pickup"
       />
