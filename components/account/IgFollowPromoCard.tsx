@@ -252,9 +252,12 @@ export const IgFollowPromoCard = memo(function IgFollowPromoCard() {
 })
 
 const styles = StyleSheet.create({
+  // marginBottom like every other promo card, so a stack of them keeps one
+  // 12pt rhythm — marginTop here doubled the gap above and left none below
+  // (the IG card sat flush on the Loyalty Reward card, 2026-09-04).
   wrap: {
     paddingHorizontal: 16,
-    marginTop: 12,
+    marginBottom: 12,
   },
   card: {
     backgroundColor: T.card,
