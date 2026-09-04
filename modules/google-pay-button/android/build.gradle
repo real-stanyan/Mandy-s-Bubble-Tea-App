@@ -1,0 +1,22 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'expo.modules.googlepaybutton'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.googlepaybutton"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+dependencies {
+  // PayButton lives in play-services-wallet 19.2+. The Square in-app-payments
+  // module already pulls the same artifact at 19.2.1, but it declares it
+  // `implementation`, so it does not reach this module's classpath — declare
+  // it here at the identical version so Gradle resolves one copy.
+  implementation "com.google.android.gms:play-services-wallet:19.2.1"
+}
