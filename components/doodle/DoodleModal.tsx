@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
+import { PressScale } from '@/components/ui/PressScale'
 import { DoodleCanvas } from './DoodleCanvas'
 import { StickerPreview } from './StickerPreview'
 import { submitAiCupLabel } from '@/lib/doodle/aiGenerate'
@@ -410,7 +411,9 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
               const selected =
                 slot.selection?.kind === 'preset' && slot.selection.hash === item.hash
               return (
-                <Pressable
+                <PressScale
+                  haptic
+                  scaleTo={0.93}
                   onPress={() => handlePickPreset(item.hash)}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
@@ -426,7 +429,7 @@ export function DoodleModal({ visible, slots, initialIndex, onClose, onSlotChang
                       <Text style={styles.checkText}>✓</Text>
                     </View>
                   ) : null}
-                </Pressable>
+                </PressScale>
               )
             }}
           />

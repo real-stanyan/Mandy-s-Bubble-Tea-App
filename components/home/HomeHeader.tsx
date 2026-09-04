@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { PressScale } from '@/components/ui/PressScale';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useCartStore } from '@/store/cart';
 import { useCartSheetStore } from '@/store/cartSheet';
@@ -43,18 +44,18 @@ export function HomeHeader() {
         </View>
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable
+          <PressScale
+            haptic
             hitSlop={6}
             onPress={() => router.push({ pathname: '/messages', params: { from: 'home' } })}
-            style={({ pressed }) => ({
+            style={{
               width: 40,
               height: 40,
               borderRadius: 999,
               backgroundColor: 'rgba(42,30,20,0.05)',
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
+            }}
           >
             <Icon name="bell" color={T.ink} size={20} />
             {hasTodayEvent ? (
@@ -72,20 +73,20 @@ export function HomeHeader() {
                 }}
               />
             ) : null}
-          </Pressable>
+          </PressScale>
 
-          <Pressable
+          <PressScale
+            haptic
             hitSlop={6}
             onPress={showCart}
-            style={({ pressed }) => ({
+            style={{
               width: 40,
               height: 40,
               borderRadius: 999,
               backgroundColor: 'rgba(42,30,20,0.05)',
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
+            }}
           >
             <Icon name="bag" color={T.ink} size={20} />
             {cartCount > 0 ? (
@@ -108,7 +109,7 @@ export function HomeHeader() {
                 </Text>
               </View>
             ) : null}
-          </Pressable>
+          </PressScale>
         </View>
       </View>
 

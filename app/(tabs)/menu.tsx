@@ -5,7 +5,6 @@ import {
   SectionList,
   Text,
   TextInput,
-  Pressable,
   TouchableOpacity,
   StyleSheet,
   Keyboard,
@@ -38,6 +37,8 @@ import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
 import { isBestseller } from '@/components/menu/bestsellers'
+import { PressScale } from '@/components/ui/PressScale'
+import { Reveal } from '@/components/ui/Reveal'
 import { T, CTA, PIN, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
@@ -277,15 +278,21 @@ export default function MenuScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 20 }).current
 
   const renderItem = useCallback(
-    ({ item, section }: { item: CatalogItem; section: MenuSection }) => (
-      <ProductRow item={item} categorySlug={resolveCategorySlug(section.category.name)} />
+    ({ item, section, index }: { item: CatalogItem; section: MenuSection; index: number }) => (
+      <ProductRow
+        item={item}
+        categorySlug={resolveCategorySlug(section.category.name)}
+        index={index}
+      />
     ),
     [],
   )
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: MenuSection }) => (
-      <SectionHeader category={section.category} count={section.data.length} />
+      <Reveal>
+        <SectionHeader category={section.category} count={section.data.length} />
+      </Reveal>
     ),
     [],
   )
@@ -511,9 +518,12 @@ function Chip({ label, tone }: { label: string; tone: 'star' | 'special' }) {
 const ProductRow = memo(function ProductRow({
   item,
   categorySlug,
+  index,
 }: {
   item: CatalogItem
   categorySlug?: string
+  /** Position in its section — the first screenful staggers in. */
+  index?: number
 }) {
   const rawName = item.itemData?.name ?? 'Unknown'
   const name = displayNameFor(categorySlug ?? undefined, rawName) || rawName
@@ -537,7 +547,7 @@ const ProductRow = memo(function ProductRow({
     useItemSheetStore.getState().open(item.id, categorySlug ?? null)
   }
 
-  return (
+  const row = (
     <TouchableOpacity
       style={[styles.row, soldOut && styles.rowSoldOut]}
       onPress={openSheet}
@@ -594,20 +604,25 @@ const ProductRow = memo(function ProductRow({
           </View>
         ) : null}
       </View>
-      <Pressable
+      <PressScale
         onPress={(e) => {
           e.stopPropagation?.()
           openSheet()
         }}
         disabled={soldOut}
         hitSlop={8}
+        haptic
+        scaleTo={0.88}
+        style={[styles.addBtn, soldOut && styles.addBtnDisabled]}
       >
-        <View style={[styles.addBtn, soldOut && styles.addBtnDisabled]}>
-          <Icon name="plus" color={soldOut ? '#fff' : CTA.on} size={18} />
-        </View>
-      </Pressable>
+        <Icon name="plus" color={soldOut ? '#fff' : CTA.on} size={18} />
+      </PressScale>
     </TouchableOpacity>
   )
+  // Only the first screenful animates: rows further down mount off-screen
+  // while scrolling, where an entrance would just be work nobody sees.
+  if (index != null && index < 6) return <Reveal index={index}>{row}</Reveal>
+  return row
 })
 
 const styles = StyleSheet.create({
