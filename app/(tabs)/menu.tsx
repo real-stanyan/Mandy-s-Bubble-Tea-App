@@ -13,6 +13,7 @@ import {
   type ViewToken,
 } from 'react-native'
 import { Image } from 'expo-image'
+import { LinearGradient } from 'expo-linear-gradient'
 import * as Haptics from 'expo-haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
@@ -36,7 +37,8 @@ import { IMG_THUMB } from '@/lib/optimized-image'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { hashColor } from '@/components/brand/color'
-import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme'
+import { isBestseller } from '@/components/menu/bestsellers'
+import { T, CTA, PIN, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 type SectionMeta = { category: CatalogCategory; index: number }
@@ -45,11 +47,13 @@ type MenuSection = SectionListData<CatalogItem, SectionMeta>
 // Estimated native heights, used to synthesize getItemLayout so SectionList
 // can seek to any section directly by pixel offset instead of virtualizing
 // forward and firing onScrollToIndexFailed on far jumps.
-// SectionHeader: marginTop(24) + padding(14) + title(22) + marginBottom(10)
-//                + banner(96) + padding(14) + marginBottom(8) ≈ 188
+// SectionHeader: marginTop(20) + card(120) + marginBottom(8) = 148 — the
+//                card is a fixed height whether or not it has a banner, so
+//                every section header measures the same.
 // Row:           paddingV(10) + image(76) + paddingV(10) = 96
 const ROW_H = 96
-const HEADER_H = 188
+const HEADER_H = 148
+const HEADER_CARD_H = 120
 const FOOTER_H = 0
 
 function buildGetItemLayout(sections: MenuSection[]) {
@@ -281,7 +285,7 @@ export default function MenuScreen() {
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: MenuSection }) => (
-      <SectionHeader category={section.category} />
+      <SectionHeader category={section.category} count={section.data.length} />
     ),
     [],
   )
@@ -363,6 +367,9 @@ export default function MenuScreen() {
             <Text style={styles.empty}>No drinks match &quot;{query.trim()}&quot;</Text>
           ) : (
             <View style={styles.searchResults}>
+              <Text style={styles.resultsCount}>
+                {searchResults.length} {searchResults.length === 1 ? 'drink' : 'drinks'}
+              </Text>
               {searchResults.map((item) => (
                 <ProductRow key={item.id} item={item} />
               ))}
@@ -428,31 +435,78 @@ export default function MenuScreen() {
   )
 }
 
+// One card per category, the title set INTO the banner over a scrim rather
+// than above it in a second box — half the height of the old title-plus-
+// banner stack, and the photo does the work of a heading. Categories with
+// no photo (TOP 10, this week's specials) get a flat panel of the same
+// height so the list keeps one rhythm and getItemLayout stays honest.
 const SectionHeader = memo(function SectionHeader({
   category,
+  count,
 }: {
   category: CatalogCategory
+  count: number
 }) {
   const banner = categoryBanner(category.name)
+  const isSpecials = category.id === WEEKLY_SPECIALS_CATEGORY_ID
+  const sub = `${count} ${count === 1 ? 'drink' : 'drinks'}${isSpecials ? ' · this week only' : ''}`
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle} numberOfLines={1}>
-        {category.name}
-      </Text>
+    <View
+      style={[
+        styles.sectionHeader,
+        !banner && styles.sectionHeaderPlain,
+        isSpecials && styles.sectionHeaderSpecials,
+      ]}
+    >
       {banner ? (
-        <View style={styles.bannerWrap}>
+        <>
           <Image
             source={banner}
-            style={styles.sectionBanner}
+            style={StyleSheet.absoluteFill}
             contentFit="cover"
             contentPosition="center"
           />
-          <View style={styles.bannerOverlay} pointerEvents="none" />
-        </View>
+          <LinearGradient
+            colors={['rgba(42,30,20,0)', 'rgba(42,30,20,0.16)', 'rgba(42,30,20,0.78)']}
+            locations={[0, 0.45, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        </>
       ) : null}
+      <Text
+        style={[
+          styles.sectionTitle,
+          banner && styles.onBanner,
+          isSpecials && styles.onSpecials,
+        ]}
+        numberOfLines={1}
+      >
+        {category.name}
+      </Text>
+      <Text
+        style={[
+          styles.sectionSub,
+          banner && styles.onBannerSub,
+          isSpecials && styles.onSpecialsSub,
+        ]}
+        numberOfLines={1}
+      >
+        {sub}
+      </Text>
     </View>
   )
 })
+
+function Chip({ label, tone }: { label: string; tone: 'star' | 'special' }) {
+  return (
+    <View style={[styles.chip, tone === 'star' ? styles.chipStar : styles.chipSpecial]}>
+      <Text style={[styles.chipText, tone === 'star' ? styles.chipStarText : styles.chipSpecialText]}>
+        {label}
+      </Text>
+    </View>
+  )
+}
 
 const ProductRow = memo(function ProductRow({
   item,
@@ -519,6 +573,10 @@ const ProductRow = memo(function ProductRow({
               <Text style={styles.soldOutPillText}>SOLD OUT</Text>
             </View>
           ) : null}
+          {!soldOut && isOnSpecial ? <Chip label="SPECIAL" tone="special" /> : null}
+          {!soldOut && !isOnSpecial && isBestseller(rawName) ? (
+            <Chip label="★ BESTSELLER" tone="star" />
+          ) : null}
         </View>
         {showVariationSubtitle ? (
           <Text style={styles.rowSubtitle} numberOfLines={1}>
@@ -545,7 +603,7 @@ const ProductRow = memo(function ProductRow({
         hitSlop={8}
       >
         <View style={[styles.addBtn, soldOut && styles.addBtnDisabled]}>
-          <Icon name="plus" color="#fff" size={18} />
+          <Icon name="plus" color={soldOut ? '#fff' : CTA.on} size={18} />
         </View>
       </Pressable>
     </TouchableOpacity>
@@ -712,35 +770,67 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginHorizontal: 16,
-    marginTop: 24,
+    marginTop: 20,
     marginBottom: 8,
-    padding: 14,
-    backgroundColor: T.paper,
+    height: HEADER_CARD_H,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    justifyContent: 'flex-end',
+    backgroundColor: T.sage,
     borderRadius: RADIUS.card,
+    overflow: 'hidden',
+    ...SHADOW.card,
+  },
+  sectionHeaderPlain: {
+    backgroundColor: T.bg2,
     borderWidth: 1,
     borderColor: T.line,
-    ...SHADOW.card,
+  },
+  // Theme-invariant light surface → PIN ink (see constants/theme.ts).
+  sectionHeaderSpecials: {
+    backgroundColor: '#FFE7CF',
+    borderWidth: 0,
   },
   sectionTitle: {
     ...TYPE.screenTitleSm,
     color: T.ink,
+  },
+  sectionSub: {
+    fontFamily: 'ShantellSans_500Medium',
+    fontSize: 12,
+    color: T.ink3,
     marginTop: 2,
-    marginBottom: 10,
   },
-  bannerWrap: {
-    width: '100%',
-    height: 96,
-    borderRadius: RADIUS.tile,
-    overflow: 'hidden',
-    backgroundColor: T.sage,
+  onBanner: {
+    color: '#FFF9F0',
+    textShadowColor: 'rgba(42,30,20,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  sectionBanner: {
-    width: '100%',
-    height: '100%',
+  onBannerSub: {
+    color: 'rgba(255,249,240,0.85)',
   },
-  bannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(42,30,20,0.06)',
+  onSpecials: { color: PIN.ink },
+  onSpecialsSub: { color: PIN.ink2 },
+  chip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  chipStar: { backgroundColor: 'rgba(242,182,74,0.28)' },
+  chipSpecial: { backgroundColor: 'rgba(220,38,38,0.10)' },
+  chipText: {
+    fontFamily: 'ShantellSans_600SemiBold',
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  chipStarText: { color: T.ink2 },
+  chipSpecialText: { color: '#dc2626' },
+  resultsCount: {
+    ...TYPE.eyebrow,
+    color: T.ink3,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
   row: {
     flexDirection: 'row',
@@ -779,15 +869,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowPriceOriginal: {
-    fontFamily: 'ShantellSans_400Regular',
-    fontSize: 12,
+    fontFamily: 'JetBrainsMono_700Bold',
+    fontSize: 11,
     color: T.ink4,
     textDecorationLine: 'line-through',
   },
+  // Mono, like every other price in the app (cart, receipt, order card).
   rowPrice: {
-    fontFamily: 'ShantellSans_600SemiBold',
-    fontSize: 14,
-    color: T.ink2,
+    ...TYPE.priceSm,
+    color: T.ink,
   },
   rowPriceSpecial: {
     color: '#dc2626',
@@ -796,7 +886,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 999,
-    backgroundColor: T.brand,
+    backgroundColor: CTA.bg,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

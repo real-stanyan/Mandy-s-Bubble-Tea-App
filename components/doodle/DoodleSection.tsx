@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { SvgXml } from 'react-native-svg'
-import { Image as ExpoImage } from 'expo-image'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { DoodleModal } from './DoodleModal'
+import { StickerPreview, selectionSummary } from './StickerPreview'
 import type { DoodleSlot } from '@/lib/doodle/cartToSlots'
-import type { SvgPath } from '@/lib/doodle/types'
-import { PresetImage } from './PresetImage'
-import { T, FONT, RADIUS } from '@/constants/theme'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { T, CTA, FONT, RADIUS } from '@/constants/theme'
 import { PHOTO_LABELS_OFFLINE, PHOTO_LABELS_OFFLINE_NOTICE } from '@/lib/doodle/label-mode'
 
 interface Props {
@@ -15,80 +13,7 @@ interface Props {
   onSlotChange: (slotIdx: number, next: DoodleSlot) => void
 }
 
-const USER_PATH_CANVAS = 400
-
-function pathsToInlineSvg(paths: SvgPath[]): string {
-  // Mirrors the server's pathsJsonToSvg shape so the preview here lines
-  // up roughly with what gets binarised for print.
-  const els = paths
-    .map(
-      (p) =>
-        `<path d="${p.d}" stroke="${p.stroke}" stroke-width="${p.width}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
-    )
-    .join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${USER_PATH_CANVAS} ${USER_PATH_CANVAS}" width="100%" height="100%">${els}</svg>`
-}
-
-function CupPreview({ slot }: { slot: DoodleSlot }) {
-  const s = slot.selection
-  if (s === null) {
-    // No pick yet → prints a random surprise design.
-    return (
-      <View style={[styles.preview, styles.surprisePreview]}>
-        <Text style={styles.surpriseEmoji}>🎁</Text>
-        <Text style={styles.surpriseLabel}>Surprise{'\n'}design</Text>
-      </View>
-    )
-  }
-  if (s.kind === 'preset') {
-    // PresetImage, not a direct manifest lookup: the art is in the binary for
-    // most builtins, in Supabase Storage for uploads, and on the web app for
-    // builtins added since this binary was cut. Only 225 of the 462 presets
-    // on offer are bundled, so indexing the manifest drew nothing at all for
-    // the rest — a blank white square where the chosen design should be.
-    return <PresetImage hash={s.hash} style={styles.preview} />
-  }
-  if (s.kind === 'photo') {
-    return (
-      <Image source={{ uri: s.previewUrl }} style={styles.preview} resizeMode="cover" />
-    )
-  }
-  if (s.kind === 'ai') {
-    // AI submissions are surprise-mode — no preview image until generation
-    // completes. The actual Doubao result is revealed only on the printed cup.
-    if (s.previewUri) {
-      return <Image source={{ uri: s.previewUri }} style={styles.preview} resizeMode="cover" />
-    }
-    if (s.aiDoodleId) {
-      return (
-        <View style={[styles.preview, styles.surprisePreview]}>
-          <Text style={styles.surpriseEmoji}>✨</Text>
-          <Text style={styles.surpriseLabel}>Surprise{'\n'}on your cup</Text>
-        </View>
-      )
-    }
-    return (
-      <View style={[styles.preview, styles.surprisePreview]}>
-        <ActivityIndicator />
-      </View>
-    )
-  }
-  // kind === 'draw'
-  return (
-    <View style={styles.preview}>
-      <SvgXml xml={pathsToInlineSvg(s.paths)} width="100%" height="100%" />
-    </View>
-  )
-}
-
-function sourceBadge(slot: DoodleSlot): string {
-  const s = slot.selection
-  if (s === null) return '🎁 Surprise'
-  if (s.kind === 'ai') return '✨ AI'
-  if (s.kind === 'photo') return '📷 Photo'
-  if (s.kind === 'draw') return '✏️ Drawn'
-  return '🎨 Gallery'
-}
+const CARD_STICKER_W = 92
 
 export function DoodleSection({ slots, onSlotChange }: Props) {
   if (PHOTO_LABELS_OFFLINE) return <DoodleOfflineNotice slots={slots} onSlotChange={onSlotChange} />
@@ -113,14 +38,21 @@ function DoodleOfflineNotice({ slots, onSlotChange }: Props) {
   )
 }
 
+// One card per cup, each carrying a small to-scale sticker — the same
+// object the picker shows large — so the checkout answers "what's on my
+// cups" at a glance and the row reads as a set of stickers, not a set of
+// settings.
 function DoodlePickerSection({ slots, onSlotChange }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null)
+  const { profile } = useAuth()
+  const greeting = profile?.first_name ? `Hi, ${profile.first_name}` : 'Hi there'
   if (slots.length === 0) return null
 
   return (
-    <CardBlock eyebrow="Cup labels" title="Optional · surprise me 🎁">
+    <CardBlock eyebrow="Cup labels · optional" title="Stickers on your cups 🐱">
       <Text style={styles.hint}>
-        Leave a cup as is for a random design 🎁, or tap to choose your own.
+        Every cup gets a printed sticker. Leave it for a surprise lucky cat, or tap a cup to
+        put your own design on it.
       </Text>
       <ScrollView
         horizontal
@@ -128,21 +60,39 @@ function DoodlePickerSection({ slots, onSlotChange }: Props) {
         contentContainerStyle={styles.row}
       >
         {slots.map((slot, i) => {
-          const isCustom = slot.selection != null
+          const chosen = slot.selection != null
+          const cupFraction = slot.totalCups > 1 ? `${slot.cupIdx + 1}/${slot.totalCups}` : ''
           return (
             <Pressable
               key={`${slot.lineId}:${slot.cupIdx}`}
               onPress={() => setOpenIdx(i)}
-              style={[styles.cup, isCustom && styles.cupCustom]}
+              accessibilityRole="button"
+              accessibilityLabel={`${chosen ? 'Change' : 'Choose'} the label for ${slot.drinkName}${
+                slot.totalCups > 1 ? `, cup ${slot.cupIdx + 1} of ${slot.totalCups}` : ''
+              }`}
+              style={[styles.cup, chosen && styles.cupChosen]}
             >
-              <View style={styles.cupHeader}>
-                <Text style={styles.cupNum}>Cup {i + 1}</Text>
-                <Text style={styles.cupBadge}>{sourceBadge(slot)}</Text>
+              <View style={styles.cupSticker}>
+                <StickerPreview
+                  selection={slot.selection}
+                  greeting={greeting}
+                  cupFraction={cupFraction}
+                  drinkName={slot.drinkName}
+                  variationName={slot.variationName}
+                  width={CARD_STICKER_W}
+                />
               </View>
-              <CupPreview slot={slot} />
-              <Text style={styles.cupName} numberOfLines={2}>
+              <Text style={styles.cupName} numberOfLines={1}>
                 {slot.drinkName}
               </Text>
+              <Text style={[styles.cupSummary, chosen && styles.cupSummaryChosen]} numberOfLines={1}>
+                {selectionSummary(slot.selection)}
+              </Text>
+              <View style={[styles.cupBtn, chosen && styles.cupBtnGhost]}>
+                <Text style={[styles.cupBtnText, chosen && styles.cupBtnGhostText]}>
+                  {chosen ? 'Change' : 'Choose'}
+                </Text>
+              </View>
             </Pressable>
           )
         })}
@@ -166,71 +116,54 @@ const styles = StyleSheet.create({
     fontFamily: FONT.sans,
     fontSize: 12,
     lineHeight: 16,
-    color: T.ink2,
+    color: T.ink3,
   },
-  row: { paddingHorizontal: 16, paddingBottom: 14, gap: 10 },
+  row: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   cup: {
-    width: 132,
-    padding: 10,
-    borderRadius: RADIUS.small,
-    backgroundColor: T.paper,
+    width: 148,
+    padding: 12,
+    borderRadius: RADIUS.tile,
+    backgroundColor: T.card,
     borderWidth: 1,
     borderColor: T.line,
-    gap: 8,
-  },
-  cupCustom: {
-    borderColor: T.brand,
-    backgroundColor: 'rgba(196,58,16,0.06)',
-  },
-  cupHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
   },
-  cupNum: {
-    fontFamily: FONT.mono,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    fontWeight: '700',
-    color: T.brand,
-    textTransform: 'uppercase',
+  cupChosen: {
+    borderColor: T.brand,
+    backgroundColor: T.paper,
   },
-  cupBadge: {
+  cupSticker: { paddingVertical: 8 },
+  cupName: {
+    alignSelf: 'stretch',
     fontFamily: FONT.sans,
-    fontSize: 10,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: T.ink2,
+    color: T.ink,
+    textAlign: 'center',
   },
-  preview: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: RADIUS.small,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: T.line,
-    overflow: 'hidden',
+  cupSummary: {
+    alignSelf: 'stretch',
+    fontFamily: FONT.sans,
+    fontSize: 11,
+    color: T.ink3,
+    textAlign: 'center',
+  },
+  cupSummaryChosen: { color: T.brand, fontWeight: '700' },
+  cupBtn: {
+    marginTop: 4,
+    height: 30,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: CTA.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  surprisePreview: {
-    backgroundColor: T.paper,
-    gap: 4,
+  cupBtnGhost: {
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.line,
   },
-  surpriseEmoji: {
-    fontSize: 32,
-  },
-  surpriseLabel: {
-    fontFamily: FONT.sans,
-    fontSize: 11,
-    fontWeight: '700',
-    color: T.brand,
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  cupName: {
-    fontFamily: FONT.sans,
-    fontSize: 12,
-    fontWeight: '600',
-    color: T.ink,
-  },
+  cupBtnText: { fontFamily: FONT.sans, fontSize: 12, fontWeight: '700', color: CTA.on },
+  cupBtnGhostText: { color: T.ink2 },
 })
