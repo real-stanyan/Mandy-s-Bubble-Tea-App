@@ -48,8 +48,12 @@ import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
+import {
+  GooglePayButton,
+  googlePayButtonAvailable,
+} from '@/modules/google-pay-button'
 import { hashColor } from '@/components/brand/color'
-import { T, FONT, RADIUS, SHADOW, PIN, CTA } from '@/constants/theme'
+import { T, FONT, RADIUS, SHADOW, PIN, CTA, TYPE } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
 import { isPublicHolidayActive } from '@/lib/holiday'
 import { formatPrice } from '@/lib/utils'
@@ -712,23 +716,59 @@ export default function CheckoutScreen() {
             <Text style={styles.noticeText}>{payNotice}</Text>
           </View>
         )}
-        <Pressable
-          onPress={handlePay}
-          disabled={payDisabled}
-          style={[styles.placeBtn, payDisabled && { opacity: 0.5 }, ctaShadow]}
-        >
-          <View style={{ flex: 1, paddingLeft: 18 }}>
-            <Text style={styles.placeEyebrow}>{cta.eyebrow}</Text>
-            <Text style={styles.placeTitle}>{cta.title}</Text>
+        {/* Google Pay is paid for with GOOGLE'S button, not one of ours.
+            Drawing our own brand-brown "Pay with Google Pay" pill is what the
+            Google Pay API review team rejected this integration for
+            (2026-09-04); PayButton renders the mark, height, contrast and
+            clear space to their spec. The total and any gate reason move to a
+            line above it, because Google's button carries no copy of ours.
+
+            googlePayButtonAvailable is false on binaries built before the
+            native module existed — an OTA to one of those keeps the old CTA
+            rather than rendering nothing. */}
+        {payMethod === 'google' && googlePayButtonAvailable && !payNothing ? (
+          <View>
+            <View style={styles.gpaySummary}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.gpayEyebrow}>{cta.eyebrow}</Text>
+                <Text style={styles.gpayTitle} numberOfLines={1}>
+                  {cta.title}
+                </Text>
+              </View>
+              {cta.showSpinner ? (
+                <ActivityIndicator color={T.brand} />
+              ) : (
+                <Text style={styles.gpayAmount}>{formatPrice(displayedTotal)}</Text>
+              )}
+            </View>
+            <GooglePayButton
+              theme="dark"
+              type="pay"
+              cornerRadius={26}
+              enabled={!payDisabled}
+              onPress={handlePay}
+              style={styles.gpayButton}
+            />
           </View>
-          <View style={styles.placeAmount}>
-            {cta.showSpinner ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.placeAmountText}>{formatPrice(displayedTotal)}</Text>
-            )}
-          </View>
-        </Pressable>
+        ) : (
+          <Pressable
+            onPress={handlePay}
+            disabled={payDisabled}
+            style={[styles.placeBtn, payDisabled && { opacity: 0.5 }, ctaShadow]}
+          >
+            <View style={{ flex: 1, paddingLeft: 18 }}>
+              <Text style={styles.placeEyebrow}>{cta.eyebrow}</Text>
+              <Text style={styles.placeTitle}>{cta.title}</Text>
+            </View>
+            <View style={styles.placeAmount}>
+              {cta.showSpinner ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.placeAmountText}>{formatPrice(displayedTotal)}</Text>
+              )}
+            </View>
+          </Pressable>
+        )}
       </View>
 
       {placed && (
@@ -1677,6 +1717,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 6,
+  },
+  // Total + gate reason, above Google's button. It sits on the bar's own
+  // background so the button keeps clear space on all four sides, and the
+  // 10pt gap below is that clear space on top.
+  gpaySummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 6,
+    marginBottom: 10,
+  },
+  gpayEyebrow: {
+    fontFamily: FONT.mono,
+    fontSize: 9.5,
+    letterSpacing: 1.3,
+    fontWeight: '700',
+    color: T.ink3,
+    textTransform: 'uppercase',
+  },
+  gpayTitle: {
+    fontFamily: FONT.sans,
+    fontSize: 15,
+    fontWeight: '700',
+    color: T.ink,
+    marginTop: 2,
+  },
+  gpayAmount: {
+    ...TYPE.priceMd,
+    color: T.ink,
+  },
+  // 52dp: comfortably over Google's 40dp minimum and the same visual weight
+  // as the CTA it replaces. Height and corner radius are the only geometry
+  // we set; everything inside is Google's.
+  gpayButton: {
+    height: 52,
+    width: '100%',
   },
   placeEyebrow: {
     fontFamily: FONT.mono,

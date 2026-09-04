@@ -34,7 +34,11 @@ jobs:
           # a customer-visible break. app.json is here for runtimeVersion too:
           # bumping it and then OTA-ing publishes an update no installed app
           # is eligible for.
-          NATIVE_PATHS='^(ios/|android/|patches/|scripts/patch-.*\.js$|package\.json$|package-lock\.json$|app\.json$|eas\.json$)'
+          # modules/ holds LOCAL Expo modules (Kotlin/Swift compiled into the
+          # binary). It was missing here until 2026-09-04: a change there is
+          # native, and OTA-ing its JS half to a binary without the native half
+          # is the exact break this step exists to prevent.
+          NATIVE_PATHS='^(ios/|android/|modules/|patches/|scripts/patch-.*\.js$|package\.json$|package-lock\.json$|app\.json$|eas\.json$)'
           CHANGED="$(git diff --name-only HEAD^ HEAD)"
           echo "Changed files:"
           echo "$CHANGED" | sed 's/^/  /'
