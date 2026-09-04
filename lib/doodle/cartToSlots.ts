@@ -18,6 +18,10 @@ export type DoodleSlot = {
   cupIdx: number
   cupKey: string
   drinkName: string
+  /** "Regular" — printed under the drink name on the sticker. */
+  variationName: string
+  /** Cups on this cart line, for "Cup 1 of 2". */
+  totalCups: number
   /** null = no pick yet → prints a random surprise tarot card. */
   selection: CupLabelSelection | null
 }
@@ -31,7 +35,15 @@ export function cartToSlots(
     for (let cupIdx = 0; cupIdx < item.quantity; cupIdx++) {
       const k = cupKey(item.lineId, cupIdx)
       const selection: CupLabelSelection | null = selections[k] ?? null
-      slots.push({ lineId: item.lineId, cupIdx, cupKey: k, drinkName: item.name, selection })
+      slots.push({
+        lineId: item.lineId,
+        cupIdx,
+        cupKey: k,
+        drinkName: item.name,
+        variationName: item.variationName ?? '',
+        totalCups: item.quantity,
+        selection,
+      })
     }
   }
   return slots
