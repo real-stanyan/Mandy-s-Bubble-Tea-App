@@ -252,7 +252,7 @@ export default function OrderComplaintScreen() {
               Report a problem with order {pickupNumber}
             </Text>
             <Text style={styles.subtitle}>
-              Tell us what went wrong. We'll be in touch within 24 hours.
+              Tell us what went wrong. We&apos;ll be in touch within 24 hours.
             </Text>
           </View>
           <Pressable

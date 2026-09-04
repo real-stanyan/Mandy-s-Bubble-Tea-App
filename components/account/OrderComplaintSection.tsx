@@ -138,7 +138,7 @@ export function OrderComplaintSection({
       {showToast && (
         <View style={styles.toast}>
           <Text style={styles.toastText}>
-            Thanks — we'll be in touch within 24 hours.
+            Thanks — we&apos;ll be in touch within 24 hours.
           </Text>
         </View>
       )}
