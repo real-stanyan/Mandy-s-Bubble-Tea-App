@@ -1,5 +1,13 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Text, View } from 'react-native'
+import Animated, {
+  useAnimatedProps,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import Svg, {
   Circle,
   ClipPath,
@@ -19,9 +27,12 @@ import { T, TYPE } from '@/constants/theme'
 // for a form that stays the source of truth: the caption says the same build
 // in words, and an unrecognised modifier simply doesn't draw.
 //
-// No drop animation in this port (web uses CSS keyframes): react-native-svg
-// elements don't take Animated styles without wrapping each piece, and the
-// live re-render as picks change already reads as responsive.
+// Toppings and ice drop in when picked, as on the web (CSS keyframes there).
+// Each piece is keyed by what it is, so picking a topping MOUNTS its shapes
+// and the drop runs once, on mount; changing something else re-renders the
+// existing pieces in place without replaying it. react-native-svg elements
+// don't take Animated styles, so the drop is an animated `translateY` /
+// `opacity` prop on a wrapping <G> (Stan, 2026-09-05: "no motion in the app").
 
 const LIQUID_TOP = 58
 const CUP_FLOOR = 175
@@ -33,6 +44,28 @@ const HALF_AT_TOP = 31.5
 const TAPER_PER_PX = (31.5 - 26) / (180.5 - 44)
 function halfWidthAt(y: number): number {
   return HALF_AT_TOP - (y - 44) * TAPER_PER_PX
+}
+
+const AnimatedG = Animated.createAnimatedComponent(G)
+
+/**
+ * Drops its children into place from above, once, when mounted. Spring so it
+ * lands with a small settle rather than a stop; the web's curve overshoots
+ * the same way. Reduced-motion users get the pieces already in place.
+ */
+function Drop({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const reduced = useReducedMotion()
+  const ty = useSharedValue(reduced ? 0 : -34)
+  const op = useSharedValue(reduced ? 1 : 0)
+  useEffect(() => {
+    if (reduced) return
+    ty.value = withDelay(delay, withSpring(0, { damping: 11, stiffness: 190, mass: 0.7 }))
+    op.value = withDelay(delay, withTiming(1, { duration: 140 }))
+    // Mount only: the whole point is that a piece drops when it first appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const animatedProps = useAnimatedProps(() => ({ translateY: ty.value, opacity: op.value }))
+  return <AnimatedG animatedProps={animatedProps}>{children}</AnimatedG>
 }
 
 const ICE_SLOTS: Array<[number, number, number]> = [
@@ -123,7 +156,9 @@ export function CupPreview({ drinkName, picked }: Props) {
           />
 
           {beds.map((b, i) => (
-            <Bed key={`${b.t.name}-${i}`} topping={b.t} y={b.y} />
+            <Drop key={`${b.t.name}-${i}`} delay={i * 60}>
+              <Bed topping={b.t} y={b.y} />
+            </Drop>
           ))}
 
           {visual.hasFoam && (
@@ -141,7 +176,9 @@ export function CupPreview({ drinkName, picked }: Props) {
           )}
 
           {floating.map((t) => (
-            <CrumbLayer key={t.name} topping={t} y={visual.hasFoam ? foamTop - 2 : LIQUID_TOP - 2} />
+            <Drop key={t.name}>
+              <CrumbLayer topping={t} y={visual.hasFoam ? foamTop - 2 : LIQUID_TOP - 2} />
+            </Drop>
           ))}
 
           {visual.hasBrulee && (
@@ -157,17 +194,18 @@ export function CupPreview({ drinkName, picked }: Props) {
           {Array.from({ length: iceCount }).map((_, i) => {
             const [x, y, rot] = ICE_SLOTS[i]
             return (
-              <Rect
-                key={`ice-${i}`}
-                x={x - 5.5}
-                y={y - 5.5}
-                width={11}
-                height={11}
-                rx={3}
-                fill="#FFFFFF"
-                opacity={0.42}
-                transform={`rotate(${rot} ${x} ${y})`}
-              />
+              <Drop key={`ice-${i}`} delay={i * 40}>
+                <Rect
+                  x={x - 5.5}
+                  y={y - 5.5}
+                  width={11}
+                  height={11}
+                  rx={3}
+                  fill="#FFFFFF"
+                  opacity={0.42}
+                  transform={`rotate(${rot} ${x} ${y})`}
+                />
+              </Drop>
             )
           })}
         </G>
