@@ -2,6 +2,7 @@
 import { Linking, Platform, Text, View } from 'react-native';
 import { T, TYPE, RADIUS, SHADOW } from '@/constants/theme';
 import { PressScale } from '@/components/ui/PressScale';
+import { PulseDot } from '@/components/ui/PulseDot';
 import { getStoreStatus } from './helpers';
 
 const MAP_QUERY = '34 Davenport St Southport QLD 4215';
@@ -95,14 +96,7 @@ export function StoreCard() {
         {/* Middle */}
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 999,
-                backgroundColor: status.open ? T.green : T.ink4,
-              }}
-            />
+            <PulseDot color={status.open ? T.green : T.ink4} size={6} active={status.open} />
             <Text
               style={[
                 TYPE.eyebrow,

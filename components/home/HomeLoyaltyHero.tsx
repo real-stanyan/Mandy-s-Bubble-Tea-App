@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Icon } from '@/components/brand/Icon';
 import { StarCupsRow } from '@/components/brand/StarCupsRow';
+import { CountUp } from '@/components/ui/CountUp';
 import { T, TYPE } from '@/constants/theme';
 import { tierFor } from '@/lib/membership-tier';
 import { TierCardShell, TIER_VISUALS } from '@/components/ui/TierCardShell';
@@ -44,7 +45,8 @@ export function HomeLoyaltyHero() {
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }}>
-              <Text
+              <CountUp
+                value={balance}
                 style={{
                   fontFamily: 'ShantellSans_700Bold',
                   fontSize: 36,
@@ -52,9 +54,7 @@ export function HomeLoyaltyHero() {
                   letterSpacing: -0.8,
                   color: '#fff',
                 }}
-              >
-                {balance}
-              </Text>
+              />
               <Text
                 style={{
                   fontFamily: 'ShantellSans_700Bold',

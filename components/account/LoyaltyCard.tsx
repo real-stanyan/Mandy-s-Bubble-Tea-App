@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api'
 import { useRouter } from 'expo-router'
 import { Icon } from '@/components/brand/Icon'
 import { StarCupsRow } from '@/components/brand/StarCupsRow'
+import { CountUp } from '@/components/ui/CountUp'
 import { T, TYPE } from '@/constants/theme'
 import { LOYALTY } from '@/lib/constants'
 import { TierCardShell, TIER_VISUALS } from '@/components/ui/TierCardShell'
@@ -79,7 +80,8 @@ export const LoyaltyCard = memo(function LoyaltyCard({
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }}>
-              <Text
+              <CountUp
+                value={account.balance}
                 style={{
                   fontFamily: 'ShantellSans_700Bold',
                   fontSize: 36,
@@ -87,9 +89,7 @@ export const LoyaltyCard = memo(function LoyaltyCard({
                   letterSpacing: -0.8,
                   color: '#fff',
                 }}
-              >
-                {account.balance}
-              </Text>
+              />
               <Text
                 style={{
                   fontFamily: 'ShantellSans_700Bold',

@@ -149,12 +149,14 @@ export const FONT = {
   mono: 'JetBrainsMono',
 } as const;
 
+// One radius per level, and a nested corner is the outer one minus the
+// padding: card 24 → tile 16 → chip 12; pills are pills.
 export const RADIUS = {
   pill: 999,
-  card: 20,
-  tile: 12,
-  small: 10,
-  sheetTop: 24,
+  card: 24,
+  tile: 16,
+  small: 12,
+  sheetTop: 28,
 } as const;
 
 export const SPACING = {
@@ -167,12 +169,15 @@ export const SPACING = {
 } as const;
 
 export const SHADOW = {
+  // Ambient: the card rests on the page rather than floats over it. Ink-
+  // tinted, never black; the hairline border does the separating, this does
+  // the lifting. Sheets and the primary CTA keep their own, heavier shadows.
   card: {
     shadowColor: '#2A1E14',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 2,
   },
   miniCart: {
     shadowColor: '#6B3E15',

@@ -1,10 +1,13 @@
 import { useEffect, useMemo } from 'react'
 import { Text, View } from 'react-native'
 import Animated, {
+  Easing,
+  cancelAnimation,
   useAnimatedProps,
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
@@ -20,6 +23,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg'
 import { resolveCupVisual, describeCup, type ToppingVisual } from '@/lib/cup-visual'
+import { wavePath } from '@/lib/motion/wave'
 import { T, TYPE } from '@/constants/theme'
 
 // The drink the customer is building, drawn as they build it — the app port
@@ -38,6 +42,23 @@ const LIQUID_TOP = 58
 const CUP_FLOOR = 175
 const BED_H = 9
 const MAX_BEDS = 6
+
+// The drink pours in (Rise) and its surface keeps moving (Wave). The ribbon
+// replaces the old flat ellipse: its crests sit a hair above LIQUID_TOP, so
+// the liquid rect starts one amplitude lower and the wavy edge IS the
+// surface. Both are <G>s driven through rn-svg's native `matrix` prop.
+const SURFACE_AMPLITUDE = 1.6
+const SURFACE_WAVELENGTH = 24
+const SURFACE = wavePath({
+  x0: 25,
+  width: 70,
+  top: LIQUID_TOP,
+  amplitude: SURFACE_AMPLITUDE,
+  wavelength: SURFACE_WAVELENGTH,
+  depth: 9,
+})
+/** The pour starts with the surface at the cup floor. */
+const RISE_FROM = 187 - LIQUID_TOP
 
 // Interior wall — matches the clip path so beds are cut to the cup's taper.
 const HALF_AT_TOP = 31.5
@@ -73,6 +94,53 @@ function Drop({ children, delay = 0 }: { children: React.ReactNode; delay?: numb
     opacity: op.value,
   }))
   return <AnimatedG animatedProps={animatedProps}>{children}</AnimatedG>
+}
+
+/**
+ * Lifts everything in the cup from the floor to its resting place once, on
+ * mount — the drink pours in when the sheet opens. Toppings and ice keep
+ * their own drops inside it. Reduced motion: already full.
+ */
+function Rise({ children }: { children: React.ReactNode }) {
+  const reduced = useReducedMotion()
+  const ty = useSharedValue(reduced ? 0 : RISE_FROM)
+  // Invisible until the first animation frame: a <G> takes its native matrix
+  // from its own props on the first render, so the drink would flash in place
+  // before jumping to the floor to pour (LiquidCup has the same guard).
+  const shown = useSharedValue(reduced ? 1 : 0)
+  useEffect(() => {
+    if (reduced) return
+    ty.value = withDelay(60, withTiming(0, { duration: 900, easing: Easing.out(Easing.cubic) }))
+    shown.value = withDelay(60, withTiming(1, { duration: 40 }))
+    return () => {
+      cancelAnimation(ty)
+      cancelAnimation(shown)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const animatedProps = useAnimatedProps(() => ({ matrix: [1, 0, 0, 1, 0, ty.value], opacity: shown.value }))
+  return <AnimatedG animatedProps={animatedProps}>{children}</AnimatedG>
+}
+
+/** The liquid's surface: one wavelength scrolls past every 2.2s, seamlessly. */
+function Surface({ color, opacity }: { color: string; opacity: number }) {
+  const reduced = useReducedMotion()
+  const tx = useSharedValue(0)
+  useEffect(() => {
+    if (reduced) return
+    tx.value = withRepeat(
+      withTiming(-SURFACE_WAVELENGTH, { duration: 2200, easing: Easing.linear }),
+      -1,
+      false,
+    )
+    return () => cancelAnimation(tx)
+  }, [reduced, tx])
+  const animatedProps = useAnimatedProps(() => ({ matrix: [1, 0, 0, 1, tx.value, 0], opacity }))
+  return (
+    <AnimatedG animatedProps={animatedProps}>
+      <Path d={SURFACE} fill={color} />
+    </AnimatedG>
+  )
 }
 
 const ICE_SLOTS: Array<[number, number, number]> = [
@@ -145,22 +213,16 @@ export function CupPreview({ drinkName, picked }: Props) {
 
         <G clipPath="url(#cupClip)">
           <Rect x={25} y={40} width={70} height={145} fill="#FDFAF4" />
+          <Rise>
           <Rect
             x={25}
-            y={LIQUID_TOP}
+            y={LIQUID_TOP + SURFACE_AMPLITUDE}
             width={70}
-            height={187 - LIQUID_TOP}
+            height={187 - LIQUID_TOP - SURFACE_AMPLITUDE}
             fill="url(#cupLiquid)"
             opacity={liquidOpacity}
           />
-          <Ellipse
-            cx={60}
-            cy={LIQUID_TOP}
-            rx={halfWidthAt(LIQUID_TOP)}
-            ry={3.2}
-            fill={visual.liquidLight}
-            opacity={Math.min(1, liquidOpacity + 0.1)}
-          />
+          <Surface color={visual.liquidLight} opacity={Math.min(1, liquidOpacity + 0.1)} />
 
           {beds.map((b, i) => (
             <Drop key={`${b.t.name}-${i}`} delay={i * 60}>
@@ -215,6 +277,7 @@ export function CupPreview({ drinkName, picked }: Props) {
               </Drop>
             )
           })}
+          </Rise>
         </G>
 
         <Path
