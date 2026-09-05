@@ -64,7 +64,14 @@ function Drop({ children, delay = 0 }: { children: React.ReactNode; delay?: numb
     // Mount only: the whole point is that a piece drops when it first appears.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const animatedProps = useAnimatedProps(() => ({ translateY: ty.value, opacity: op.value }))
+  // `matrix` and `opacity` are the group's NATIVE props (rn-svg
+  // GroupNativeComponent). translateY / x / y are JS-side sugar that rn-svg
+  // folds into `matrix` while rendering, so setting them from a worklet does
+  // nothing on the new architecture — the first cut of this drop never moved.
+  const animatedProps = useAnimatedProps(() => ({
+    matrix: [1, 0, 0, 1, 0, ty.value],
+    opacity: op.value,
+  }))
   return <AnimatedG animatedProps={animatedProps}>{children}</AnimatedG>
 }
 
