@@ -191,6 +191,38 @@ enum DeliveryPhase {
   }
 }
 
+// MARK: - Live progress window
+
+/// The only motion a Live Activity can run on its own is a timer: the system
+/// drives `ProgressView(timerInterval:)` / `Text(timerInterval:)` without a
+/// push. The window for "preparing" starts when that state was pushed
+/// (`updatedAt`) and ends after the UPPER bound of the wait estimate
+/// ("~8–12 mins" → 12; "15+ mins" → 15). Past the end the bar simply sits
+/// full — "any moment now" is the honest reading. nil when there is no
+/// estimate, so callers fall back to the static in-progress fill.
+@available(iOS 16.2, *)
+enum PickupProgressWindow {
+  static func make(waitText: String?, updatedAt: Double) -> ClosedRange<Date>? {
+    guard let waitText, let minutes = upperMinutes(in: waitText), minutes > 0 else { return nil }
+    let start = Date(timeIntervalSince1970: updatedAt)
+    let end = start.addingTimeInterval(TimeInterval(minutes) * 60)
+    return start...end
+  }
+
+  /// Last run of digits in the string — the top of a range, or the number
+  /// itself for "6 min" / "15+ mins".
+  static func upperMinutes(in text: String) -> Int? {
+    var runs: [Int] = []
+    var current = ""
+    for ch in text {
+      if ch.isNumber { current.append(ch) }
+      else if !current.isEmpty { runs.append(Int(current) ?? 0); current = "" }
+    }
+    if !current.isEmpty { runs.append(Int(current) ?? 0) }
+    return runs.last
+  }
+}
+
 // MARK: - Shared little views
 
 @available(iOS 16.2, *)
