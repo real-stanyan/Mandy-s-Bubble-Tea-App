@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  Platform,
 } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -21,6 +22,7 @@ import { TierUpCelebration } from '@/components/account/TierUpCelebration'
 import { MiniStats } from '@/components/account/MiniStats'
 import { MemberQrCard } from '@/components/account/MemberQrCard'
 import { AddToWalletButton } from '@/components/account/AddToWalletButton'
+import { AddToGoogleWalletButton } from '@/components/account/AddToGoogleWalletButton'
 import { PromotionsCard } from '@/components/account/PromotionsCard'
 import { ActivityHistory } from '@/components/account/ActivityHistory'
 import { OrderHistory } from '@/components/account/OrderHistory'
@@ -168,7 +170,10 @@ export default function AccountScreen() {
           phoneE164={profile.phone_e164}
         />
         </Reveal>
-        <Reveal index={5}><AddToWalletButton /></Reveal>
+        {/* Apple Wallet on iOS, Google Wallet on Android; each hides itself where it cannot run. */}
+        <Reveal index={5}>
+          {Platform.OS === 'android' ? <AddToGoogleWalletButton /> : <AddToWalletButton />}
+        </Reveal>
         <Reveal index={6}><PromotionsCard rewardsCount={rewardsCount} /></Reveal>
         {orders.length === 0 ? (
           <OrderHistory orders={orders} />
