@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { Icon } from '@/components/brand/Icon'
+import { PulseRing } from '@/components/ui/PulseDot'
 import { T, FONT } from '@/constants/theme'
 
 export type TimelineStatus = 'OPEN' | 'PREPARING' | 'READY'
@@ -37,16 +38,20 @@ export function StatusTimeline({ status }: Props) {
             style={i < STEPS.length - 1 ? styles.segment : styles.segmentLast}
           >
             <View style={styles.stepCol}>
-              <View
-                style={[
-                  styles.circle,
-                  {
-                    backgroundColor: done ? T.brand : 'transparent',
-                    borderColor: done ? T.brand : T.ink4,
-                  },
-                ]}
-              >
-                {done ? <Icon name="check" color="#fff" size={12} /> : null}
+              <View style={styles.circleWrap}>
+                {/* The step that is happening right now pulses; Ready is done, not happening. */}
+                <PulseRing color={T.brand} size={22} active={idx === i && i < STEPS.length - 1} />
+                <View
+                  style={[
+                    styles.circle,
+                    {
+                      backgroundColor: done ? T.brand : 'transparent',
+                      borderColor: done ? T.brand : T.ink4,
+                    },
+                  ]}
+                >
+                  {done ? <Icon name="check" color="#fff" size={12} /> : null}
+                </View>
               </View>
               <Text
                 style={[
@@ -96,6 +101,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     flexShrink: 0,
+  },
+  circleWrap: {
+    width: 22,
+    height: 22,
   },
   circle: {
     width: 22,

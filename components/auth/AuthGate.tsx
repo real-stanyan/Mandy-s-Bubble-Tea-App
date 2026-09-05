@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { Component, useEffect, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
 import Animated, { FadeOut } from 'react-native-reanimated'
 import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
+import { LaunchScreen } from '@/components/launch/LaunchScreen'
 import { T } from '@/constants/theme'
 
 // Gate the whole app: unauthenticated (or session without a finished profile)
@@ -37,6 +38,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const showFetchError = !!session && !profile && fetchError && !loading
   const [settled, setSettled] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  // Cold start wears the launch screen (the cup pours, the wordmark rises)
+  // instead of the glow; once it has left, any later overlay — a sign-out,
+  // a sign-in — is the quick glow as before.
+  const [launchDone, setLaunchDone] = useState(false)
 
   useEffect(() => {
     if (loading) {
@@ -81,8 +86,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       {children}
       {/* Both overlays sit on dark ink, so the status bar has to invert with
           them — the app's own `style="dark"` is unreadable against it. */}
-      {(showOverlay || showFetchError) && <StatusBar style="light" />}
-      {showOverlay && (
+      {launchDone && (showOverlay || showFetchError) && <StatusBar style="light" />}
+      {launchDone && showOverlay && (
         // Fade out rather than cutting: the app underneath is cream, and a hard
         // dark-to-light swap at the end of the entrance undoes the calm the
         // glow just spent five seconds building.
@@ -114,8 +119,35 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </Pressable>
         </View>
       )}
+      {!launchDone && (
+        <LaunchBoundary onFail={() => setLaunchDone(true)}>
+          {/* Ready = nothing left to hide: auth settled, or the retry card is
+              showing underneath (it renders before this, so it's covered
+              until the launch fades). */}
+          <LaunchScreen ready={!showOverlay} onDone={() => setLaunchDone(true)} />
+        </LaunchBoundary>
+      )}
     </>
   )
+}
+
+// The launch screen reaches every installed app the moment it ships. If it
+// ever throws — a missing asset, a native prop the binary doesn't know — the
+// app must still open: drop the screen and carry on as if it had finished.
+class LaunchBoundary extends Component<
+  { onFail: () => void; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  componentDidCatch() {
+    this.props.onFail()
+  }
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
 }
 
 const styles = StyleSheet.create({

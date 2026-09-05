@@ -25,6 +25,7 @@ import { ImageSkeleton } from '@/components/ui/ImageSkeleton'
 import { IMG_HERO } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 import { CupPreview } from '@/components/menu/CupPreview'
+import { useFlyToBagStore } from '@/store/flyToBag'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 const WARM_ICE_NAME = 'warm'
@@ -93,6 +94,9 @@ interface Props {
   categorySlug?: string | null
   ScrollComponent?: ComponentType<ScrollViewProps> | ComponentType<any>
   onLoaded?: (item: CatalogItem) => void
+  /** Send a dot from the Add button to the mini cart bar (the sheet, which
+   *  floats over the tabs; the stack route has no bar to fly to). */
+  flyToBag?: boolean
 }
 
 export function ItemDetailContent({
@@ -100,8 +104,10 @@ export function ItemDetailContent({
   categorySlug,
   ScrollComponent = ScrollView,
   onLoaded,
+  flyToBag = false,
 }: Props) {
   const addItem = useCartStore((s) => s.addItem)
+  const ctaRef = useRef<View>(null)
   const insets = useSafeAreaInsets()
   const onLoadedRef = useRef(onLoaded)
   useEffect(() => { onLoadedRef.current = onLoaded })
@@ -312,6 +318,14 @@ export function ItemDetailContent({
       })
     })
     const modifierTotal = chosenModifiers.reduce((sum, m) => sum + m.priceCents, 0)
+    if (flyToBag) {
+      ctaRef.current?.measureInWindow((x, y, w, h) => {
+        if (![x, y, w, h].every(Number.isFinite)) return
+        // A beat later than the store update, so an empty cart's bar has
+        // mounted by the time the dot arrives to be caught.
+        setTimeout(() => useFlyToBagStore.getState().launch({ x: x + w / 2, y: y + h / 2 }), 40)
+      })
+    }
     for (let i = 0; i < quantity; i++) {
       addItem({
         id: item.id,
@@ -628,6 +642,7 @@ export function ItemDetailContent({
           </Pressable>
         </View>
         <Pressable
+          ref={ctaRef}
           onPress={handleAddToCart}
           disabled={addDisabled}
           style={({ pressed }) => [

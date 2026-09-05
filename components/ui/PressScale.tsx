@@ -7,8 +7,9 @@ import Animated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 
-// A Pressable that settles under the finger: a quick spring to `scaleTo`
-// on press-in and back on release, with an optional selection haptic.
+// Settle — a Pressable that settles under the finger: a quick spring to
+// `scaleTo` on press-in and a looser one back on release (it overshoots a
+// hair past 1 and lands), with an optional selection haptic.
 // The one press feel for buttons, tiles and cards across the app — the
 // old per-screen `opacity: pressed ? 0.7 : 1` reads as a flicker next to
 // it. Reduced-motion users get the haptic and the tap, no scale.
@@ -47,7 +48,7 @@ export function PressScale({
         onPressIn?.(e)
       }}
       onPressOut={(e) => {
-        scale.value = withSpring(1, { damping: 15, stiffness: 260 })
+        scale.value = withSpring(1, { damping: 14, stiffness: 220 })
         onPressOut?.(e)
       }}
     />

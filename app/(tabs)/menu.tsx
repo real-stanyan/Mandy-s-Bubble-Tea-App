@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, useState, useCallback } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   View,
   ScrollView,
@@ -8,12 +8,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   Keyboard,
+  type LayoutChangeEvent,
   type SectionListData,
   type ViewToken,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import Animated, { FadeOut, StretchInY } from 'react-native-reanimated'
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
+import { PulseDot } from '@/components/ui/PulseDot'
+import { SLIDE_MS, slotFor, slotFromLayout, type Slot } from '@/lib/motion/slide'
 import * as Haptics from 'expo-haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
@@ -103,6 +112,9 @@ export default function MenuScreen() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const scrollingToRef = useRef<string | null>(null)
   const [query, setQuery] = useState('')
+  // Where each category tab sits in the rail, so the brand bar can slide to
+  // the active one instead of re-mounting on it (Slide).
+  const [railSlots, setRailSlots] = useState<Record<string, Slot>>({})
   const searching = query.trim().length > 0
   const storeStatus = getStoreStatus()
   const statusLabel = storeStatus.open
@@ -166,6 +178,18 @@ export default function MenuScreen() {
 
   const firstId = sections[0]?.category.id ?? null
   const currentActive = activeId ?? firstId
+  const railSlot = slotFor(railSlots, currentActive)
+  const measureTab = useCallback(
+    (id: string) => (e: LayoutChangeEvent) => {
+      const slot = slotFromLayout(e.nativeEvent.layout)
+      setRailSlots((prev) => {
+        const cur = prev[id]
+        if (cur && cur.y === slot.y && cur.height === slot.height) return prev
+        return { ...prev, [id]: slot }
+      })
+    },
+    [],
+  )
 
   const pendingScrollRef = useRef<{
     idx: number
@@ -324,11 +348,10 @@ export default function MenuScreen() {
         <View style={styles.titleRow}>
           <Text style={styles.title}>Menu</Text>
           <View style={[styles.statusPill, !storeStatus.open && styles.statusPillClosed]}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: storeStatus.open ? T.green : T.ink4 },
-              ]}
+            <PulseDot
+              color={storeStatus.open ? T.green : T.ink4}
+              size={7}
+              active={storeStatus.open}
             />
             <Text
               style={[
@@ -392,24 +415,18 @@ export default function MenuScreen() {
               contentContainerStyle={styles.sidebarContent}
               showsVerticalScrollIndicator={false}
             >
+              {/* One brand bar for the whole rail; it travels to the active tab. */}
+              <SlidingRail slot={railSlot} />
               {sections.map(({ category }) => {
                 const active = category.id === currentActive
                 return (
                   <TouchableOpacity
                     key={category.id}
                     onPress={() => handleTabPress(category.id)}
+                    onLayout={measureTab(category.id)}
                     activeOpacity={0.7}
                     style={[styles.tab, active && styles.tabActive]}
                   >
-                    {active ? (
-                      // The brand bar stretches open on the new tab and fades off the
-                      // old one, so a category change reads as the bar moving.
-                      <Animated.View
-                        entering={StretchInY.springify().damping(16).stiffness(220)}
-                        exiting={FadeOut.duration(120)}
-                        style={styles.tabBar}
-                      />
-                    ) : null}
                     <Text
                       style={[styles.tabText, active && styles.tabTextActive]}
                       numberOfLines={2}
@@ -449,6 +466,40 @@ export default function MenuScreen() {
       )}
     </View>
   )
+}
+
+const RAIL_INSET = 12
+const RAIL_SLIDE = { duration: SLIDE_MS, easing: Easing.out(Easing.exp) }
+
+// The rail's brand bar: absolutely positioned in the sidebar's content, it
+// slides (and resizes — tab heights differ with two-line names) to whichever
+// tab is active. First placement is instant; Reduce Motion keeps it that way.
+function SlidingRail({ slot }: { slot: Slot | null }) {
+  const reduced = useReducedMotion()
+  const y = useSharedValue(0)
+  const h = useSharedValue(0)
+  const shown = useSharedValue(0)
+  const placed = useRef(false)
+  useEffect(() => {
+    if (!slot) return
+    const top = slot.y + RAIL_INSET
+    const height = Math.max(0, slot.height - RAIL_INSET * 2)
+    if (!placed.current || reduced) {
+      y.value = top
+      h.value = height
+      shown.value = 1
+      placed.current = true
+      return
+    }
+    y.value = withTiming(top, RAIL_SLIDE)
+    h.value = withTiming(height, RAIL_SLIDE)
+  }, [slot?.y, slot?.height, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
+  const style = useAnimatedStyle(() => ({
+    opacity: shown.value,
+    height: h.value,
+    transform: [{ translateY: y.value }],
+  }))
+  return <Animated.View pointerEvents="none" style={[styles.tabBar, style]} />
 }
 
 // One card per category, the title set INTO the banner over a scrim rather
@@ -764,8 +815,7 @@ const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
     left: 0,
-    top: 12,
-    bottom: 12,
+    top: 0,
     width: 4,
     backgroundColor: T.brand,
     borderTopRightRadius: 2,

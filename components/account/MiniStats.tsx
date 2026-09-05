@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { View, Text, StyleSheet, Pressable } from 'react-native'
 import { T, TYPE, RADIUS, SPACING } from '@/constants/theme'
+import { CountUp } from '@/components/ui/CountUp'
 
 interface Props {
   drinks: number
@@ -29,7 +30,7 @@ export const MiniStats = memo(function MiniStats({
 function Tile({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
   const content = (
     <>
-      <Text style={styles.num}>{n}</Text>
+      <CountUp value={n} style={styles.num} />
       <Text style={styles.label}>{label}</Text>
     </>
   )

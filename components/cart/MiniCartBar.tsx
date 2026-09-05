@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useCartStore } from '@/store/cart'
 import { useCartSheetStore } from '@/store/cartSheet'
+import { useFlyToBagStore } from '@/store/flyToBag'
 import { Icon } from '@/components/brand/Icon'
 import { formatPrice } from '@/lib/utils'
 import { T, FONT, SHADOW } from '@/constants/theme'
@@ -22,6 +23,7 @@ export function MiniCartBar() {
   const itemCount = useCartStore((s) => s.itemCount())
   const total = useCartStore((s) => s.total())
   const show = useCartSheetStore((s) => s.show)
+  const landed = useFlyToBagStore((s) => s.landed)
   const insets = useSafeAreaInsets()
   const tabBarHeight =
     Platform.OS === 'ios' ? 49 + insets.bottom + 8 : 56 + 8 + 8
@@ -62,6 +64,26 @@ export function MiniCartBar() {
       }
     },
     [itemCount],
+  )
+
+  // Fly-to-bag: the dot has just landed on the bag, so the bar catches it —
+  // a second, springier bump on arrival rather than only on the store change.
+  useAnimatedReaction(
+    () => landed,
+    (curr, prev) => {
+      if (prev === null || curr === prev) return
+      cancelAnimation(barScale)
+      cancelAnimation(badgeScale)
+      barScale.value = withSequence(
+        withTiming(1.05, { duration: 90, easing: Easing.out(Easing.quad) }),
+        withSpring(1, { damping: 12, stiffness: 260 }),
+      )
+      badgeScale.value = withSequence(
+        withTiming(1.35, { duration: 90, easing: Easing.out(Easing.quad) }),
+        withSpring(1, { damping: 10, stiffness: 260 }),
+      )
+    },
+    [landed],
   )
 
   const barStyle = useAnimatedStyle(() => ({
