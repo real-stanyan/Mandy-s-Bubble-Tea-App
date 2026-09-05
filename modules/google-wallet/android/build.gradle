@@ -1,0 +1,22 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'expo.modules.googlewallet'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.googlewallet"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+dependencies {
+  // Google Wallet Android SDK: PayClient.savePassesJwt + availability check.
+  implementation "com.google.android.gms:play-services-pay:16.5.0"
+  // Google's "Add to Google Wallet" button drawables reference
+  // googlepay_button_background_image from the wallet artefact.
+  implementation "com.google.android.gms:play-services-wallet:19.2.1"
+}
