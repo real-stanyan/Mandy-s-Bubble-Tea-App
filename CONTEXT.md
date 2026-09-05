@@ -41,3 +41,23 @@ Domain glossary. All agents' understanding of domain terms is grounded here; cod
 - No `HANDOFF.md` is created — handoffs happen via issue comments (append-only, timestamped)
 - The gate command must be byte-identical in AGENTS.md and ci.yml (CI == Gate contract)
 - One agent completes a task from start to finish; handoffs only happen at task boundaries
+
+## Motion vocabulary (App UI v2, 2026-09-06)
+
+Ten named motions, each implemented once and reused; all respect Reduce Motion (checked by `lib/motion/motion-invariants.test.ts`). Pure timing/geometry lives in `lib/motion/`; components in `components/ui`, `components/brand`, `components/cart`.
+
+| Term | Definition | Where |
+|---|---|---|
+| Pour-in | Screen-block entrance: rises + fades in, 700ms expo-out, siblings staggered 70ms | `components/ui/Reveal.tsx` |
+| Settle | Press feel: quick spring to ~0.965 on press-in, looser spring back (slight overshoot) on release | `components/ui/PressScale.tsx` |
+| Drop | A piece falls into place from above with a small spring settle (toppings, ice, pearls) | `CupPreview` Drop, `LiquidCup` Pearl |
+| Wave | Liquid pours in (Rise) and its surface ribbon scrolls one wavelength per loop, seamlessly | `lib/motion/wave.ts`, `LiquidCup`, `CupPreview` Surface |
+| Count-up | A number ticks from its last value to the new one over 900ms ease-out; integers only | `components/ui/CountUp.tsx` |
+| Pulse | A ring leaves a live-state dot every 1.7s and fades as it grows (open, kitchen, current order step) | `components/ui/PulseDot.tsx` |
+| Slide | One highlight travels between options (400ms expo-out) instead of each option repainting | `OrdersFilterPills`, menu rail `SlidingRail` |
+| Fly-to-bag | Add to cart launches a dot that arcs from the button to the mini cart bag; the bar bumps on landing | `store/flyToBag.ts`, `components/cart/FlyToBagLayer.tsx` |
+| Launch | Cold-start screen: native splash colour lifts to the page ground, a cup pours, pearls drop, wordmark rises; never shorter than the pour, never longer than 10s | `components/launch/LaunchScreen.tsx`, `lib/motion/launch-timeline.ts` |
+| Grain | 5% (evening 9%) tiled noise over the whole app, paper rather than plastic | `components/ui/GrainOverlay.tsx`, `scripts/gen-grain.mjs` |
+
+Rule for any rn-svg group animation: drive the NATIVE props (`matrix`, `opacity`) from `useAnimatedProps`, and hold the group at opacity 0 until its first animation frame. A `<G>` takes its native matrix from its own props on first render, so an animated matrix only lands with the first frame (#122, and the launch cup on 2026-09-06).
+
