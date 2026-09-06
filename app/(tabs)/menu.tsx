@@ -415,8 +415,6 @@ export default function MenuScreen() {
               contentContainerStyle={styles.sidebarContent}
               showsVerticalScrollIndicator={false}
             >
-              {/* One brand bar for the whole rail; it travels to the active tab. */}
-              <SlidingRail slot={railSlot} />
               {sections.map(({ category }) => {
                 const active = category.id === currentActive
                 return (
@@ -436,6 +434,11 @@ export default function MenuScreen() {
                   </TouchableOpacity>
                 )
               })}
+              {/* One brand bar for the whole rail; it travels to the active tab.
+                  Rendered LAST so it paints over the active tab (paper background):
+                  as the first child it sat under the tabs and never showed (Stan,
+                  2026-09-06). */}
+              <SlidingRail slot={railSlot} />
             </ScrollView>
           </View>
 
@@ -816,6 +819,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
+    zIndex: 2,
     width: 4,
     backgroundColor: T.brand,
     borderTopRightRadius: 2,
