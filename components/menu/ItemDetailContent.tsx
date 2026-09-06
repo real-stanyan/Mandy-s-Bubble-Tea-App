@@ -28,6 +28,9 @@ import { CupPreview } from '@/components/menu/CupPreview'
 import { OptionSlider } from '@/components/menu/OptionSlider'
 import { axisKindFor, axisOptions } from '@/lib/menu/option-axis'
 import { useFlyToBagStore } from '@/store/flyToBag'
+import { useItemSheetStore } from '@/store/itemSheet'
+import { ToppingGroupHead, ToppingTile } from '@/components/menu/ToppingTile'
+import { TOPPING_GROUP_COLOR, TOPPING_GROUP_LABEL, groupToppings } from '@/lib/menu/topping-identity'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
 const WARM_ICE_NAME = 'warm'
@@ -303,6 +306,44 @@ export function ItemDetailContent({
     }
   }
 
+  /** Which exclusive topping (Cheese Cream / Brulee) is in the cup, if any. */
+  const selectedExclusiveName = (): string | null => {
+    for (const ml of modifierLists) {
+      const c = selectedByList[ml.id] ?? EMPTY_COUNTS
+      const hit = ml.modifiers.find((m) => (c[m.id] ?? 0) > 0 && EXCLUSIVE_TOPPINGS.includes(m.name))
+      if (hit) return hit.name
+    }
+    return null
+  }
+
+  /** The one-line reason a topping can't be added now, or null when it can. */
+  const toppingBlockReason = (list: ModifierList, modifierId: string): string | null => {
+    const mod = list.modifiers.find((m) => m.id === modifierId)
+    if (!mod) return null
+    if (mod.soldOut) return 'Sold out'
+    const c = selectedByList[list.id] ?? EMPTY_COUNTS
+    if (EXCLUSIVE_TOPPINGS.includes(mod.name)) {
+      if (someSelectedAcrossLists(selectedByList, modifierLists, isWarmIceModifier)) return 'Not with Warm'
+      const partnerId = getExclusivePartner(list, modifierId)
+      const partner = partnerId ? list.modifiers.find((m) => m.id === partnerId) : null
+      if (partner && (c[partner.id] ?? 0) > 0) return `Not with ${partner.name}`
+    }
+    if (!isUncountedTopping(mod.name) && cappedTotalInList(list, c) >= TOPPING_MAX_TOTAL) {
+      return `Up to ${TOPPING_MAX_TOTAL} toppings`
+    }
+    return null
+  }
+
+  /** Why an ice option is off: Warm can't go with cheese cream or brulee. */
+  const iceBlockReason = (mod: { name: string; soldOut?: boolean }): string | null => {
+    if (mod.soldOut) return 'Sold out'
+    if (isWarmIceModifier(mod)) {
+      const ex = selectedExclusiveName()
+      if (ex) return `Not with ${ex}`
+    }
+    return null
+  }
+
   const handleAddToCart = () => {
     if (!item || !selectedVariation) return
     const basePrice = Number(selectedVariation.itemVariationData?.priceMoney?.amount ?? 0)
@@ -404,6 +445,23 @@ export function ItemDetailContent({
     !selectedVariation ||
     selectedVariation.soldOut === true ||
     hasSoldOutSelectedModifier
+  // Say why the button is grey. A Top 10 build carries its toppings by
+  // definition, so a sold-out included topping takes the whole build with
+  // it — but the plain drink is still one tap away in its home category.
+  const soldOutSelected = modifierLists.flatMap((ml) => {
+    const c = selectedByList[ml.id] ?? EMPTY_COUNTS
+    return ml.modifiers.filter((m) => (c[m.id] ?? 0) > 0 && m.soldOut)
+  })
+  const lockedSoldOut = soldOutSelected.filter((m) => isLocked(m.name))
+  const soldOutNames = soldOutSelected.map((m) => m.name).join(' and ')
+  const openWithoutPreset = () => {
+    if (!item) return
+    const sheet = useItemSheetStore.getState()
+    sheet.close()
+    // Re-open after the sheet has dismissed, without a category: no preset,
+    // no locked toppings, the drink as it is on the Milk Tea shelf.
+    setTimeout(() => useItemSheetStore.getState().open(item.id, null), 350)
+  }
 
   return (
     <View style={styles.container}>
@@ -526,39 +584,52 @@ export function ItemDetailContent({
             const counts = selectedByList[ml.id] ?? EMPTY_COUNTS
             const isTopping = isToppingList(ml.name)
             if (isTopping) {
+              const picked = cappedTotalInList(ml, counts)
               return (
                 <ToppingSection
                   key={ml.id}
                   eyebrow={eyebrowForList(ml.name)}
                   title={titleForList(ml.name)}
-                  hint={describeSelection(ml, true)}
+                  hint={`${picked} of ${TOPPING_MAX_TOTAL} · Oreo doesn't count`}
                   required={ml.minSelected >= 1}
                 >
-                  {ml.modifiers.map((mod) => {
-                    const count = counts[mod.id] ?? 0
-                    const isExclusive = EXCLUSIVE_TOPPINGS.includes(mod.name)
-                    const supportsStepper = !isExclusive
-                    const canInc = canIncrement(ml, mod.id)
-                    const rowDisabled = count === 0 && !canInc
-                    const locked = isLocked(mod.name)
-                    return (
-                      <ToppingRow
-                        key={mod.id}
-                        label={mod.name}
-                        priceCents={Number(mod.priceCents ?? 0)}
-                        count={count}
-                        supportsStepper={supportsStepper}
-                        canIncrement={canInc}
-                        disabled={rowDisabled}
-                        soldOut={mod.soldOut === true}
-                        locked={locked}
-                        canDecrement={!(locked && count <= 1)}
-                        onIncrement={() => incrementModifier(ml, mod.id)}
-                        onDecrement={() => decrementModifier(ml, mod.id)}
-                        onToggle={() => toggleModifier(ml, mod.id)}
+                  {groupToppings(ml.modifiers).map(({ group, items }) => (
+                    <View key={group}>
+                      <ToppingGroupHead
+                        label={TOPPING_GROUP_LABEL[group]}
+                        color={TOPPING_GROUP_COLOR[group]}
+                        picked={items.reduce((n, { option }) => n + (counts[option.id] ?? 0), 0)}
                       />
-                    )
-                  })}
+                      <View style={styles.tileGrid}>
+                        {items.map(({ option: mod, identity }) => {
+                          const count = counts[mod.id] ?? 0
+                          const isExclusive = EXCLUSIVE_TOPPINGS.includes(mod.name)
+                          const canInc = canIncrement(ml, mod.id)
+                          const locked = isLocked(mod.name)
+                          return (
+                            <ToppingTile
+                              key={mod.id}
+                              name={mod.name}
+                              priceCents={Number(mod.priceCents ?? 0)}
+                              identity={identity}
+                              groupLabel={TOPPING_GROUP_LABEL[group]}
+                              count={count}
+                              locked={locked}
+                              soldOut={mod.soldOut === true}
+                              disabled={count === 0 && !canInc}
+                              disabledReason={toppingBlockReason(ml, mod.id)}
+                              supportsStepper={!isExclusive}
+                              canIncrement={canInc}
+                              canDecrement={!(locked && count <= 1)}
+                              onIncrement={() => incrementModifier(ml, mod.id)}
+                              onDecrement={() => decrementModifier(ml, mod.id)}
+                              onToggle={() => toggleModifier(ml, mod.id)}
+                            />
+                          )
+                        })}
+                      </View>
+                    </View>
+                  ))}
                 </ToppingSection>
               )
             }
@@ -584,10 +655,11 @@ export function ItemDetailContent({
                     options={ordered.map((o) => ({
                       id: o.option.id,
                       short: o.short,
-                      name: o.option.soldOut ? `${o.option.name} · Sold out` : o.option.name,
+                      name: o.option.name,
                       disabled:
                         o.option.soldOut === true ||
                         ((counts[o.option.id] ?? 0) === 0 && !canIncrement(ml, o.option.id)),
+                      disabledReason: axis === 'ice' ? iceBlockReason(o.option) : o.option.soldOut ? 'Sold out' : null,
                     }))}
                     value={selectedId}
                     onChange={(id) => {
@@ -633,6 +705,20 @@ export function ItemDetailContent({
         </View>
       </ScrollComponent>
 
+      {addDisabled && soldOutSelected.length > 0 ? (
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>
+            {lockedSoldOut.length > 0
+              ? `${soldOutNames} ${soldOutSelected.length > 1 ? 'are' : 'is'} sold out today, so this Top 10 build isn't available.`
+              : `${soldOutNames} ${soldOutSelected.length > 1 ? 'are' : 'is'} sold out — remove it to add this drink.`}
+          </Text>
+          {lockedSoldOut.length > 0 && flyToBag ? (
+            <Pressable onPress={openWithoutPreset} hitSlop={6} accessibilityRole="button">
+              <Text style={styles.noticeLink}>Order it without {lockedSoldOut.map((m) => m.name).join(' and ')} →</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <View style={[styles.ctaBar, { paddingBottom: 12 + insets.bottom }]}>
         <View style={styles.stepper}>
           <Pressable
@@ -788,7 +874,7 @@ function ToppingSection({
           </Text>
         </View>
       </Pressable>
-      {expanded ? <View style={styles.toppingList}>{children}</View> : null}
+      {expanded ? <View>{children}</View> : null}
     </View>
   )
 }
@@ -834,103 +920,6 @@ function Chip({
     >
       <Text style={labelStyle}>{label}</Text>
       {priceSuffix ? <Text style={priceStyle}>{priceSuffix}</Text> : null}
-    </Pressable>
-  )
-}
-
-function ToppingRow({
-  label,
-  priceCents,
-  count,
-  supportsStepper,
-  canIncrement,
-  disabled,
-  soldOut = false,
-  locked = false,
-  canDecrement = true,
-  onIncrement,
-  onDecrement,
-  onToggle,
-}: {
-  label: string
-  priceCents: number
-  count: number
-  supportsStepper: boolean
-  canIncrement: boolean
-  disabled: boolean
-  soldOut?: boolean
-  locked?: boolean
-  canDecrement?: boolean
-  onIncrement: () => void
-  onDecrement: () => void
-  onToggle: () => void
-}) {
-  const selected = count > 0
-  // If the modifier supports multi-count and is already chosen, show a
-  // stepper on the right instead of the checkbox toggle so the customer
-  // can add more of the same kind.
-  const showStepper = supportsStepper && selected
-  return (
-    <Pressable
-      onPress={showStepper ? undefined : onToggle}
-      disabled={showStepper || disabled}
-      accessibilityRole={showStepper ? undefined : 'checkbox'}
-      accessibilityState={showStepper ? undefined : { checked: selected, disabled }}
-      style={({ pressed }) => [
-        styles.toppingRow,
-        disabled && !selected && { opacity: 0.45 },
-        !showStepper && pressed && !disabled && { opacity: 0.6 },
-      ]}
-    >
-      <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
-        {selected ? <Icon name="check" size={14} color="#fff" /> : null}
-      </View>
-      <Text style={styles.toppingLabel}>{label}</Text>
-      {locked ? (
-        <View style={styles.includedPill}>
-          <Text style={styles.includedPillText}>INCLUDED</Text>
-        </View>
-      ) : null}
-      {soldOut ? (
-        <Text style={styles.toppingSoldOut}>Sold out</Text>
-      ) : showStepper ? (
-        <View style={styles.toppingStepper}>
-          <Pressable
-            onPress={onDecrement}
-            disabled={!canDecrement}
-            accessibilityRole="button"
-            accessibilityLabel={`Decrease ${label}`}
-            accessibilityState={{ disabled: !canDecrement }}
-            style={({ pressed }) => [
-              styles.toppingStepperBtn,
-              !canDecrement && { opacity: 0.35 },
-              pressed && canDecrement && { opacity: 0.5 },
-            ]}
-          >
-            <Text style={styles.toppingStepperMinus}>−</Text>
-          </Pressable>
-          <Text style={styles.toppingStepperCount}>{count}</Text>
-          <Pressable
-            onPress={onIncrement}
-            disabled={!canIncrement}
-            accessibilityRole="button"
-            accessibilityLabel={`Increase ${label}`}
-            accessibilityState={{ disabled: !canIncrement }}
-            style={({ pressed }) => [
-              styles.toppingStepperBtn,
-              !canIncrement && { opacity: 0.35 },
-              pressed && canIncrement && { opacity: 0.5 },
-            ]}
-          >
-            <Icon name="plus" size={14} color={T.ink} />
-          </Pressable>
-          {priceCents > 0 ? (
-            <Text style={styles.toppingStepperPrice}>+{formatPrice(priceCents)}</Text>
-          ) : null}
-        </View>
-      ) : priceCents > 0 ? (
-        <Text style={styles.toppingPrice}>+{formatPrice(priceCents)}</Text>
-      ) : null}
     </Pressable>
   )
 }
@@ -1046,6 +1035,19 @@ const styles = StyleSheet.create({
     color: T.ink3,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  notice: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(196,58,16,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(196,58,16,0.18)',
+    gap: 6,
+  },
+  noticeText: { fontFamily: 'ShantellSans_500Medium', fontSize: 13, lineHeight: 18, color: T.ink },
+  noticeLink: { fontFamily: 'ShantellSans_700Bold', fontSize: 13, color: T.brand },
   block: { width: '100%' },
 
   chip: {
