@@ -656,7 +656,7 @@ function Specials({ live, tile }: Live) {
       <Blob d="M112 12c36-14 100-8 118 24 14 26-4 62-44 66-40 4-70-4-86-26C86 54 86 26 112 12z" fill="#F6CBA3" />
       <Cup x={150} y={8} s={0.96} liq="#DF8A4C" pearls pearlsRise live={live} />
       {/* Tied to the rim's right corner and lying across the cup at an angle; the swing is a small sway about that rest. */}
-      <Motion x={198} y={23} loop="swing" period={2800} rot={24} live={live}>
+      <Motion x={198} y={23} loop="swing" period={3200} rot={24} live={live}>
         <Tag />
       </Motion>
       <Motion x={122} y={30} loop="twinkle" period={2800} live={live}>
