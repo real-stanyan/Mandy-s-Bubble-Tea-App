@@ -111,6 +111,14 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      [
+        "./plugins/android-res-configs",
+        {
+          "locales": [
+            "en"
+          ]
+        }
       ]
     ],
     "experiments": {
