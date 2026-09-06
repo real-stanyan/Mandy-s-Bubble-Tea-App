@@ -68,6 +68,7 @@ export function CategoryArt({ kind, crop = 'banner', style }: Props) {
       {kind === 'cheese' && <Cheese live={live} tile={tile} />}
       {kind === 'mix' && <Mix live={live} tile={tile} />}
       {kind === 'top10' && <Top10 live={live} tile={tile} />}
+      {kind === 'specials' && <Specials live={live} tile={tile} />}
     </Svg>
   )
 }
@@ -627,6 +628,45 @@ function Top10({ live, tile }: Live) {
           <Spark r={3} />
         </Motion>
       )}
+    </>
+  )
+}
+
+/** A price tag on a string, drawn hanging from (0, 0): the swing pivots at the knot. */
+function Tag() {
+  return (
+    <>
+      <Path d="M0 0v9" stroke={INK} strokeWidth={1.6} strokeLinecap="round" />
+      <Circle r={2} fill="#FFF3DE" stroke={INK} strokeWidth={1.4} />
+      <Path d="M-9 13L0 8l9 5v22a3 3 0 0 1-3 3H-6a3 3 0 0 1-3-3z" fill="#8D5524" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
+      <Circle cy={14} r={1.6} fill="#FFF3DE" />
+      <Circle cx={-3.2} cy={22} r={2.2} fill="none" stroke="#FFF3DE" strokeWidth={1.6} />
+      <Circle cx={3.2} cy={30} r={2.2} fill="none" stroke="#FFF3DE" strokeWidth={1.6} />
+      <Path d="M-4 31L4 21" stroke="#FFF3DE" strokeWidth={1.8} strokeLinecap="round" />
+    </>
+  )
+}
+
+/** This week's specials: the Thai milk tea on the shelf with its price tag swinging, a couple of sparkles. */
+function Specials({ live, tile }: Live) {
+  return (
+    <>
+      <Blob d="M112 12c36-14 100-8 118 24 14 26-4 62-44 66-40 4-70-4-86-26C86 54 86 26 112 12z" fill="#F6CBA3" />
+      <Cup x={150} y={8} s={0.96} liq="#DF8A4C" pearls pearlsRise live={live} />
+      <Motion x={206} y={16} loop="swing" period={2600} live={live}>
+        <Tag />
+      </Motion>
+      <Motion x={122} y={30} loop="twinkle" period={2800} live={live}>
+        <Spark r={5} />
+      </Motion>
+      {!tile && (
+        <Motion x={126} y={70} loop="twinkle" period={3200} delay={1200} live={live}>
+          <Spark r={3.5} />
+        </Motion>
+      )}
+      <Motion x={222} y={74} loop="twinkle" period={2600} delay={600} live={live}>
+        <Spark r={3} />
+      </Motion>
     </>
   )
 }
