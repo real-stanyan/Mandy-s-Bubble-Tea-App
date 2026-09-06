@@ -72,6 +72,7 @@ import {
 } from '@/lib/square-payment'
 import { reportPaymentStep } from '@/lib/client-log'
 import { clearOrderNonce } from '@/lib/order-nonce'
+import { paymentFailureFrom } from '@/lib/payment-failure'
 import type { CartItem, CartModifier } from '@/types/square'
 import { cartToSlots, type DoodleSlot } from '@/lib/doodle/cartToSlots'
 import { DoodleSection } from '@/components/doodle/DoodleSection'
@@ -540,13 +541,25 @@ export default function CheckoutScreen() {
       refreshAuth()
       setPlaced({ pickupNumber: pickupRef, totalCents, starsEarned })
     } catch (e) {
-      const raw =
-        e instanceof Error ? e.message : 'Something went wrong. Please try again.'
-      const message =
-        raw === PAYMENT_SHEET_TIMEOUT
-          ? "Payment screen didn't respond — nothing was charged. Please try again."
-          : raw
-      setPaymentError(message)
+      const raw = e instanceof Error ? e.message : ''
+      if (raw === PAYMENT_SHEET_TIMEOUT) {
+        setPaymentError(
+          "Payment screen didn't respond — nothing was charged. Please try again.",
+        )
+      } else {
+        // Never show the customer `API 400: {"ok":false,...}` — that is what
+        // they read five times on 2026-09-06. paymentFailureFrom hands back
+        // the server's own customer-facing sentence.
+        const failure = paymentFailureFrom(e)
+        if (failure.orderNotOpen) {
+          // The order was cancelled or expired: retrying against it can only
+          // fail again. Rotate the nonce so the next tap derives a new
+          // idempotency key and builds a genuinely new order — the one case
+          // where a failure is allowed to clear it.
+          await clearOrderNonce().catch(() => {})
+        }
+        setPaymentError(failure.message)
+      }
     } finally {
       setProcessing(false)
     }
