@@ -61,13 +61,13 @@ type MenuSection = SectionListData<CatalogItem, SectionMeta>
 // Estimated native heights, used to synthesize getItemLayout so SectionList
 // can seek to any section directly by pixel offset instead of virtualizing
 // forward and firing onScrollToIndexFailed on far jumps.
-// SectionHeader: marginTop(20) + card(120) + marginBottom(8) = 148 — the
-//                card is a fixed height whether or not it has a banner, so
+// SectionHeader: marginTop(20) + card(132) + marginBottom(8) = 160 — the
+//                card is a fixed height whether or not it has a drawing, so
 //                every section header measures the same.
 // Row:           paddingV(10) + image(76) + paddingV(10) = 96
 const ROW_H = 96
-const HEADER_H = 148
-const HEADER_CARD_H = 120
+const HEADER_H = 160
+const HEADER_CARD_H = 132
 const FOOTER_H = 0
 
 function buildGetItemLayout(sections: MenuSection[]) {
@@ -504,11 +504,12 @@ function SlidingRail({ slot }: { slot: Slot | null }) {
   return <Animated.View pointerEvents="none" style={[styles.tabBar, style]} />
 }
 
-// One card per category, the title set INTO the banner over a scrim rather
-// than above it in a second box — half the height of the old title-plus-
-// banner stack, and the photo does the work of a heading. Categories with
-// no photo (TOP 10, this week's specials) get a flat panel of the same
-// height so the list keeps one rhythm and getItemLayout stays honest.
+// One card per category: the name and the count on a row at the top of the
+// card, the living illustration whole in the band beneath — the two never
+// meet (the name used to sit over the drawing and ran into the cup on long
+// names; Stan, 2026-09-06). This week's specials, which have no drawing,
+// get a flat panel of the same height so the list keeps one rhythm and
+// getItemLayout stays honest.
 const SectionHeader = memo(function SectionHeader({
   category,
   count,
@@ -530,27 +531,25 @@ const SectionHeader = memo(function SectionHeader({
         art && { backgroundColor: CATEGORY_ART_TINT[art] },
       ]}
     >
-      {art ? <CategoryArt kind={art} /> : null}
-      <Text
-        style={[
-          styles.sectionTitle,
-          art ? styles.onArt : null,
-          isSpecials && styles.onSpecials,
-        ]}
-        numberOfLines={1}
-      >
-        {category.name}
-      </Text>
-      <Text
-        style={[
-          styles.sectionSub,
-          art ? styles.onArtSub : null,
-          isSpecials && styles.onSpecialsSub,
-        ]}
-        numberOfLines={1}
-      >
-        {sub}
-      </Text>
+      <View style={styles.sectionTitleRow}>
+        <Text
+          style={[styles.sectionTitle, art ? styles.onArt : null, isSpecials && styles.onSpecials]}
+          numberOfLines={1}
+        >
+          {category.name}
+        </Text>
+        <Text
+          style={[styles.sectionSub, art ? styles.onArtSub : null, isSpecials && styles.onSpecialsSub]}
+          numberOfLines={1}
+        >
+          {sub}
+        </Text>
+      </View>
+      {art ? (
+        <View style={styles.sectionArt} pointerEvents="none">
+          <CategoryArt kind={art} />
+        </View>
+      ) : null}
     </View>
   )
 })
@@ -839,8 +838,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     height: HEADER_CARD_H,
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    justifyContent: 'flex-end',
+    paddingTop: 12,
     backgroundColor: T.sage,
     borderRadius: RADIUS.card,
     overflow: 'hidden',
@@ -856,15 +854,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE7CF',
     borderWidth: 0,
   },
+  // Name left, count right, on one row at the top of the card.
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  // The band under the title row; the drawing sits centred in it, whole.
+  sectionArt: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 44,
+    bottom: 0,
+  },
   sectionTitle: {
     ...TYPE.screenTitleSm,
     color: T.ink,
+    flexShrink: 1,
   },
   sectionSub: {
     fontFamily: 'ShantellSans_500Medium',
     fontSize: 12,
     color: T.ink3,
-    marginTop: 2,
+    flexShrink: 0,
   },
   // The illustrations sit on their pastel in both themes → pinned day ink.
   onArt: { color: PIN.ink },
