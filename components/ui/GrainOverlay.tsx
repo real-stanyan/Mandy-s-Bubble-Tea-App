@@ -8,8 +8,9 @@ import { IS_EVENING } from '@/constants/theme'
 
 const GRAIN = require('@/assets/images/grain.png')
 
-/** Day is barely there; evening's darker ground can carry a little more. */
-export const GRAIN_OPACITY = IS_EVENING ? 0.09 : 0.055
+/** Day is quiet; evening's darker ground can carry more. 5% was there but
+ *  read as nothing on a phone (Stan, 2026-09-06) — the board's 8% / 14%. */
+export const GRAIN_OPACITY = IS_EVENING ? 0.14 : 0.08
 
 export function GrainOverlay() {
   return (
