@@ -6,7 +6,7 @@ import { CategoryArt } from '@/components/brand/CategoryArt'
 import { useMenu } from '@/hooks/use-menu'
 import { useMenuJumpStore } from '@/store/menuJump'
 import { CATEGORY_ART_TINT, type CategoryArtKind } from '@/lib/menu/category-art'
-import { RADIUS } from '@/constants/theme'
+import { RADIUS, T } from '@/constants/theme'
 import { SectionHead } from './SectionHead'
 import { resolveCategorySlug } from './helpers'
 
@@ -36,7 +36,7 @@ export function CategoriesGrid() {
   // window instead (two across, 16pt margins, 10pt gutter, 1.9:1).
   const { width } = useWindowDimensions()
   const tileW = Math.floor((width - 32 - 10) / 2)
-  const tileH = Math.round(tileW / 1.9)
+  const artH = Math.round(tileW / 1.9)
 
   const jumpToMenu = (slug: string | null) => {
     setPending(slug)
@@ -72,24 +72,27 @@ export function CategoriesGrid() {
               onPress={() => jumpToMenu(c.slug)}
               accessibilityRole="button"
               accessibilityLabel={`${c.label}, ${sub.toLowerCase()}`}
-              style={{
-                width: tileW,
-                height: tileH,
-                borderRadius: RADIUS.tile + 2,
-                backgroundColor: CATEGORY_ART_TINT[c.kind],
-                overflow: 'hidden',
-              }}
+              style={{ width: tileW }}
             >
-              <CategoryArt kind={c.kind} crop="tile" />
-              {/* Pinned day ink: the tiles keep their pastel in evening mode. */}
-              <View style={{ position: 'absolute', left: 12, bottom: 10 }}>
+              <View
+                style={{
+                  height: artH,
+                  borderRadius: RADIUS.tile + 2,
+                  backgroundColor: CATEGORY_ART_TINT[c.kind],
+                  overflow: 'hidden',
+                }}
+              >
+                <CategoryArt kind={c.kind} crop="tile" />
+              </View>
+              {/* The name under the drawing, on the page — theme ink, never over the art. */}
+              <View style={{ paddingTop: 7, paddingHorizontal: 2 }}>
                 <Text
-                  style={{ fontFamily: 'ShantellSans_700Bold', fontSize: 14, lineHeight: 16, letterSpacing: -0.3, color: '#2A1E14', maxWidth: tileW - 60 }}
+                  style={{ fontFamily: 'ShantellSans_700Bold', fontSize: 14, lineHeight: 16, letterSpacing: -0.3, color: T.ink }}
                   numberOfLines={1}
                 >
                   {c.label}
                 </Text>
-                <Text style={{ fontFamily: 'JetBrainsMono_700Bold', fontSize: 9.5, letterSpacing: 1, color: 'rgba(42,30,20,0.55)', marginTop: 1 }}>
+                <Text style={{ fontFamily: 'JetBrainsMono_700Bold', fontSize: 9.5, letterSpacing: 1, color: T.ink3, marginTop: 2 }}>
                   {sub}
                 </Text>
               </View>

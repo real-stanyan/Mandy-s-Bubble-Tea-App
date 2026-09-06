@@ -54,10 +54,10 @@ export function CategoryArt({ kind, crop = 'banner', style }: Props) {
       width="100%"
       height="100%"
       viewBox={crop === 'tile' ? '26 0 190 100' : '0 0 240 100'}
-      // A banner is wider than the stage, so the drawing keeps its height and
-      // sits to the right — the label at bottom-left never meets the cup. A
-      // tile is the stage's own shape and simply fills.
-      preserveAspectRatio={crop === 'tile' ? 'xMidYMid slice' : 'xMaxYMid meet'}
+      // A banner band is wider than the stage, so the drawing keeps its height
+      // and sits centred, whole (the name lives on the row above it). A tile is
+      // the stage's own shape and simply fills.
+      preserveAspectRatio={crop === 'tile' ? 'xMidYMid slice' : 'xMidYMid meet'}
       pointerEvents="none"
     >
       {kind === 'milk' && <Milk live={live} tile={tile} />}
