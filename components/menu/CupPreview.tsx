@@ -190,16 +190,18 @@ export function CupPreview({ drinkName, picked }: Props) {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 14,
+        gap: 12,
         borderRadius: 18,
         borderWidth: 1,
         borderColor: T.line,
         backgroundColor: T.bg2,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
       }}
     >
-      <Svg width={96} height={156} viewBox="0 0 120 196">
+      {/* Two thirds of its old size: the card pins to the top of the sheet, and every
+          point it keeps is a point the toppings grid under it does not get (Stan, 2026-09-06). */}
+      <Svg width={62} height={101} viewBox="0 0 120 196">
         <Defs>
           <ClipPath id="cupClip">
             <Path d="M28.5,44 L91.5,44 L87,176 Q86.5,180.5 81.5,180.5 L38.5,180.5 Q33.5,180.5 33,176 Z" />
@@ -345,10 +347,10 @@ export function CupPreview({ drinkName, picked }: Props) {
         <Text
           style={{
             fontFamily: 'ShantellSans_400Regular',
-            fontSize: 12.5,
-            lineHeight: 18,
+            fontSize: 12,
+            lineHeight: 16,
             color: T.ink3,
-            marginTop: 4,
+            marginTop: 3,
           }}
         >
           {describeCup(visual)}

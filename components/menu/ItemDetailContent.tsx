@@ -1016,8 +1016,8 @@ const styles = StyleSheet.create({
   // web's ItemOrderForm sticky card).
   stickyCup: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 6,
     backgroundColor: T.paper,
   },
   content: { padding: 20, paddingTop: 0 },
