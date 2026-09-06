@@ -25,6 +25,8 @@ import { ImageSkeleton } from '@/components/ui/ImageSkeleton'
 import { IMG_HERO } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 import { CupPreview } from '@/components/menu/CupPreview'
+import { OptionSlider } from '@/components/menu/OptionSlider'
+import { axisKindFor, axisOptions } from '@/lib/menu/option-axis'
 import { useFlyToBagStore } from '@/store/flyToBag'
 
 const EXCLUSIVE_TOPPINGS = ['Cheese Cream', 'Brulee']
@@ -560,6 +562,42 @@ export function ItemDetailContent({
                 </ToppingSection>
               )
             }
+            const axis = ml.maxSelected === 1 ? axisKindFor(ml.name) : null
+            if (axis) {
+              // Sugar / ice: one dimension, so one slider. Selecting sets the
+              // count to 1 and clears the rest (incrementModifier does that
+              // for maxSelected === 1); the mutex rules still apply through
+              // canIncrement, which is what greys Warm out under cheese cream.
+              const ordered = axisOptions(axis, ml.modifiers)
+              const selectedId = ordered.find((o) => (counts[o.option.id] ?? 0) > 0)?.option.id ?? null
+              return (
+                <ModifierSection
+                  key={ml.id}
+                  eyebrow={eyebrowForList(ml.name)}
+                  title={titleForList(ml.name)}
+                  hint={describeSelection(ml, false)}
+                  required={ml.minSelected >= 1}
+                  layout="block"
+                >
+                  <OptionSlider
+                    accessibilityLabel={titleForList(ml.name)}
+                    options={ordered.map((o) => ({
+                      id: o.option.id,
+                      short: o.short,
+                      name: o.option.soldOut ? `${o.option.name} · Sold out` : o.option.name,
+                      disabled:
+                        o.option.soldOut === true ||
+                        ((counts[o.option.id] ?? 0) === 0 && !canIncrement(ml, o.option.id)),
+                    }))}
+                    value={selectedId}
+                    onChange={(id) => {
+                      if ((counts[id] ?? 0) > 0) return
+                      incrementModifier(ml, id)
+                    }}
+                  />
+                </ModifierSection>
+              )
+            }
             return (
               <ModifierSection
                 key={ml.id}
@@ -677,12 +715,15 @@ function ModifierSection({
   title,
   hint,
   required,
+  layout = 'chips',
   children,
 }: {
   eyebrow: string
   title: string
   hint: string
   required?: boolean
+  /** chips wrap in a row; a block (the sugar / ice slider) takes the full width. */
+  layout?: 'chips' | 'block'
   children: React.ReactNode
 }) {
   return (
@@ -700,7 +741,7 @@ function ModifierSection({
           <Text style={styles.sectionHint}>{hint}</Text>
         )}
       </View>
-      <View style={styles.chipRow}>{children}</View>
+      <View style={layout === 'block' ? styles.block : styles.chipRow}>{children}</View>
     </View>
   )
 }
@@ -1005,6 +1046,7 @@ const styles = StyleSheet.create({
     color: T.ink3,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  block: { width: '100%' },
 
   chip: {
     flexDirection: 'row',
