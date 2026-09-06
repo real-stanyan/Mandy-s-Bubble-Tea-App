@@ -94,17 +94,19 @@ type MotionProps = {
   loop: LoopName
   period: number
   delay?: number
+  /** Resting rotation in degrees; the loop's rotation is added to it (a tag hanging at an angle). */
+  rot?: number
   live: boolean
   children: ReactNode
 }
 
 /** One moving part: a loop's frame, applied as a matrix about the shape's own origin. */
-function Motion({ x, y, loop, period, delay = 0, live, children }: MotionProps) {
+function Motion({ x, y, loop, period, delay = 0, rot = 0, live, children }: MotionProps) {
   const p = useLoop(period, delay, live)
   const frame = LOOPS[loop]
   const animatedProps = useAnimatedProps(() => {
     const f = frame(p.value)
-    return { matrix: matrixAt(x, y, f.rot, f.scale, f.tx, f.ty), opacity: f.opacity }
+    return { matrix: matrixAt(x, y, rot + f.rot, f.scale, f.tx, f.ty), opacity: f.opacity }
   })
   return <AnimG animatedProps={animatedProps}>{children}</AnimG>
 }
@@ -653,7 +655,8 @@ function Specials({ live, tile }: Live) {
     <>
       <Blob d="M112 12c36-14 100-8 118 24 14 26-4 62-44 66-40 4-70-4-86-26C86 54 86 26 112 12z" fill="#F6CBA3" />
       <Cup x={150} y={8} s={0.96} liq="#DF8A4C" pearls pearlsRise live={live} />
-      <Motion x={206} y={16} loop="swing" period={2600} live={live}>
+      {/* Tied to the rim's right corner and lying across the cup at an angle; the swing is a small sway about that rest. */}
+      <Motion x={198} y={23} loop="swing" period={2800} rot={24} live={live}>
         <Tag />
       </Motion>
       <Motion x={122} y={30} loop="twinkle" period={2800} live={live}>
