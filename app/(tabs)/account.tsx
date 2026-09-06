@@ -1,3 +1,4 @@
+import { GrainGround } from '@/components/ui/GrainOverlay'
 import { useCallback, useMemo, useState } from 'react'
 import {
   View,
@@ -105,6 +106,7 @@ export default function AccountScreen() {
   if (!profile) {
     return (
       <View style={styles.screen}>
+        <GrainGround />
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingTop: 56 }]}
           keyboardShouldPersistTaps="handled"
@@ -137,6 +139,7 @@ export default function AccountScreen() {
 
   return (
     <View style={styles.screen}>
+      <GrainGround />
       <ScrollView
         contentContainerStyle={{ paddingTop: 56, paddingBottom: 100 }}
         refreshControl={

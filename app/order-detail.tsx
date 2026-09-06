@@ -1,3 +1,4 @@
+import { Paper } from '@/components/ui/GrainOverlay'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
@@ -450,6 +451,7 @@ export default function OrderDetailScreen() {
   if (deliveredNow && !showReceipt) {
     const deliveredLine = deliveredMetaLine(storeOrder?.updatedAt ?? null)
     return (
+      <Paper>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.deliveredContent}>
         <View style={styles.checkHaloOuter}>
           <View style={styles.checkHaloInner}>
@@ -518,6 +520,7 @@ export default function OrderDetailScreen() {
         </TouchableOpacity>
         <View style={{ height: 40 }} />
       </ScrollView>
+      </Paper>
     )
   }
 
@@ -526,6 +529,7 @@ export default function OrderDetailScreen() {
     isDelivery && !isTerminal && dispatchUi.kind === 'active' && dispatchUi.stepIndex < 2
 
   return (
+    <Paper>
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={preDispatch ? styles.preScrollContent : styles.scrollContent}
@@ -746,11 +750,12 @@ export default function OrderDetailScreen() {
         </>
       )}
     </ScrollView>
+    </Paper>
   )
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: T.bg },
+  scroll: { flex: 1 },
   scrollContent: { alignItems: 'center', padding: 24, paddingTop: 60 },
   preScrollContent: { paddingTop: 12, paddingBottom: 24 },
 

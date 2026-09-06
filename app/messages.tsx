@@ -1,3 +1,4 @@
+import { Paper } from '@/components/ui/GrainOverlay'
 import { useCallback, useMemo, useState } from 'react'
 import { ScrollView, Text, View, StyleSheet, RefreshControl } from 'react-native'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -88,6 +89,7 @@ export default function MessagesScreen() {
   void params.from
 
   return (
+    <Paper>
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.content}
@@ -113,11 +115,12 @@ export default function MessagesScreen() {
         </View>
       ) : null}
     </ScrollView>
+    </Paper>
   )
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: T.bg },
+  scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
   section: { marginTop: 8 },
   sectionHead: {

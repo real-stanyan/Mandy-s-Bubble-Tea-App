@@ -1,3 +1,4 @@
+import { Paper } from '@/components/ui/GrainOverlay'
 import { useEffect, useRef, useState } from 'react'
 import {
   View,
@@ -179,6 +180,7 @@ export default function OrderConfirmationScreen() {
   const statusUi = getStatusUi(fulfillmentState)
 
   return (
+    <Paper>
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
@@ -301,6 +303,7 @@ export default function OrderConfirmationScreen() {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+    </Paper>
   )
 }
 
@@ -353,7 +356,7 @@ function getStatusUi(state: FulfillmentState): StatusUi {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: T.bg },
+  scroll: { flex: 1 },
   scrollContent: { alignItems: 'center', padding: 24, paddingTop: 60 },
 
   iconCircle: {

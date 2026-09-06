@@ -1,4 +1,5 @@
 // app/(tabs)/index.tsx
+import { GrainGround } from '@/components/ui/GrainOverlay';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeHeader } from '@/components/home/HomeHeader';
@@ -21,8 +22,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: insets.top }}>
+      <GrainGround />
       <ScrollView
-        style={{ backgroundColor: T.bg }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
         showsVerticalScrollIndicator={false}
       >

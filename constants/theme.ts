@@ -172,13 +172,23 @@ export const SHADOW = {
   // Ambient: the card rests on the page rather than floats over it. Ink-
   // tinted, never black; the hairline border does the separating, this does
   // the lifting. Sheets and the primary CTA keep their own, heavier shadows.
-  card: {
-    shadowColor: '#2A1E14',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 2,
-  },
+  card: IS_EVENING
+    ? {
+        // Evening: an ink-tinted 8% is invisible on the espresso ground; a black
+        // halo is what lifts a card off it (Stan, 2026-09-06).
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 18,
+        elevation: 6,
+      }
+    : {
+        shadowColor: '#2A1E14',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 2,
+      },
   miniCart: {
     shadowColor: '#6B3E15',
     shadowOffset: { width: 0, height: 10 },

@@ -1,3 +1,4 @@
+import { GrainGround } from '@/components/ui/GrainOverlay'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   View,
@@ -587,6 +588,7 @@ export default function CheckoutScreen() {
   if (!profile) {
     return (
       <View style={styles.root}>
+        <GrainGround />
         <Stack.Screen options={{ headerShown: false }} />
         <ScrollView
           contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 40 }}
@@ -607,6 +609,7 @@ export default function CheckoutScreen() {
 
   return (
     <View style={styles.root}>
+      <GrainGround />
       <Stack.Screen options={{ headerShown: false }} />
       <PickupReminderDialog />
       <PaymentErrorDialog

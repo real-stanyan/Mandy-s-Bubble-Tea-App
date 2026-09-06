@@ -24,7 +24,6 @@ import { ItemDetailSheet } from '@/components/menu/ItemDetailSheet';
 import { ChatLauncher } from '@/components/chat/ChatLauncher';
 import { ChatSheet } from '@/components/chat/ChatSheet';
 import { FlyToBagLayer } from '@/components/cart/FlyToBagLayer';
-import { GrainOverlay } from '@/components/ui/GrainOverlay';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useReadyVibration } from '@/hooks/use-ready-vibration';
@@ -217,7 +216,6 @@ export default function RootLayout() {
         {/* Above the sheet host on purpose: a dot flies from the item sheet's
             Add button down to the cart bar, and the grain sits over everything. */}
         <FlyToBagLayer />
-        <GrainOverlay />
       </AuthProvider>
     </GestureHandlerRootView>
   );
