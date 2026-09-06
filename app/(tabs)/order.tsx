@@ -13,7 +13,6 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useCartStore } from '@/store/cart'
 import {
-  effectiveOrderState,
   isDeliveryOrder,
   isUnfinished,
   type OrderHistoryItem,
@@ -30,20 +29,8 @@ import {
 } from '@/components/orders/ActiveOrderCard'
 import { DeliveryHeroCard } from '@/components/delivery/DeliveryHeroCard'
 import { PastOrderRow } from '@/components/orders/PastOrderRow'
-import type { TimelineStatus } from '@/components/orders/StatusTimeline'
 import { reorder } from '@/components/orders/reorder'
-
-function timelineStatusFor(order: OrderHistoryItem): TimelineStatus {
-  const eff = effectiveOrderState(order.state, order.fulfillmentState)
-  if (eff === 'READY') return 'READY'
-  if (eff === 'OPEN') {
-    // A just-placed order (PROPOSED) is only "Received" — Preparing starts
-    // when staff accept it (RESERVED). Mirrors the lock-screen card's
-    // three-state contract (received → preparing → ready).
-    return order.fulfillmentState === 'RESERVED' ? 'PREPARING' : 'OPEN'
-  }
-  return 'OPEN'
-}
+import { timelineStatusFor } from '@/components/orders/status'
 
 function subtitleText(activeCount: number, pastCount: number): string {
   if (activeCount === 0 && pastCount === 0) return ''

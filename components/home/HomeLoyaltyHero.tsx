@@ -32,9 +32,10 @@ export function HomeLoyaltyHero() {
 
   return (
     <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-      {/* Same dark-luxe shell as the Account card; no 3D entrance on Home —
-          it renders on every app launch, the reveal is an account-page moment. */}
-      <TierCardShell tier={tier} onPress={() => router.push('/promotions')}>
+      {/* Same dark-luxe shell as the Account card, a size down: on Home it is
+          a strip under the order-again rail, the full card lives on Account.
+          No 3D entrance — it renders on every launch. */}
+      <TierCardShell tier={tier} onPress={() => router.push('/promotions')} compact>
         {/* Top row */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <View style={{ flex: 1, minWidth: 0 }}>
@@ -49,8 +50,8 @@ export function HomeLoyaltyHero() {
                 value={balance}
                 style={{
                   fontFamily: 'ShantellSans_700Bold',
-                  fontSize: 36,
-                  lineHeight: 36,
+                  fontSize: 30,
+                  lineHeight: 30,
                   letterSpacing: -0.8,
                   color: '#fff',
                 }}
@@ -58,7 +59,7 @@ export function HomeLoyaltyHero() {
               <Text
                 style={{
                   fontFamily: 'ShantellSans_700Bold',
-                  fontSize: 24,
+                  fontSize: 18,
                   color: 'rgba(255,255,255,0.45)',
                   marginLeft: 6,
                 }}
@@ -102,14 +103,14 @@ export function HomeLoyaltyHero() {
           </View>
         </View>
 
-        <StarCupsRow value={currentStars} total={goal} />
+        <StarCupsRow value={currentStars} total={goal} compact />
 
         <TierToppingsProgress tier={tier} remaining={freeToppingsRemaining} />
 
         {/* Bottom row */}
         <View
           style={{
-            marginTop: 18,
+            marginTop: 12,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',

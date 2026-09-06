@@ -21,6 +21,8 @@ interface Props {
   drinks?: Array<string | null> | null;
   /** A free drink is banked: the whole row breathes. */
   rewardReady?: boolean;
+  /** Less air above the row (the Home strip). */
+  compact?: boolean;
 }
 
 /**
@@ -46,7 +48,7 @@ const PLACEHOLDER_DRINKS = [
 /** Breathing floor stays clearly visible — louder-and-softer, never off. */
 const BREATH_MS = 1300;
 
-export function StarCupsRow({ value, total, drinks, rewardReady = false }: Props) {
+export function StarCupsRow({ value, total, drinks, rewardReady = false, compact = false }: Props) {
   const remaining = total - value;
   // Same rationing as the web: only the cup you are about to earn breathes,
   // and only within two of a reward. A banked reward outranks the nudge.
@@ -56,7 +58,7 @@ export function StarCupsRow({ value, total, drinks, rewardReady = false }: Props
   const row = (
     <View
       style={{
-        marginTop: 22,
+        marginTop: compact ? 12 : 22,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',

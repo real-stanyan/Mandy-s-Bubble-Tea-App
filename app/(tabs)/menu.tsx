@@ -13,7 +13,6 @@ import {
   type ViewToken,
 } from 'react-native'
 import { Image } from 'expo-image'
-import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -33,6 +32,8 @@ import { useMenuJumpStore } from '@/store/menuJump'
 import { useMenu } from '@/hooks/use-menu'
 import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
+import { CategoryArt } from '@/components/brand/CategoryArt'
+import { CATEGORY_ART_TINT, categoryArtKind } from '@/lib/menu/category-art'
 import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
 import { displayNameFor, imageSourceFor, TOP10_CATEGORY_SLUG } from '@/lib/menu/top10-presets'
@@ -90,22 +91,6 @@ function buildGetItemLayout(sections: MenuSection[]) {
   }
 }
 
-const CATEGORY_BANNERS: Record<string, ReturnType<typeof require>> = {
-  milky: require('@/assets/images/categories/milky.webp'),
-  milktea: require('@/assets/images/categories/milky.webp'),
-  fruity: require('@/assets/images/categories/fruity.webp'),
-  fruitygreentea: require('@/assets/images/categories/fruity.webp'),
-  specialmix: require('@/assets/images/categories/special-mix.webp'),
-  freshbrew: require('@/assets/images/categories/fresh-brew.webp'),
-  fruityblacktea: require('@/assets/images/categories/fruity-black-tea.webp'),
-  frozen: require('@/assets/images/categories/frozen.webp'),
-  cheesecream: require('@/assets/images/categories/cheese-cream.webp'),
-}
-
-function categoryBanner(name: string) {
-  const key = name.toLowerCase().replace(/[^a-z]/g, '')
-  return CATEGORY_BANNERS[key]
-}
 
 export default function MenuScreen() {
   const insets = useSafeAreaInsets()
@@ -531,37 +516,25 @@ const SectionHeader = memo(function SectionHeader({
   category: CatalogCategory
   count: number
 }) {
-  const banner = categoryBanner(category.name)
   const isSpecials = category.id === WEEKLY_SPECIALS_CATEGORY_ID
+  // The living illustration for the category (components/brand/CategoryArt);
+  // this week's specials keep their flat panel.
+  const art = isSpecials ? null : categoryArtKind(category.name)
   const sub = `${count} ${count === 1 ? 'drink' : 'drinks'}${isSpecials ? ' · this week only' : ''}`
   return (
     <View
       style={[
         styles.sectionHeader,
-        !banner && styles.sectionHeaderPlain,
+        !art && styles.sectionHeaderPlain,
         isSpecials && styles.sectionHeaderSpecials,
+        art && { backgroundColor: CATEGORY_ART_TINT[art] },
       ]}
     >
-      {banner ? (
-        <>
-          <Image
-            source={banner}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            contentPosition="center"
-          />
-          <LinearGradient
-            colors={['rgba(42,30,20,0)', 'rgba(42,30,20,0.16)', 'rgba(42,30,20,0.78)']}
-            locations={[0, 0.45, 1]}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-        </>
-      ) : null}
+      {art ? <CategoryArt kind={art} /> : null}
       <Text
         style={[
           styles.sectionTitle,
-          banner ? styles.onBanner : null,
+          art ? styles.onArt : null,
           isSpecials && styles.onSpecials,
         ]}
         numberOfLines={1}
@@ -571,7 +544,7 @@ const SectionHeader = memo(function SectionHeader({
       <Text
         style={[
           styles.sectionSub,
-          banner ? styles.onBannerSub : null,
+          art ? styles.onArtSub : null,
           isSpecials && styles.onSpecialsSub,
         ]}
         numberOfLines={1}
@@ -893,15 +866,9 @@ const styles = StyleSheet.create({
     color: T.ink3,
     marginTop: 2,
   },
-  onBanner: {
-    color: '#FFF9F0',
-    textShadowColor: 'rgba(42,30,20,0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  onBannerSub: {
-    color: 'rgba(255,249,240,0.85)',
-  },
+  // The illustrations sit on their pastel in both themes → pinned day ink.
+  onArt: { color: PIN.ink },
+  onArtSub: { color: PIN.ink2 },
   onSpecials: { color: PIN.ink },
   onSpecialsSub: { color: PIN.ink2 },
   chip: {

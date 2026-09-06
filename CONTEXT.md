@@ -58,6 +58,9 @@ Ten named motions, each implemented once and reused; all respect Reduce Motion (
 | Fly-to-bag | Add to cart launches a dot that arcs from the button to the mini cart bag; the bar bumps on landing | `store/flyToBag.ts`, `components/cart/FlyToBagLayer.tsx` |
 | Launch | Cold-start screen: native splash colour lifts to the page ground, a cup pours, pearls drop, wordmark rises; never shorter than the pour, never longer than 10s | `components/launch/LaunchScreen.tsx`, `lib/motion/launch-timeline.ts` |
 | Grain | 5% (evening 9%) tiled noise over the whole app, paper rather than plastic | `components/ui/GrainOverlay.tsx`, `scripts/gen-grain.mjs` |
+| Category art | The eight category illustrations, drawn (the Mini Cup, ink lines, cup-visual colours, no people) and alive: one signature loop each — pearls rise, citrus spins, a slice floats, steam curls, frost twinkles, the cheese-tea cup tilts to sip, two colours swirl, a crown hops. Phase→frame maths in lib; frames become native `matrix`/`opacity`. Menu banners and the Home grid; the webp banners are gone | `components/brand/CategoryArt.tsx`, `lib/motion/category-art.ts`, `lib/menu/category-art.ts` |
+
+Home is the counter (direction A, 2026-09-06): live pill (open · kitchen mood · wait), the order being made, an order-again rail, the rewards strip, this week's specials, one offers carousel (every promo card in one section), the illustrated category grid, the store. `components/home/*`.
 
 Rule for any rn-svg group animation: drive the NATIVE props (`matrix`, `opacity`) from `useAnimatedProps`, and hold the group at opacity 0 until its first animation frame. A `<G>` takes its native matrix from its own props on first render, so an animated matrix only lands with the first frame (#122, and the launch cup on 2026-09-06).
 
