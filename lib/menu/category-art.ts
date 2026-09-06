@@ -12,8 +12,9 @@ export type CategoryArtKind =
   | 'frozen'
   | 'cheese'
   | 'mix'
+  | 'specials'
 
-/** The pastel each illustration sits on — the same eight the old tiles used. Theme-invariant: pair with PIN ink. */
+/** The pastel each illustration sits on — the eight the old tiles used, plus the specials' peach. Theme-invariant: pair with PIN ink. */
 export const CATEGORY_ART_TINT: Record<CategoryArtKind, string> = {
   top10: '#FFE9B0',
   milk: '#F5E1C5',
@@ -23,9 +24,12 @@ export const CATEGORY_ART_TINT: Record<CategoryArtKind, string> = {
   frozen: '#D8E4E8',
   cheese: '#FFF1D6',
   mix: '#E6DDEB',
+  specials: '#FFE7CF',
 }
 
 const KIND_BY_KEY: Record<string, CategoryArtKind> = {
+  weeklyspecials: 'specials',
+  specials: 'specials',
   top10: 'top10',
   milktea: 'milk',
   milky: 'milk',
@@ -38,7 +42,7 @@ const KIND_BY_KEY: Record<string, CategoryArtKind> = {
   specialmix: 'mix',
 }
 
-/** Which illustration a category name gets, or null (this week's specials, anything new in Square). */
+/** Which illustration a category name gets (this week's specials included), or null for anything new in Square. */
 export function categoryArtKind(name: string | null | undefined): CategoryArtKind | null {
   const key = (name ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
   return KIND_BY_KEY[key] ?? null

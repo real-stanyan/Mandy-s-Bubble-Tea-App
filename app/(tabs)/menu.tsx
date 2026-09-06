@@ -61,13 +61,12 @@ type MenuSection = SectionListData<CatalogItem, SectionMeta>
 // Estimated native heights, used to synthesize getItemLayout so SectionList
 // can seek to any section directly by pixel offset instead of virtualizing
 // forward and firing onScrollToIndexFailed on far jumps.
-// SectionHeader: marginTop(20) + card(132) + marginBottom(8) = 160 — the
-//                card is a fixed height whether or not it has a drawing, so
-//                every section header measures the same.
+// SectionHeader: marginTop(20) + card(144) + marginBottom(8) = 172 — every
+//                section header measures the same (each has a drawing now).
 // Row:           paddingV(10) + image(76) + paddingV(10) = 96
 const ROW_H = 96
-const HEADER_H = 160
-const HEADER_CARD_H = 132
+const HEADER_H = 172
+const HEADER_CARD_H = 144
 const FOOTER_H = 0
 
 function buildGetItemLayout(sections: MenuSection[]) {
@@ -504,12 +503,11 @@ function SlidingRail({ slot }: { slot: Slot | null }) {
   return <Animated.View pointerEvents="none" style={[styles.tabBar, style]} />
 }
 
-// One card per category: the name and the count on a row at the top of the
+// One card per category: the name with the count under it at the top of the
 // card, the living illustration whole in the band beneath — the two never
 // meet (the name used to sit over the drawing and ran into the cup on long
-// names; Stan, 2026-09-06). This week's specials, which have no drawing,
-// get a flat panel of the same height so the list keeps one rhythm and
-// getItemLayout stays honest.
+// names, and beside the count WEEKLY SPECIALS lost its tail; Stan,
+// 2026-09-06). This week's specials have their own drawing (the price tag).
 const SectionHeader = memo(function SectionHeader({
   category,
   count,
@@ -518,9 +516,8 @@ const SectionHeader = memo(function SectionHeader({
   count: number
 }) {
   const isSpecials = category.id === WEEKLY_SPECIALS_CATEGORY_ID
-  // The living illustration for the category (components/brand/CategoryArt);
-  // this week's specials keep their flat panel.
-  const art = isSpecials ? null : categoryArtKind(category.name)
+  // The living illustration for the category (components/brand/CategoryArt).
+  const art = categoryArtKind(category.name)
   const sub = `${count} ${count === 1 ? 'drink' : 'drinks'}${isSpecials ? ' · this week only' : ''}`
   return (
     <View
@@ -531,7 +528,7 @@ const SectionHeader = memo(function SectionHeader({
         art && { backgroundColor: CATEGORY_ART_TINT[art] },
       ]}
     >
-      <View style={styles.sectionTitleRow}>
+      <View style={styles.sectionTitleBlock}>
         <Text
           style={[styles.sectionTitle, art ? styles.onArt : null, isSpecials && styles.onSpecials]}
           numberOfLines={1}
@@ -624,7 +621,7 @@ const ProductRow = memo(function ProductRow({
       )}
       <View style={styles.rowInfo}>
         <View style={styles.rowNameRow}>
-          <Text style={styles.rowName} numberOfLines={2}>
+          <Text style={styles.rowName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
             {name}
           </Text>
           {soldOut ? (
@@ -854,31 +851,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE7CF',
     borderWidth: 0,
   },
-  // Name left, count right, on one row at the top of the card.
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 10,
+  // Name, then the count under it, at the top of the card.
+  sectionTitleBlock: {
+    gap: 2,
   },
-  // The band under the title row; the drawing sits centred in it, whole.
+  // The band under the title block; the drawing sits centred in it, whole.
   sectionArt: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 44,
+    top: 56,
     bottom: 0,
   },
   sectionTitle: {
     ...TYPE.screenTitleSm,
     color: T.ink,
-    flexShrink: 1,
   },
   sectionSub: {
     fontFamily: 'ShantellSans_500Medium',
     fontSize: 12,
     color: T.ink3,
-    flexShrink: 0,
   },
   // The illustrations sit on their pastel in both themes → pinned day ink.
   onArt: { color: PIN.ink },

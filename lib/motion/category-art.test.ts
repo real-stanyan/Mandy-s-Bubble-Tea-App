@@ -17,14 +17,14 @@ describe('which drawing a category gets', () => {
     expect(categoryArtKind('SPECIAL MIX')).toBe('mix')
   })
 
-  it("leaves this week's specials and unknown categories without a drawing", () => {
-    expect(categoryArtKind('WEEKLY SPECIALS')).toBeNull()
+  it("gives this week's specials the price-tag drawing, and unknown categories none", () => {
+    expect(categoryArtKind('WEEKLY SPECIALS')).toBe('specials')
     expect(categoryArtKind('Seasonal')).toBeNull()
     expect(categoryArtKind(null)).toBeNull()
   })
 
   it('has a tint for every drawing', () => {
-    for (const k of ['top10', 'milk', 'green', 'black', 'brew', 'frozen', 'cheese', 'mix'] as const) {
+    for (const k of ['top10', 'milk', 'green', 'black', 'brew', 'frozen', 'cheese', 'mix', 'specials'] as const) {
       expect(CATEGORY_ART_TINT[k]).toMatch(/^#[0-9A-F]{6}$/i)
     }
   })
