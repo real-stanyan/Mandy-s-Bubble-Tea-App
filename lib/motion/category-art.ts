@@ -130,10 +130,10 @@ export function ripple(p: number): Frame {
   'worklet'
   return { ...REST, scale: 0.5 + 1.1 * p, opacity: 0.6 * (1 - p) }
 }
-/** A price tag on a string, swinging — the pivot is the shape's origin. */
+/** A price tag on a string: a small sway about its resting angle — the pivot is the knot at the shape's origin. */
 export function swing(p: number): Frame {
   'worklet'
-  return { ...REST, rot: 14 * Math.sin(2 * Math.PI * p) }
+  return { ...REST, rot: 7 * Math.sin(2 * Math.PI * p) }
 }
 /** The crown hops once a cycle, otherwise sits at its jaunty angle. */
 export function crownHop(p: number): Frame {
