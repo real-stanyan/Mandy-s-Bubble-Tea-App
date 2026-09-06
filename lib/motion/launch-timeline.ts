@@ -17,7 +17,7 @@ export const LAUNCH = {
   pourMs: 1100,
   pearlDelayMs: 1250,
   pearlStaggerMs: 70,
-  pearlCount: 6,
+  pearlCount: 7,
   wordmarkDelayMs: 1450,
   wordmarkMs: 420,
   /** One wave period scrolls past in this long — the liquid's idle breath. */

@@ -14,6 +14,7 @@ import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Rect, Stop } from
 import { PIN, T } from '@/constants/theme'
 import { LAUNCH, pearlDelayMs } from '@/lib/motion/launch-timeline'
 import { wavePath } from '@/lib/motion/wave'
+import { LAUNCH_PEARLS, LAUNCH_PEARL_R } from '@/lib/motion/pearls'
 
 // The cup that pours itself: liquid rises behind the cup wall with a moving
 // wave on its surface, then pearls drop in. Launch screen today; the same
@@ -44,14 +45,9 @@ const WAVE = wavePath({
   wavelength: WAVELENGTH,
   depth: 200,
 })
-const PEARLS: [number, number][] = [
-  [42, 150],
-  [56, 153],
-  [70, 149],
-  [49, 139],
-  [63, 141],
-  [78, 138],
-]
+// Seven pearls in a tidy hex stack on the floor (lib/motion/pearls.ts):
+// four along the bottom, three nested in the gaps. Floor row drops first.
+const PEARLS: [number, number][] = LAUNCH_PEARLS.map((p) => [p.cx, p.cy])
 const PEARL_DROP = -130
 
 let seq = 0
@@ -191,7 +187,7 @@ function Pearl({
 
   return (
     <AnimatedG animatedProps={props}>
-      <Circle cx={cx} cy={cy} r={6.5} fill={PIN.ink} />
+      <Circle cx={cx} cy={cy} r={LAUNCH_PEARL_R} fill={PIN.ink} />
     </AnimatedG>
   )
 }
