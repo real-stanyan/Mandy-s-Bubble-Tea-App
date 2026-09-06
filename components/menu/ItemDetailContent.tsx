@@ -26,6 +26,8 @@ import { IMG_HERO } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 import { CupPreview } from '@/components/menu/CupPreview'
 import { OptionSlider } from '@/components/menu/OptionSlider'
+import { MilkCard, MilkDetail } from '@/components/menu/MilkCard'
+import { isMilkList, milkIdentity } from '@/lib/menu/milk-identity'
 import { axisKindFor, axisOptions } from '@/lib/menu/option-axis'
 import { useFlyToBagStore } from '@/store/flyToBag'
 import { useItemSheetStore } from '@/store/itemSheet'
@@ -633,6 +635,50 @@ export function ItemDetailContent({
                 </ToppingSection>
               )
             }
+            if (ml.maxSelected === 1 && isMilkList(ml.name)) {
+              // Milk: five different things, not an axis — a strip of cards,
+              // and a line under it saying what the picked one is (Standard
+              // is fresh milk + Mandy's milk powder; the counter gets asked
+              // that all day). Single choice, so a card is a radio.
+              const picked = ml.modifiers.find((mod) => (counts[mod.id] ?? 0) > 0) ?? null
+              return (
+                <ModifierSection
+                  key={ml.id}
+                  eyebrow={eyebrowForList(ml.name)}
+                  title={titleForList(ml.name)}
+                  hint={describeSelection(ml, false)}
+                  required={ml.minSelected >= 1}
+                  layout="block"
+                >
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.milkStrip}
+                    contentContainerStyle={styles.milkStripContent}
+                    accessibilityRole="radiogroup"
+                  >
+                    {ml.modifiers.map((mod) => {
+                      const selected = (counts[mod.id] ?? 0) > 0
+                      return (
+                        <MilkCard
+                          key={mod.id}
+                          name={mod.name}
+                          priceCents={Number(mod.priceCents ?? 0)}
+                          identity={milkIdentity(mod.name)}
+                          selected={selected}
+                          soldOut={mod.soldOut === true}
+                          disabled={!selected && !canIncrement(ml, mod.id)}
+                          onPress={() => incrementModifier(ml, mod.id)}
+                        />
+                      )
+                    })}
+                  </ScrollView>
+                  {picked ? (
+                    <MilkDetail name={picked.name} priceCents={Number(picked.priceCents ?? 0)} identity={milkIdentity(picked.name)} />
+                  ) : null}
+                </ModifierSection>
+              )
+            }
             const axis = ml.maxSelected === 1 ? axisKindFor(ml.name) : null
             if (axis) {
               // Sugar / ice: one dimension, so one slider. Selecting sets the
@@ -978,6 +1024,7 @@ function eyebrowForList(name: string): string {
   const upper = (name ?? '').toUpperCase()
   if (upper.includes('SUGAR')) return 'SUGAR'
   if (upper.includes('ICE')) return 'ICE'
+  if (upper.includes('MILK')) return 'MILK'
   if (upper === 'TOPPING' || upper.includes('TOPPING')) return 'TOPPINGS'
   if (upper.includes('SIZE')) return 'SIZE'
   return upper
@@ -987,6 +1034,7 @@ function titleForList(name: string): string {
   const upper = (name ?? '').toUpperCase()
   if (upper.includes('SUGAR')) return 'Sugar level'
   if (upper.includes('ICE')) return 'Ice level'
+  if (upper.includes('MILK')) return 'Choose your milk'
   if (upper === 'TOPPING' || upper.includes('TOPPING')) return 'Add toppings'
   if (upper.includes('SIZE')) return 'Choose size'
   return name
@@ -1049,6 +1097,10 @@ const styles = StyleSheet.create({
   noticeText: { fontFamily: 'ShantellSans_500Medium', fontSize: 13, lineHeight: 18, color: T.ink },
   noticeLink: { fontFamily: 'ShantellSans_700Bold', fontSize: 13, color: T.brand },
   block: { width: '100%' },
+  // Bleeds to the screen edges so the strip reads as scrollable; the top
+  // padding leaves room for the RECOMMENDED ribbon that sits above its card.
+  milkStrip: { marginHorizontal: -20 },
+  milkStripContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 2, gap: 8 },
 
   chip: {
     flexDirection: 'row',
