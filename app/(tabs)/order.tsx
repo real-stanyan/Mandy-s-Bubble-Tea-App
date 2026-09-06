@@ -1,3 +1,4 @@
+import { GrainGround } from '@/components/ui/GrainOverlay'
 import { useCallback, useMemo, useState } from 'react'
 import {
   View,
@@ -180,6 +181,7 @@ export default function OrderScreen() {
 
   return (
     <View style={styles.screen}>
+      <GrainGround />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}

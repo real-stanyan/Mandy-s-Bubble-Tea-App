@@ -1,3 +1,4 @@
+import { GrainGround } from '@/components/ui/GrainOverlay'
 import { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   View,
@@ -331,6 +332,7 @@ export default function MenuScreen() {
   if (error && items.length === 0) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
+        <GrainGround />
         <View style={styles.center}>
           <Text style={styles.errorText}>Menu unavailable. Try again later.</Text>
         </View>
@@ -340,6 +342,7 @@ export default function MenuScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      <GrainGround />
       <PublicHolidayBanner />
       <View style={styles.header}>
         <Text style={styles.eyebrow}>MANDY&apos;S · SOUTHPORT</Text>
@@ -779,7 +782,7 @@ const styles = StyleSheet.create({
   },
   sidebarWrap: {
     flex: 1,
-    backgroundColor: T.bg,
+    backgroundColor: 'transparent',
   },
   sidebar: {
     flex: 1,

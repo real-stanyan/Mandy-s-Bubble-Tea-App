@@ -1,3 +1,4 @@
+import { GrainGround } from '@/components/ui/GrainOverlay'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { FlashPromoCard } from '@/components/account/FlashPromoCard'
@@ -39,6 +40,7 @@ export default function PromotionsScreen() {
 
   return (
     <View style={styles.screen}>
+      <GrainGround />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionLabel}>YOUR REWARDS</Text>
 
