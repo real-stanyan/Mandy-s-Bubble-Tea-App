@@ -7,6 +7,7 @@ import { useOrdersStore } from '@/store/orders';
 import { Icon, type IconName } from '@/components/brand/Icon';
 import { MiniCartBar } from '@/components/cart/MiniCartBar';
 import { CartSheet } from '@/components/cart/CartSheet';
+import { GlassTabBarBackground, glassTabBarAvailable } from '@/components/ui/GlassTabBar';
 import { T, FONT } from '@/constants/theme';
 
 function TabIcon({ name, color }: { name: IconName; color: string }) {
@@ -31,12 +32,17 @@ export default function TabLayout() {
           tabBarActiveTintColor: T.brand,
           tabBarInactiveTintColor: T.ink3,
           tabBarStyle: {
-            backgroundColor: T.paper,
+            backgroundColor: glassTabBarAvailable ? 'transparent' : T.paper,
             borderTopColor: T.line,
             borderTopWidth: StyleSheet.hairlineWidth,
             paddingTop: 8,
             paddingBottom: Platform.OS === 'android' ? 8 : undefined,
+            // Frosted: the bar floats and the content scrolls under it. Only
+            // where the binary can blur — elsewhere the old solid bar and the
+            // old layout stay exactly as they were.
+            ...(glassTabBarAvailable ? { position: 'absolute' as const } : null),
           },
+          tabBarBackground: glassTabBarAvailable ? () => <GlassTabBarBackground /> : undefined,
           tabBarLabelStyle: {
             fontFamily: FONT.sans,
             fontSize: 10.5,

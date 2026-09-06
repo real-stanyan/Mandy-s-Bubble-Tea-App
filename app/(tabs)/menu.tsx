@@ -25,6 +25,8 @@ import { PulseDot } from '@/components/ui/PulseDot'
 import { SLIDE_MS, slotFor, slotFromLayout, type Slot } from '@/lib/motion/slide'
 import * as Haptics from 'expo-haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import { glassTabBarAvailable } from '@/components/ui/GlassTabBar'
 import { useFocusEffect } from 'expo-router'
 import { getStoreStatus, resolveCategorySlug } from '@/components/home/helpers'
 import { useMenuJumpStore } from '@/store/menuJump'
@@ -107,6 +109,18 @@ function categoryBanner(name: string) {
 
 export default function MenuScreen() {
   const insets = useSafeAreaInsets()
+  // With the frosted bar the tab bar floats over the list, so the list needs
+  // its height as extra bottom padding; with the solid bar it takes no space.
+  const tabBarHeight = useBottomTabBarHeight()
+  const underBar = glassTabBarAvailable ? tabBarHeight : 0
+  const mainContent = useMemo(
+    () => [styles.mainContent, { paddingBottom: 48 + underBar }],
+    [underBar],
+  )
+  const sidebarContent = useMemo(
+    () => [styles.sidebarContent, { paddingBottom: 8 + underBar }],
+    [underBar],
+  )
   const { items, categories, loading, error } = useMenu()
   const sectionListRef = useRef<SectionList<CatalogItem, SectionMeta>>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -388,7 +402,7 @@ export default function MenuScreen() {
       {searching ? (
         <ScrollView
           style={styles.main}
-          contentContainerStyle={styles.mainContent}
+          contentContainerStyle={mainContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -412,7 +426,7 @@ export default function MenuScreen() {
           <View style={styles.sidebarWrap}>
             <ScrollView
               style={styles.sidebar}
-              contentContainerStyle={styles.sidebarContent}
+              contentContainerStyle={sidebarContent}
               showsVerticalScrollIndicator={false}
             >
               {sections.map(({ category }) => {
@@ -446,7 +460,7 @@ export default function MenuScreen() {
             <SectionList<CatalogItem, SectionMeta>
               ref={sectionListRef}
               style={styles.main}
-              contentContainerStyle={styles.mainContent}
+              contentContainerStyle={mainContent}
               sections={sections}
               keyExtractor={keyExtractor}
               renderItem={renderItem}
