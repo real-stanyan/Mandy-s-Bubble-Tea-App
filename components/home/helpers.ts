@@ -20,8 +20,11 @@ export type YourUsualItem = {
 // Given two orders each with one "Brown Sugar Milk Tea | L | 50% sugar | less ice",
 // returns that item with count=2. Ties broken by latest order (first in the array
 // — orders store is newest-first per store/orders.ts).
-export function computeYourUsual(orders: OrderHistoryItem[]): YourUsualItem | null {
-  const groups = new Map<string, { item: YourUsualItem; latestIndex: number }>();
+type Build = { item: YourUsualItem; latestIndex: number };
+
+/** Every distinct build (variation + modifiers) in the history, with how often it was ordered and how recently. */
+function collectBuilds(orders: OrderHistoryItem[]): Map<string, Build> {
+  const groups = new Map<string, Build>();
   for (let idx = 0; idx < orders.length; idx++) {
     const order = orders[idx];
     if (order.state === 'CANCELED') continue;
@@ -37,8 +40,11 @@ export function computeYourUsual(orders: OrderHistoryItem[]): YourUsualItem | nu
       }
     }
   }
-  if (!groups.size) return null;
-  let winner: { item: YourUsualItem; latestIndex: number } | null = null;
+  return groups;
+}
+
+function leadBuild(groups: Map<string, Build>): Build | null {
+  let winner: Build | null = null;
   for (const entry of groups.values()) {
     if (!winner) { winner = entry; continue; }
     if (entry.item.count > winner.item.count) { winner = entry; continue; }
@@ -46,7 +52,23 @@ export function computeYourUsual(orders: OrderHistoryItem[]): YourUsualItem | nu
       winner = entry;
     }
   }
-  return winner?.item ?? null;
+  return winner;
+}
+
+export function computeYourUsual(orders: OrderHistoryItem[]): YourUsualItem | null {
+  return leadBuild(collectBuilds(orders))?.item ?? null;
+}
+
+/**
+ * The "Order again" rail: the usual leads (most ordered, ties to the most
+ * recent), the other builds follow by recency, capped at `limit`.
+ */
+export function computeOrderAgain(orders: OrderHistoryItem[], limit: number): YourUsualItem[] {
+  const groups = collectBuilds(orders);
+  const lead = leadBuild(groups);
+  if (!lead || limit <= 0) return [];
+  const rest = [...groups.values()].filter((b) => b !== lead).sort((a, b) => a.latestIndex - b.latestIndex);
+  return [lead, ...rest].slice(0, limit).map((b) => b.item);
 }
 
 function buildLineKey(line: OrderHistoryLine): string {

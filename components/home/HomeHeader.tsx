@@ -5,7 +5,11 @@ import { useCartStore } from '@/store/cart';
 import { useCartSheetStore } from '@/store/cartSheet';
 import { Icon } from '@/components/brand/Icon';
 import { T, TYPE } from '@/constants/theme';
-import { timeGreeting, getStoreStatus } from './helpers';
+import { timeGreeting } from './helpers';
+import { useStoreStatus } from '@/hooks/use-store-status';
+import { useKitchenLoad } from '@/hooks/use-kitchen-load';
+import type { KitchenLevel } from '@/lib/kitchen-load';
+import { PulseDot } from '@/components/ui/PulseDot';
 import { useRouter } from 'expo-router';
 import { useMessageEvents } from '@/hooks/use-message-events';
 
@@ -20,8 +24,6 @@ export function HomeHeader() {
   const firstName = profile?.first_name?.trim() || (profile ? 'Friend' : 'Welcome');
   const nameSuffix = profile ? '.' : '.';
   const salutation = profile ? `${greeting},` : 'Hi there,';
-
-  const status = getStoreStatus();
 
   return (
     <View style={{ paddingTop: 6, paddingHorizontal: 20, paddingBottom: 14 }}>
@@ -113,35 +115,58 @@ export function HomeHeader() {
         </View>
       </View>
 
-      <View
+      <LivePill />
+    </View>
+  );
+}
+
+const MOOD: Record<KitchenLevel, string> = {
+  quiet: 'Kitchen quiet',
+  medium: 'Kitchen steady',
+  busy: 'Kitchen busy',
+};
+
+/**
+ * The store right now, in one line: open or not, and — while open — how
+ * busy the kitchen is and how soon a cup is ready (the same bracketed
+ * promise the checkout makes). The address lives on the store card below.
+ */
+function LivePill() {
+  const status = useStoreStatus();
+  const load = useKitchenLoad();
+  const wait = status.open && load ? `${MOOD[load.level]} · ready in ${load.label}` : null;
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 6,
+        paddingVertical: 5,
+        paddingLeft: 9,
+        paddingRight: 11,
+        borderRadius: 999,
+        backgroundColor: 'rgba(162,173,145,0.25)',
+      }}
+    >
+      <PulseDot color={status.open ? T.green : T.ink4} size={6} active={status.open} />
+      <Text
         style={{
-          alignSelf: 'flex-start',
-          marginTop: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          paddingVertical: 4,
-          paddingLeft: 8,
-          paddingRight: 10,
-          borderRadius: 999,
-          backgroundColor: 'rgba(162,173,145,0.25)',
+          fontFamily: 'ShantellSans_500Medium',
+          fontSize: 11.5,
+          color: status.open ? T.greenDark : T.ink3,
         }}
       >
-        <Icon name="pin" color={T.brand} size={10} />
-        <Text style={{ fontFamily: 'ShantellSans_400Regular', fontSize: 11.5, color: T.ink2 }}>
-          Southport · 34 Davenport St
-        </Text>
-        <Text style={{ fontFamily: 'ShantellSans_400Regular', fontSize: 11.5, color: T.ink3 }}>·</Text>
-        <Text
-          style={{
-            fontFamily: 'ShantellSans_500Medium',
-            fontSize: 11.5,
-            color: status.open ? T.greenDark : T.ink3,
-          }}
-        >
-          {status.open ? `Open ${status.nextLabel}` : `Opens ${status.nextLabel}`}
-        </Text>
-      </View>
+        {status.open ? `Open ${status.nextLabel}` : `Opens ${status.nextLabel}`}
+      </Text>
+      {wait ? (
+        <>
+          <Text style={{ fontFamily: 'ShantellSans_400Regular', fontSize: 11.5, color: T.ink3 }}>·</Text>
+          <Text style={{ fontFamily: 'ShantellSans_400Regular', fontSize: 11.5, color: T.ink2 }}>{wait}</Text>
+        </>
+      ) : null}
     </View>
   );
 }

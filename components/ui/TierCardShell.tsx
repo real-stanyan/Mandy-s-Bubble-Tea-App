@@ -137,6 +137,8 @@ interface ShellProps {
   onPress: () => void
   /** 3D reveal on mount (account page). Off for the always-visible Home hero. */
   entrance?: boolean
+  /** Tighter padding for the Home strip; the Account card keeps the full one. */
+  compact?: boolean
   children: ReactNode
 }
 
@@ -146,7 +148,7 @@ interface ShellProps {
  * sparkles, embossed monogram. Content (rows, copy, CTA) comes as children.
  * Reduce-motion: materials render static, no loops, no entrance.
  */
-export function TierCardShell({ tier, onPress, entrance = false, children }: ShellProps) {
+export function TierCardShell({ tier, onPress, entrance = false, compact = false, children }: ShellProps) {
   const [animate, setAnimate] = useState(false)
   const [cardW, setCardW] = useState(0)
 
@@ -271,7 +273,7 @@ export function TierCardShell({ tier, onPress, entrance = false, children }: She
             colors={visual.gradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.9, y: 1 }}
-            style={{ padding: 22 }}
+            style={{ padding: compact ? 16 : 22 }}
           >
             {/* ── Decorative layers (behind content, never intercept taps) ── */}
             {/* Key light + vignette (web's two radial washes). */}
