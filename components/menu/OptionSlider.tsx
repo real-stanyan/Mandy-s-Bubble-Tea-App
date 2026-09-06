@@ -29,6 +29,8 @@ export type SliderOption = {
   /** Full name, read out and shown under the track ("Half Sugar"). */
   name: string
   disabled?: boolean
+  /** Why it is off ("Not with Cheese Cream", "Sold out") — shown when someone tries it anyway. */
+  disabledReason?: string | null
 }
 
 type Props = {
@@ -63,10 +65,32 @@ export function OptionSlider({ options, value, onChange, accessibilityLabel }: P
   latest.current = { onChange, options }
   const count = options.length
 
-  const select = useCallback((index: number) => {
-    const o = latest.current.options[index]
-    if (o && !o.disabled) latest.current.onChange(o.id)
+  // A disabled tick that was tapped, or that a drag would have landed on,
+  // explains itself for a moment under the track instead of just refusing.
+  const [note, setNote] = useState<string | null>(null)
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const explain = useCallback((reason: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
+    setNote(reason)
+    if (noteTimer.current) clearTimeout(noteTimer.current)
+    noteTimer.current = setTimeout(() => setNote(null), 2600)
   }, [])
+  useEffect(() => () => {
+    if (noteTimer.current) clearTimeout(noteTimer.current)
+  }, [])
+
+  const select = useCallback(
+    (index: number, rawIndex?: number) => {
+      const opts = latest.current.options
+      if (rawIndex != null && rawIndex !== index) {
+        const skipped = opts[rawIndex]
+        if (skipped?.disabled) explain(skipped.disabledReason ?? 'Unavailable')
+      }
+      const o = opts[index]
+      if (o && !o.disabled) latest.current.onChange(o.id)
+    },
+    [explain],
+  )
   const tick = useCallback(() => {
     Haptics.selectionAsync().catch(() => {})
   }, [])
@@ -106,11 +130,12 @@ export function OptionSlider({ options, value, onChange, accessibilityLabel }: P
     })
     .onEnd(() => {
       const c = Math.max(1, cell)
+      const raw = Math.min(count - 1, Math.max(0, Math.round(x.value / c)))
       const idx = nearestIndex(x.value / c, count, disabledFlags)
       dragging.value = 0
       hover.value = -1
       x.value = withSpring(idx * c, { damping: 18, stiffness: 260 })
-      runOnJS(select)(idx)
+      runOnJS(select)(idx, raw)
     })
     .onFinalize(() => {
       dragging.value = 0
@@ -137,11 +162,14 @@ export function OptionSlider({ options, value, onChange, accessibilityLabel }: P
               <Pressable
                 key={o.id}
                 onPress={() => {
-                  if (o.disabled || selected) return
+                  if (o.disabled) {
+                    explain(o.disabledReason ?? 'Unavailable')
+                    return
+                  }
+                  if (selected) return
                   Haptics.selectionAsync().catch(() => {})
                   onChange(o.id)
                 }}
-                disabled={o.disabled}
                 accessibilityRole="button"
                 accessibilityLabel={o.name}
                 accessibilityState={{ selected, disabled: !!o.disabled }}
@@ -162,8 +190,8 @@ export function OptionSlider({ options, value, onChange, accessibilityLabel }: P
           })}
         </View>
       </GestureDetector>
-      <Text style={styles.caption} numberOfLines={1}>
-        {current?.name ?? ''}
+      <Text style={[styles.caption, note ? styles.captionNote : null]} numberOfLines={1}>
+        {note ?? current?.name ?? ''}
       </Text>
     </View>
   )
@@ -203,4 +231,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginLeft: 6,
   },
+  captionNote: { fontFamily: 'ShantellSans_600SemiBold', color: T.brand },
 })
