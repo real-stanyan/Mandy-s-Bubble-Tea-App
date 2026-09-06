@@ -10,10 +10,11 @@ import {
   StyleSheet,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Image } from 'expo-image'
 import { Stack, useFocusEffect, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCartStore } from '@/store/cart'
+import { CheckoutHero } from '@/components/brand/CheckoutHero'
+import { extraCups, orderCups } from '@/lib/menu/order-cups'
 import { FulfillmentSelector } from '@/components/checkout/FulfillmentSelector'
 import { DeliveryAddressForm } from '@/components/checkout/DeliveryAddressForm'
 import { DeliveryQuoteCard } from '@/components/checkout/DeliveryQuoteCard'
@@ -101,6 +102,9 @@ export default function CheckoutScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const items = useCartStore((s) => s.items)
+  // One drawn cup per unit in the order, from the same mapper as the item sheet.
+  const heroCups = useMemo(() => orderCups(items), [items])
+  const heroExtra = useMemo(() => extraCups(items), [items])
   const labelSelections = useCartStore((s) => s.labelSelections)
   const setLabel = useCartStore((s) => s.setLabel)
   const clearLabel = useCartStore((s) => s.clearLabel)
@@ -636,18 +640,13 @@ export default function CheckoutScreen() {
             </Text>
           </Pressable>
         )}
-        <Image
-          source={
-            fulfillmentType === 'PICKUP'
-              ? require('@/assets/images/checkout-hero-pickup.webp')
-              : require('@/assets/images/checkout-hero-delivery.webp')
-          }
+        {/* What happens next, with this order in it: the cups on the counter, or
+            going into the bag at the door (components/brand/CheckoutHero). */}
+        <CheckoutHero
+          kind={fulfillmentType === 'PICKUP' ? 'pickup' : 'delivery'}
+          cups={heroCups}
+          extra={heroExtra}
           style={styles.fulfillmentHero}
-          contentFit="cover"
-          transition={250}
-          accessibilityLabel={
-            fulfillmentType === 'PICKUP' ? 'Pickup at the counter' : 'Delivery to your door'
-          }
         />
         <FulfillmentSelector
           value={fulfillmentType}
@@ -1565,7 +1564,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 12,
     aspectRatio: 1.85,
-    backgroundColor: T.card,
   },
   notesInput: {
     minHeight: 64,

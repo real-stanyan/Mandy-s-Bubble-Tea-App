@@ -13,13 +13,13 @@ export type Matrix = [number, number, number, number, number, number]
 
 export const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0]
 
-/** Place a shape drawn around (0, 0): translate to (x + tx, y + ty), rotated and scaled about its own origin. */
-export function matrixAt(x: number, y: number, rotDeg = 0, scale = 1, tx = 0, ty = 0): Matrix {
+/** Place a shape drawn around (0, 0): translate to (x + tx, y + ty), rotated and scaled about its own origin (`sy` squashes y on top of `scale`). */
+export function matrixAt(x: number, y: number, rotDeg = 0, scale = 1, tx = 0, ty = 0, sy = 1): Matrix {
   'worklet'
   const r = (rotDeg * Math.PI) / 180
-  const c = Math.cos(r) * scale
-  const s = Math.sin(r) * scale
-  return [c, s, -s, c, x + tx, y + ty]
+  const c = Math.cos(r)
+  const s = Math.sin(r)
+  return [c * scale, s * scale, -s * scale * sy, c * scale * sy, x + tx, y + ty]
 }
 
 /** Rotate the plane about a fixed point (the point itself stays put). */
@@ -38,16 +38,17 @@ export function translate(tx: number, ty: number): Matrix {
 
 /* -------------------------------- loops -------------------------------- */
 
-export type Frame = { tx: number; ty: number; rot: number; scale: number; opacity: number }
+/** One frame of a moving part; `sy` is an extra squash on y (a bell pressed), 1 when absent. */
+export type Frame = { tx: number; ty: number; rot: number; scale: number; opacity: number; sy?: number }
 
 /** 0 → 1 → 0, smooth, over one phase. */
-function hump(p: number): number {
+export function hump(p: number): number {
   'worklet'
   return 0.5 - 0.5 * Math.cos(2 * Math.PI * p)
 }
 
 /** Fade in over `inEnd`, then out to 0 at 1. */
-function inOut(p: number, inEnd: number, peak: number): number {
+export function inOut(p: number, inEnd: number, peak: number): number {
   'worklet'
   return p < inEnd ? (p / inEnd) * peak : peak * (1 - (p - inEnd) / (1 - inEnd))
 }
@@ -58,7 +59,7 @@ function easeInOut(t: number): number {
 }
 
 /** Piecewise keyframes: [phase, value] stops, eased between them. */
-function keyframes(p: number, stops: readonly (readonly [number, number])[]): number {
+export function keyframes(p: number, stops: readonly (readonly [number, number])[]): number {
   'worklet'
   if (p <= stops[0][0]) return stops[0][1]
   for (let i = 1; i < stops.length; i++) {
@@ -72,7 +73,7 @@ function keyframes(p: number, stops: readonly (readonly [number, number])[]): nu
   return stops[stops.length - 1][1]
 }
 
-const REST: Frame = { tx: 0, ty: 0, rot: 0, scale: 1, opacity: 1 }
+export const REST: Frame = { tx: 0, ty: 0, rot: 0, scale: 1, opacity: 1 }
 
 /** Pearls drift up and settle back. */
 export function rise(p: number): Frame {
