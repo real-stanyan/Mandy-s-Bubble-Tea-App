@@ -104,7 +104,18 @@ interface Props {
   /** Send a dot from the Add button to the mini cart bar (the sheet, which
    *  floats over the tabs; the stack route has no bar to fly to). */
   flyToBag?: boolean
+  /** Leave the detail surface once the drink is in the bag — the sheet
+   *  dismisses, the stack route pops. Fired after RETURN_DELAY_MS so the
+   *  "Added" tick and the fly-to-bag dot both get their beat first. */
+  onAdded?: () => void
 }
+
+// One beat between the tap and the exit. Long enough that the tick reads as a
+// confirmation and the dot has left the button (it launches ~40ms after the
+// measure callback), short enough to still feel like one gesture. The dot's
+// 720ms flight outlives this on purpose: FlyToBagLayer sits above the sheet
+// host, so it keeps flying to the cart bar the exit just revealed.
+const RETURN_DELAY_MS = 420
 
 export function ItemDetailContent({
   itemId,
@@ -112,13 +123,19 @@ export function ItemDetailContent({
   ScrollComponent = ScrollView,
   onLoaded,
   flyToBag = false,
+  onAdded,
 }: Props) {
   const addItem = useCartStore((s) => s.addItem)
   const ctaRef = useRef<View>(null)
   const insets = useSafeAreaInsets()
   const onLoadedRef = useRef(onLoaded)
   useEffect(() => { onLoadedRef.current = onLoaded })
+  // Same ref dance as onLoaded: the exit fires from a timer, so it must reach
+  // the latest callback without re-arming anything.
+  const onAddedRef = useRef(onAdded)
+  useEffect(() => { onAddedRef.current = onAdded })
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const returnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [item, setItem] = useState<CatalogItem | null>(null)
   const [modifierLists, setModifierLists] = useState<ModifierList[]>([])
   const [loading, setLoading] = useState(true)
@@ -212,6 +229,9 @@ export function ItemDetailContent({
   useEffect(
     () => () => {
       if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
+      // Without this a back-swipe during the beat would still pop a second
+      // screen once the timer landed.
+      if (returnTimerRef.current) clearTimeout(returnTimerRef.current)
     },
     [],
   )
@@ -387,6 +407,10 @@ export function ItemDetailContent({
     setQuantity(1)
     if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
     addedTimerRef.current = setTimeout(() => setAdded(false), 1500)
+    if (onAddedRef.current) {
+      if (returnTimerRef.current) clearTimeout(returnTimerRef.current)
+      returnTimerRef.current = setTimeout(() => onAddedRef.current?.(), RETURN_DELAY_MS)
+    }
   }
 
   if (loading) {

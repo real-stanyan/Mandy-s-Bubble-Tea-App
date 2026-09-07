@@ -117,7 +117,30 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="login" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Menu' }} />
-            <Stack.Screen name="menu/[id]" options={{ headerShown: true, title: '' }} />
+            {/* The one screen visitors reach without ever touching the menu:
+                a shared link (the sheet's share button posts
+                mandybubbletea.com/menu/<id>) opens it as the FIRST route of a
+                cold launch, so there is no history and the default chevron
+                never renders — the recipient was stranded on the drink with
+                no way into the app (2026-09-07). Same explicit
+                back-or-fall-back headerLeft the other stack routes use. */}
+            <Stack.Screen
+              name="menu/[id]"
+              options={{
+                headerShown: true,
+                title: '',
+                headerBackVisible: false,
+                headerLeft: () => (
+                  <TouchableOpacity
+                    onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu'))}
+                    hitSlop={12}
+                    style={{ paddingHorizontal: 4 }}
+                  >
+                    <Icon name="arrowL" size={24} color={T.ink} />
+                  </TouchableOpacity>
+                ),
+              }}
+            />
             <Stack.Screen
               name="checkout"
               options={{
