@@ -77,7 +77,13 @@ export function ItemDetailSheet() {
         </Pressable>
       </View>
       {itemId ? (
-        <ItemDetailContent itemId={itemId} categorySlug={categorySlug} ScrollComponent={BottomSheetScrollView} flyToBag />
+        <ItemDetailContent
+          itemId={itemId}
+          categorySlug={categorySlug}
+          ScrollComponent={BottomSheetScrollView}
+          flyToBag
+          onAdded={close}
+        />
       ) : null}
     </BottomSheetModal>
   )
