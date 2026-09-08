@@ -252,12 +252,23 @@ export function pour(floorY: number, len: number) {
   };
 }
 
-/** The liquid climbing the cup as it is poured; `depth` is the empty distance. */
+/**
+ * The liquid climbing the cup as it is poured; `depth` is the empty distance.
+ *
+ * Block body, never a concise arrow: the returned frame runs on the UI thread
+ * (Motion calls it inside useAnimatedProps), so it must open with the
+ * 'worklet' directive — and a concise `=> ({ … })` body has nowhere to put
+ * one. This exact shape crashed every Track Order tap once (#163); the
+ * invariant test in motion-invariants.test.ts now guards it.
+ */
 export function fill(depth: number) {
-  return (p: number): Frame => ({
-    ...REST,
-    ty: depth * (1 - easeInOut(win(p, PREP.pourFrom, PREP.pourTo))),
-  });
+  return (p: number): Frame => {
+    'worklet';
+    return {
+      ...REST,
+      ty: depth * (1 - easeInOut(win(p, PREP.pourFrom, PREP.pourTo))),
+    };
+  };
 }
 
 /** A pearl or an ice cube going in: hidden, then dropped, with a small squash. */

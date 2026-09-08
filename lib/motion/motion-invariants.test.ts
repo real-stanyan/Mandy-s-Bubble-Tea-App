@@ -129,3 +129,65 @@ describe('radius ladder', () => {
     expect(num('sheetTop')).toBeGreaterThanOrEqual(num('card'))
   })
 })
+
+/**
+ * A frame function does not run here. It is serialised and called on the UI
+ * thread, inside the `useAnimatedProps` in art-kit's Motion — so it, and
+ * everything it reaches, has to carry a 'worklet' directive. Miss one and
+ * react-native-worklets clones it as a RemoteFunction and throws the moment
+ * the scene mounts: "Tried to synchronously call a non-worklet function on
+ * the UI thread." That is a crash on the customer's screen, not a wrong
+ * pixel, and it took the order hero down once already (#163) — one factory
+ * out of ten was written `=> ({ … })`, and a concise arrow body has nowhere
+ * to put the directive.
+ *
+ * Neither of the gates in place could see it: tsc types the return, and the
+ * pure-function tests call it on the JS thread, where a plain function works
+ * perfectly. So the check is on the source itself.
+ *
+ * The rule: in lib/motion, a function returned by a function IS a frame
+ * function. It must be a block body, and the block must open with 'worklet'.
+ */
+describe('every frame function is a worklet', () => {
+  const parser = require('@babel/parser') as typeof import('@babel/parser')
+
+  const modules = readdirSync('lib/motion')
+    .filter((f) => /\.ts$/.test(f) && !/\.test\.ts$/.test(f))
+    .map((f) => path.join('lib/motion', f))
+
+  /** Every function literal that is handed back by another function. */
+  function returnedFunctions(file: string): { line: number; ok: boolean }[] {
+    const ast = parser.parse(read(file), { sourceType: 'module', plugins: ['typescript'] })
+    const found: { line: number; ok: boolean }[] = []
+    const walk = (node: unknown) => {
+      if (!node || typeof node !== 'object') return
+      if (Array.isArray(node)) return node.forEach(walk)
+      const n = node as { type?: string; argument?: any; loc?: any }
+      if (n.type === 'ReturnStatement') {
+        const a = n.argument
+        if (a && (a.type === 'ArrowFunctionExpression' || a.type === 'FunctionExpression')) {
+          const directives = a.body?.type === 'BlockStatement' ? a.body.directives ?? [] : []
+          found.push({
+            line: a.loc?.start.line ?? 0,
+            ok: directives.some((d: any) => d.value?.value === 'worklet'),
+          })
+        }
+      }
+      for (const [k, v] of Object.entries(n)) if (k !== 'loc') walk(v)
+    }
+    walk(ast.program.body)
+    return found
+  }
+
+  it('finds the frame factories', () => {
+    const total = modules.reduce((sum, m) => sum + returnedFunctions(m).length, 0)
+    expect(total).toBeGreaterThanOrEqual(8)
+  })
+
+  it.each(modules)('%s returns only worklets', (mod) => {
+    const offenders = returnedFunctions(mod)
+      .filter((f) => !f.ok)
+      .map((f) => `${rel(mod)}:${f.line}`)
+    expect(offenders).toEqual([])
+  })
+})
