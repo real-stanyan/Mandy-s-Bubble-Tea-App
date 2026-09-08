@@ -189,6 +189,9 @@ export default function OrderDetailScreen() {
     totalCents: string
     itemSummary: string
     lineCount: string
+    /** Checkout passes this for a scheduled pickup so the screen is honest
+     *  before the history store has heard of the order (#167). */
+    scheduledPickupAt?: string
     from?: string
   }>()
   const { orderId, from } = params
@@ -343,12 +346,14 @@ export default function OrderDetailScreen() {
   // build, through the same cup-visual mapper the item sheet and the checkout
   // hero use. Null for a cancelled order and for a delivery while the live map
   // owns the screen; see lib/order-scene.
+  const scheduledPickupAt =
+    storeOrder?.scheduledPickupAt ?? params.scheduledPickupAt ?? null
   const scene = orderScene({
     state: displayState,
     isDelivery,
     dispatchStep: dispatchUi.stepIndex,
-    scheduledAhead: storeOrder?.scheduledPickupAt
-      ? Date.parse(storeOrder.scheduledPickupAt) > Date.now()
+    scheduledAhead: scheduledPickupAt
+      ? Date.parse(scheduledPickupAt) > Date.now()
       : false,
   })
   const heroCups = useMemo(() => orderCups(items), [items])
@@ -679,10 +684,10 @@ export default function OrderDetailScreen() {
 
           {/* Scheduled pickup: the chosen time + "I'm here" early release —
               only while the order is still in flight. */}
-          {!isDelivery && !isTerminal && storeOrder?.scheduledPickupAt ? (
+          {!isDelivery && !isTerminal && scheduledPickupAt && orderId ? (
             <ScheduledPickupCard
-              orderId={orderId ?? storeOrder.id}
-              pickupAt={storeOrder.scheduledPickupAt}
+              orderId={orderId}
+              pickupAt={scheduledPickupAt}
             />
           ) : null}
 

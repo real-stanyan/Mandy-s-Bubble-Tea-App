@@ -150,6 +150,19 @@ export default function CheckoutScreen() {
     pickupNumber: string
     totalCents: number
     starsEarned: number
+    // Everything /order-detail needs to render before the history endpoint
+    // has heard of this order — the screen's params fallback exists for
+    // exactly this, so Track can land on the detail instead of waiting for
+    // the slowest read in the app (#167).
+    track: {
+      orderId: string
+      referenceId: string
+      createdAt: string
+      totalCents: string
+      itemSummary: string
+      lineCount: string
+      scheduledPickupAt?: string
+    }
   } | null>(null)
 
   const slots = useMemo(
@@ -535,7 +548,33 @@ export default function CheckoutScreen() {
       // Re-hydrate profile/loyalty/welcomeDiscount so the success overlay
       // and home tab show the updated stars + consumed welcome.
       refreshAuth()
-      setPlaced({ pickupNumber: pickupRef, totalCents, starsEarned })
+      setPlaced({
+        pickupNumber: pickupRef,
+        totalCents,
+        starsEarned,
+        track: {
+          orderId,
+          referenceId: createdOrder.referenceId ?? '',
+          createdAt: new Date().toISOString(),
+          totalCents: String(totalCents),
+          // Same shape the history endpoint returns and order-detail's
+          // fallback parses ("2× Name, 1× Name" — a missing count means 1).
+          itemSummary: items
+            .map((i) => (i.quantity > 1 ? `${i.quantity}× ${i.name}` : i.name))
+            .join(', '),
+          lineCount: String(items.length),
+          // A scheduled pickup knows its collection time right now; passing
+          // it keeps the scene honest ("received", not "preparing") until
+          // the store refresh brings the server's own timestamp.
+          ...(fulfillmentType === 'PICKUP' && pickupOffset > 0
+            ? {
+                scheduledPickupAt: new Date(
+                  Date.now() + pickupOffset * 60_000,
+                ).toISOString(),
+              }
+            : {}),
+        },
+      })
     } catch (e) {
       const raw = e instanceof Error ? e.message : ''
       if (raw === PAYMENT_SHEET_TIMEOUT) {
@@ -824,8 +863,27 @@ export default function CheckoutScreen() {
           starsEarned={placed.starsEarned}
           storeName="Southport"
           onTrack={() => {
+            const { track } = placed
             setPlaced(null)
+            // Orders tab underneath, detail on top: back from the detail
+            // lands on My Orders, which has had the ride over to refresh.
             router.replace('/(tabs)/order')
+            router.push({
+              pathname: '/order-detail',
+              params: {
+                orderId: track.orderId,
+                referenceId: track.referenceId,
+                createdAt: track.createdAt,
+                state: 'OPEN',
+                totalCents: track.totalCents,
+                itemSummary: track.itemSummary,
+                lineCount: track.lineCount,
+                ...(track.scheduledPickupAt
+                  ? { scheduledPickupAt: track.scheduledPickupAt }
+                  : {}),
+                from: 'orders',
+              },
+            })
           }}
         />
       )}
