@@ -36,6 +36,7 @@ import { deriveDeliverySteps } from '@/lib/dispatch-steps'
 import { reorder } from '@/components/orders/reorder'
 import { ScheduledPickupCard } from '@/components/orders/ScheduledPickupCard'
 import { OrderHero } from '@/components/brand/OrderHero'
+import { SceneBoundary } from '@/components/brand/SceneBoundary'
 import { orderScene } from '@/lib/order-scene'
 import { extraCups, orderCups } from '@/lib/menu/order-cups'
 import { useCartStore } from '@/store/cart'
@@ -671,7 +672,9 @@ export default function OrderDetailScreen() {
               and while the live map has the screen (components/brand/OrderHero,
               lib/order-scene). */}
           {scene && heroCups.length > 0 ? (
-            <OrderHero scene={scene} cups={heroCups} extra={heroExtra} style={styles.orderHero} />
+            <SceneBoundary name="order-hero">
+              <OrderHero scene={scene} cups={heroCups} extra={heroExtra} style={styles.orderHero} />
+            </SceneBoundary>
           ) : null}
 
           {/* Scheduled pickup: the chosen time + "I'm here" early release —

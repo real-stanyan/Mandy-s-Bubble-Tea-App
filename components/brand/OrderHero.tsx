@@ -1,6 +1,7 @@
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
+import { useRef } from 'react'
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { useReducedMotion } from 'react-native-reanimated'
-import Svg, { Circle, ClipPath, Defs, G, Path, Rect, Text as SvgText } from 'react-native-svg'
+import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg'
 import { wavePath } from '@/lib/motion/wave'
 import type { CupVisual } from '@/lib/cup-visual'
 import { AMP, BODY, INK, Motion, PEARLS, Surface, WL, light, nextId } from '@/components/brand/art-kit'
@@ -22,7 +23,6 @@ import {
   dropIn,
   fill,
   handoff,
-  noteSway,
   pour,
   press,
   shake,
@@ -122,6 +122,15 @@ export function OrderHero({
           <PickedUp live={live} />
         )}
       </Svg>
+      {/* THANK YOU! as a real RN <Text> over the drawing — the same trick the
+          checkout hero uses for its "+N" badge, and the only text rendering in
+          this file already proven on device. The note spans y 92..136 of the
+          360×156 frame, so 58% down lands inside it. */}
+      {scene === 'done' ? (
+        <View style={styles.noteText} pointerEvents="none">
+          <Text style={styles.noteWords}>THANK YOU!</Text>
+        </View>
+      ) : null}
     </View>
   )
 }
@@ -225,7 +234,7 @@ function Preparing({ cups, live }: { cups: CupVisual[]; live: boolean }) {
           the cycle it stands exactly where the cup being made stands at the
           start — which is what closes the loop. */}
       <Motion x={MAKE.x} y={MAKE.y} frame={ARRIVE} period={PREP_PERIOD} live={live}>
-        <G scale={MAKE.s}>
+        <G x={0} y={0} scale={MAKE.s}>
           <Path d={BODY} fill="#FDFAF4" />
           <Path d={BODY} fill="none" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
         </G>
@@ -257,7 +266,7 @@ function Tin({ live }: { live: boolean }) {
 /** A finished cup on the done side. Deliberately still: it is the thing the
  *  cup being made fades onto, so anything moving here would show at the seam. */
 function DoneCup({ v }: { v: CupVisual }) {
-  const uid = nextId()
+  const uid = useRef(nextId()).current
   return (
     <G x={DONE_CUP.x} y={DONE_CUP.y} scale={DONE_CUP.s}>
       <Defs>
@@ -274,7 +283,7 @@ function DoneCup({ v }: { v: CupVisual }) {
       </G>
       <Path d={BODY} fill="none" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
       <Rect x={9} y={14} width={42} height={5} rx={2} fill={INK} />
-      <Rect x={33} y={0} width={4.5} height={20} rx={1.6} fill={INK} rotation={8} originX={35} originY={10} />
+      <Rect x={33} y={0} width={4.5} height={20} rx={1.6} fill={INK} rotation={8} origin="35, 10" />
     </G>
   )
 }
@@ -283,12 +292,12 @@ function DoneCup({ v }: { v: CupVisual }) {
  *  through — then it slides onto the finished cup's exact spot and fades out
  *  there, with that cup already drawn underneath. */
 function MakingCup({ v, live }: { v: CupVisual | undefined; live: boolean }) {
-  const uid = nextId()
+  const uid = useRef(nextId()).current
   const liquid = v?.liquid ?? '#C98A4B'
   const iceCount = v?.ice === 'extra' || v?.ice === 'normal' ? 2 : v?.ice === 'less' ? 1 : 0
   return (
     <Motion x={MAKE.x} y={MAKE.y} frame={HANDOFF} period={PREP_PERIOD} live={live}>
-      <G scale={MAKE.s}>
+      <G x={0} y={0} scale={MAKE.s}>
         <Defs>
           <ClipPath id={`${uid}m`}>
             <Path d={BODY} />
@@ -355,25 +364,18 @@ function PickedUp({ live }: { live: boolean }) {
   return (
     <>
       <Counter />
-      {/* Pivoting where the note meets the counter, so the sway reads as a card
-          propped there rather than one swinging from its top edge. */}
-      <Motion x={180} y={COUNTER_Y} frame={noteSway} period={DONE_PERIOD} live={live}>
+      {/* The note sits still and the words ride on top of it as a real RN
+          <Text> (see the overlay in OrderHero), rather than an SVG <Text>
+          inside a moving <G>.
+          Two reasons, both learned the hard way in #163: SVG text is the one
+          API in this scene that the shipping CheckoutHero never uses, so it is
+          the least proven thing here; and a swaying card would need the words
+          to sway with it, which an overlay can't do. The sway goes, the words
+          stay legible, and the stars and sparkles still carry the motion. */}
+      <G x={180} y={COUNTER_Y}>
         <Rect x={-47} y={-44} width={94} height={44} rx={4} fill="#FFFDF6" stroke={INK} strokeWidth={1.8} />
-        {/* The shop's own rounded face. _layout.tsx blocks render until the
-            fonts load, so unlike the web there is no fallback-metrics window
-            to guard against — the words are never measured in another face. */}
-        <SvgText
-          x={0}
-          y={-24}
-          textAnchor="middle"
-          fontFamily="ShantellSans_700Bold"
-          fontSize={13}
-          fill={INK}
-        >
-          THANK YOU!
-        </SvgText>
         <Path d="M-11-14q11 9 22 0" fill="none" stroke="#E2645F" strokeWidth={2.4} strokeLinecap="round" />
-      </Motion>
+      </G>
       {[0, 1].map((i) => (
         <Motion key={i} x={134 + i * 92} y={COUNTER_Y - 56} frame={STARS[i]} period={DONE_PERIOD} live={live}>
           <Path
@@ -397,5 +399,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#F5E6D3',
     aspectRatio: FRAME.pickup.aspectRatio,
+  },
+  noteText: {
+    ...StyleSheet.absoluteFillObject,
+    top: '58%',
+    alignItems: 'center',
+  },
+  noteWords: {
+    fontFamily: 'ShantellSans_700Bold',
+    fontSize: 13,
+    letterSpacing: 0.3,
+    color: '#2A1E14',
   },
 })

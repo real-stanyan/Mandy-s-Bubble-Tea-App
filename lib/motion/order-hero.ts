@@ -255,10 +255,11 @@ export function pour(floorY: number, len: number) {
 /**
  * The liquid climbing the cup as it is poured; `depth` is the empty distance.
  *
- * The block body is not a style choice. This runs on the UI thread like every
- * other frame here, so it needs the directive, and a concise arrow body has
- * nowhere to put one — which is how the first cut of this scene shipped a
- * plain function to Reanimated and crashed the order screen (#163).
+ * Block body, never a concise arrow: the returned frame runs on the UI thread
+ * (Motion calls it inside useAnimatedProps), so it must open with the
+ * 'worklet' directive — and a concise `=> ({ … })` body has nowhere to put
+ * one. This exact shape crashed every Track Order tap once (#163); the
+ * invariant test in motion-invariants.test.ts now guards it.
  */
 export function fill(depth: number) {
   return (p: number): Frame => {
