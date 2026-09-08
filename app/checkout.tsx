@@ -32,7 +32,7 @@ import {
   type QuoteAmount,
 } from '@/hooks/use-order-quote'
 import { nothingToPay } from '@/lib/order-quote'
-import { checkoutCta } from '@/lib/checkout-cta'
+import { checkoutCta, payBar, type PayMethod } from '@/lib/checkout-cta'
 import { buildOrderLines } from '@/lib/order-lines'
 import { usePayment } from '@/hooks/use-payment'
 import { useOrderAcceptance } from '@/hooks/use-order-acceptance'
@@ -78,8 +78,6 @@ import { cartToSlots, type DoodleSlot } from '@/lib/doodle/cartToSlots'
 import { DoodleSection } from '@/components/doodle/DoodleSection'
 import { uploadDoodle } from '@/lib/doodle/uploadDoodle'
 
-type PayMethod = 'card' | 'apple' | 'google'
-
 function groupModifiers(mods: CartModifier[] | undefined): string {
   if (!mods || mods.length === 0) return ''
   const byList = new Map<string, string[]>()
@@ -92,12 +90,6 @@ function groupModifiers(mods: CartModifier[] | undefined): string {
   const parts: string[] = []
   for (const [, names] of byList) parts.push(names.join(', '))
   return parts.join(' · ')
-}
-
-function payLabel(m: PayMethod): string {
-  if (m === 'apple') return 'Pay with Apple Pay'
-  if (m === 'google') return 'Pay with Google Pay'
-  return 'Pay with Card'
 }
 
 export default function CheckoutScreen() {
@@ -321,6 +313,10 @@ export default function CheckoutScreen() {
     // describing the wrong order. The button is already disabled for this;
     // this is the stale-render backstop, same shape as the guards above.
     if (quoteStale) return
+    // Google's button is no longer greyed out while a payment is in flight
+    // (its artwork may not be faded), so this is the only thing stopping a
+    // second tap from opening a second payment sheet for the same order.
+    if (processing) return
 
     setProcessing(true)
     setError(null)
@@ -568,17 +564,38 @@ export default function CheckoutScreen() {
   const isLoading = orderLoading || payLoading || processing
   const acceptance = useOrderAcceptance()
   const deliveryReady = fulfillmentType !== 'DELIVERY' || quote.kind === 'ok'
-  const payDisabled =
-    isLoading ||
+  // "Can't pay" splits in two, because Google's button may only ever be shown
+  // as Google draws it. Their don't-list covers altering its colour and using
+  // "a button color that's similar to the background", and fading black to 40%
+  // over this cream page produced exactly that — a grey button on a light
+  // ground, which is what the store-closed screenshot showed.
+  //
+  // Blocked = a gate the customer has to clear; it can last hours (closed) and
+  // is the state a reviewer is most likely to screenshot, so Google's button is
+  // not rendered at all and our own greyed CTA takes the bar.
+  const payBlocked =
     !acceptance.accepting ||
     !allLabeled ||
-    // Mid-reprice: the total on screen and "is anything owed" both belong to
-    // the previous cart. Costs a re-tap; the alternative is paying against a
-    // number the customer wasn't shown.
-    quoteStale ||
     !deliveryReady ||
     squareInitFailed ||
     cartHasRetiredItems
+  // Busy = a sub-second reprice. Swapping buttons for that would flicker the
+  // bar on every reward tap, so Google's button stays exactly as drawn and the
+  // tap is simply inert — handlePay re-checks every one of these states.
+  const payBusy =
+    isLoading ||
+    // Mid-reprice: the total on screen and "is anything owed" both belong to
+    // the previous cart. Costs a re-tap; the alternative is paying against a
+    // number the customer wasn't shown.
+    quoteStale
+  const payDisabled = payBlocked || payBusy
+
+  const { useGoogleButton: usingGoogleButton, methodLabel } = payBar({
+    method: payMethod,
+    googleButtonAvailable: googlePayButtonAvailable,
+    nothingToPay: payNothing,
+    blocked: payBlocked,
+  })
 
   const cta = checkoutCta({
     accepting: acceptance.accepting,
@@ -586,7 +603,7 @@ export default function CheckoutScreen() {
     busy: isLoading,
     quoteStale,
     nothingToPay: payNothing,
-    payMethodLabel: payLabel(payMethod),
+    payMethodLabel: methodLabel,
   })
 
   if (authLoading && !profile) {
@@ -744,8 +761,12 @@ export default function CheckoutScreen() {
 
             googlePayButtonAvailable is false on binaries built before the
             native module existed — an OTA to one of those keeps the old CTA
-            rather than rendering nothing. */}
-        {payMethod === 'google' && googlePayButtonAvailable && !payNothing ? (
+            rather than rendering nothing.
+
+            usingGoogleButton also drops the button while payment is blocked
+            (see payBlocked): Google's artwork is all-or-nothing, so "closed"
+            gets our own CTA rather than a faded copy of theirs. */}
+        {usingGoogleButton ? (
           // The pill variant floats over the page; this one carries copy, so it
           // sits on an opaque strip of page colour — the totals card scrolled
           // straight through the summary line otherwise (emulator, 2026-09-04).
@@ -763,11 +784,14 @@ export default function CheckoutScreen() {
                 <Text style={styles.gpayAmount}>{formatPrice(displayedTotal)}</Text>
               )}
             </View>
+            {/* No `enabled` prop on purpose: the native view dims itself to
+                40% when disabled, and a faded black button on this cream page
+                is the "colour similar to the background" the guidelines rule
+                out. It stays full-strength black; handlePay is the gate. */}
             <GooglePayButton
               theme="dark"
               type="pay"
               cornerRadius={26}
-              enabled={!payDisabled}
               onPress={handlePay}
               style={styles.gpayButton}
             />
