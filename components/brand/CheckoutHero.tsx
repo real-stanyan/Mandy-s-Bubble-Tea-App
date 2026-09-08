@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-na
 import { useReducedMotion } from 'react-native-reanimated'
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { wavePath } from '@/lib/motion/wave'
-import type { CupVisual, ToppingVisual } from '@/lib/cup-visual'
+import type { CupVisual } from '@/lib/cup-visual'
 import { flapFor, packFor } from '@/lib/motion/checkout-hero'
 import { HERO_MAX_CUPS } from '@/lib/menu/order-cups'
 import { AMP, BODY, INK, Motion, PEARLS, Surface, WL, light, nextId } from '@/components/brand/art-kit'
@@ -91,58 +91,27 @@ export function CheckoutHero({ kind, cups, extra = 0, style }: Props) {
 /* ----------------------------- a cup from the order ----------------------------- */
 
 const LIQ_TOP = 30
-const CUBES: [number, number, number][] = [
-  [16, 0, -10],
-  [27, 2, 8],
-  [38, 0, -5],
-  [22, -8, 6],
-  [33, -7, -8],
-]
-
-function Bed({ t, y, rise, live }: { t: ToppingVisual; y: number; rise: boolean; live: boolean }) {
-  const color = (i: number) => t.colors[i % t.colors.length] ?? t.colors[0]
-  if (t.shape === 'cube') {
-    return (
-      <>
-        {CUBES.map(([x, dy, r], i) =>
-          rise ? (
-            <Motion key={i} x={x + 4} y={y + dy - 2} loop="rise" period={3400 + (i % 2) * 500} delay={i * 500} live={live}>
-              <Rect x={-4} y={-4} width={8} height={8} rx={2} fill={color(i)} rotation={r} />
-            </Motion>
-          ) : (
-            <Rect key={i} x={x} y={y + dy - 6} width={8} height={8} rx={2} fill={color(i)} rotation={r} origin={`${x + 4}, ${y + dy - 2}`} />
-          ),
-        )}
-      </>
-    )
-  }
-  if (t.shape === 'crumb') {
-    return (
-      <>
-        {[
-          [18, -3, 20],
-          [26, -6, -15],
-          [34, -4, 40],
-          [42, -6, 10],
-        ].map(([x, dy, r], i) => (
-          <Rect key={i} x={x} y={LIQ_TOP + dy} width={6} height={4} rx={1} fill={color(0)} rotation={r} origin={`${x}, ${LIQ_TOP + dy}`} />
-        ))}
-      </>
-    )
-  }
-  const r = t.shape === 'sphere' ? 3.6 : 3.2
-  const spots = t.shape === 'sphere' ? PEARLS.slice(0, 5) : PEARLS
+/** The bed every cup gets: the Mini Cup’s seven pearls, drifting up and
+ *  settling back on their own stagger. Same in every cup on purpose.
+ *
+ *  Cups used to draw the customer’s actual toppings, shape by shape. At the
+ *  size they are on the counter — 43px tall, three or four in a row — a bed of
+ *  cubes next to a bed of pearls next to a scatter of crumbs read as debris,
+ *  not as a drink. What the scene is for is recognition, and the ticket beside
+ *  it is what carries the build. So the pieces are uniform and the liquid is
+ *  not: the colour, the foam, the ice are still the customer’s own.
+ *
+ *  Port of web #369, with the part that matters here: ALL SEVEN move. The
+ *  beds this replaces only ever animated the first one (rise={i === 0}), so
+ *  most cups showed a still pile. */
+function Pearls({ live }: { live: boolean }) {
   return (
     <>
-      {spots.map(([x, py], i) =>
-        rise ? (
-          <Motion key={i} x={x} y={y + (py - 71)} loop="rise" period={3200 + (i % 3) * 500} delay={i * 450} live={live}>
-            <Circle r={r} fill={color(i)} />
-          </Motion>
-        ) : (
-          <Circle key={i} cx={x} cy={y + (py - 71)} r={r} fill={color(i)} />
-        ),
-      )}
+      {PEARLS.map(([x, y], i) => (
+        <Motion key={i} x={x} y={y} loop="rise" period={3200 + (i % 3) * 500} delay={i * 450} live={live}>
+          <Circle r={3.4} fill="#3B2317" />
+        </Motion>
+      ))}
     </>
   )
 }
@@ -150,8 +119,6 @@ function Bed({ t, y, rise, live }: { t: ToppingVisual; y: number; rise: boolean;
 /** The customer's cup: cup-visual in, the Mini Cup's cup out — lid and straw on every one. */
 function OrderCup({ v, x, y, s, live }: { v: CupVisual; x: number; y: number; s: number; live: boolean }) {
   const uid = useRef(nextId()).current
-  const beds = v.toppings.filter((t) => t.placement === 'bottom').slice(0, 3)
-  const floating = v.toppings.filter((t) => t.placement === 'top').slice(0, 1)
   const iceCount = v.ice === 'extra' || v.ice === 'normal' ? 3 : v.ice === 'less' ? 2 : 0
   const liquidOpacity = Math.min(1, 0.74 + Math.min(v.sugar, 1) * 0.26)
   return (
@@ -183,12 +150,7 @@ function OrderCup({ v, x, y, s, live }: { v: CupVisual; x: number; y: number; s:
             {iceCount > 2 ? <Rect x={24} y={LIQ_TOP + 20} width={9} height={9} rx={2} rotation={-6} origin={`28, ${LIQ_TOP + 24}`} /> : null}
           </G>
         ) : null}
-        {beds.map((t, i) => (
-          <Bed key={`${t.name}-${i}`} t={t} y={71 - i * 9} rise={i === 0} live={live} />
-        ))}
-        {floating.map((t, i) => (
-          <Bed key={`top-${i}`} t={t} y={LIQ_TOP} rise={false} live={live} />
-        ))}
+        <Pearls live={live} />
         {v.hasFoam ? (
           <>
             <Path
