@@ -252,12 +252,22 @@ export function pour(floorY: number, len: number) {
   };
 }
 
-/** The liquid climbing the cup as it is poured; `depth` is the empty distance. */
+/**
+ * The liquid climbing the cup as it is poured; `depth` is the empty distance.
+ *
+ * The block body is not a style choice. This runs on the UI thread like every
+ * other frame here, so it needs the directive, and a concise arrow body has
+ * nowhere to put one — which is how the first cut of this scene shipped a
+ * plain function to Reanimated and crashed the order screen (#163).
+ */
 export function fill(depth: number) {
-  return (p: number): Frame => ({
-    ...REST,
-    ty: depth * (1 - easeInOut(win(p, PREP.pourFrom, PREP.pourTo))),
-  });
+  return (p: number): Frame => {
+    'worklet';
+    return {
+      ...REST,
+      ty: depth * (1 - easeInOut(win(p, PREP.pourFrom, PREP.pourTo))),
+    };
+  };
 }
 
 /** A pearl or an ice cube going in: hidden, then dropped, with a small squash. */
