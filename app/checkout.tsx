@@ -1579,7 +1579,9 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 4,
     marginBottom: 12,
-    aspectRatio: 1.85,
+    // No aspectRatio here: the hero sets its own, because pickup and delivery
+    // are cropped differently and only the component knows which it draws.
+    // This style is spread last, so a value here would win and un-crop it.
   },
   notesInput: {
     minHeight: 64,
