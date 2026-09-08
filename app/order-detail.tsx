@@ -1,5 +1,5 @@
 import { Paper } from '@/components/ui/GrainOverlay'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -35,6 +35,9 @@ import { DELIVERY_DRIVER, distanceKmText, etaText } from '@/lib/delivery'
 import { deriveDeliverySteps } from '@/lib/dispatch-steps'
 import { reorder } from '@/components/orders/reorder'
 import { ScheduledPickupCard } from '@/components/orders/ScheduledPickupCard'
+import { OrderHero } from '@/components/brand/OrderHero'
+import { orderScene } from '@/lib/order-scene'
+import { extraCups, orderCups } from '@/lib/menu/order-cups'
 import { useCartStore } from '@/store/cart'
 import { T, FONT, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import {
@@ -334,6 +337,21 @@ export default function OrderDetailScreen() {
             priceCents: null as number | null,
           }
         })
+
+  // What the order hero draws, and the cups it draws with — the customer's own
+  // build, through the same cup-visual mapper the item sheet and the checkout
+  // hero use. Null for a cancelled order and for a delivery while the live map
+  // owns the screen; see lib/order-scene.
+  const scene = orderScene({
+    state: displayState,
+    isDelivery,
+    dispatchStep: dispatchUi.stepIndex,
+    scheduledAhead: storeOrder?.scheduledPickupAt
+      ? Date.parse(storeOrder.scheduledPickupAt) > Date.now()
+      : false,
+  })
+  const heroCups = useMemo(() => orderCups(items), [items])
+  const heroExtra = useMemo(() => extraCups(items), [items])
 
   const handleReorder = useCallback(() => {
     if (!storeOrder) return
@@ -647,6 +665,15 @@ export default function OrderDetailScreen() {
             <Text style={styles.pickupNumber}>{pickupNumber}</Text>
           </View>
 
+          {/* What is happening to the drinks, under the number that collects
+              them: the ticket printing, the tin being shaken, the counter they
+              are waiting on, the note left after. Absent for a cancelled order
+              and while the live map has the screen (components/brand/OrderHero,
+              lib/order-scene). */}
+          {scene && heroCups.length > 0 ? (
+            <OrderHero scene={scene} cups={heroCups} extra={heroExtra} style={styles.orderHero} />
+          ) : null}
+
           {/* Scheduled pickup: the chosen time + "I'm here" early release —
               only while the order is still in flight. */}
           {!isDelivery && !isTerminal && storeOrder?.scheduledPickupAt ? (
@@ -783,6 +810,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
+  orderHero: {
+    marginTop: 16,
+    borderRadius: RADIUS.card,
+    // The scene keeps its own daylight in both themes (the PIN rule), so it
+    // gets a line rather than borrowing the card's surface.
+    borderWidth: 1,
+    borderColor: T.line,
+  },
   pickupCard: {
     marginTop: 24,
     width: '100%',
