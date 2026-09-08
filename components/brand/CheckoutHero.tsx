@@ -40,12 +40,8 @@ type Props = {
  *
  * The aspect lives here rather than at the call site because only this
  * component knows which scene it is drawing.
- *
- * Exported because the order hero draws in the same room and has to agree: its
- * four drawn scenes wear the pickup frame, so the card does not jump when the
- * order advances into Ready and this hero takes over.
  */
-export const FRAME = {
+const FRAME = {
   pickup: { viewBox: '0 12 360 156', aspectRatio: 360 / 156 },
   delivery: { viewBox: '0 0 360 200', aspectRatio: 1.85 },
 } as const
