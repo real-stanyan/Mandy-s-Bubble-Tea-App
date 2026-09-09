@@ -84,6 +84,10 @@ export const ProductCard = memo(function ProductCard({
     const t = setTimeout(() => setPhotoSlow(true), 160)
     return () => clearTimeout(t)
   }, [])
+  // Wired to both onLoad and onDisplay: a photo served straight from the
+  // memory cache can be on screen before (or without) onLoad, and a sketch
+  // left over a visible photo is worse than no sketch at all. Running the
+  // fade twice is harmless.
   const onPhotoLoad = () => {
     sketchOpacity.value = withTiming(0, { duration: 260 }, (finished) => {
       if (finished) runOnJS(setSketchGone)(true)
@@ -133,6 +137,7 @@ export const ProductCard = memo(function ProductCard({
             contentPosition="center"
             transition={160}
             onLoad={onPhotoLoad}
+            onDisplay={onPhotoLoad}
           />
         ) : null}
         {showSketch ? (
