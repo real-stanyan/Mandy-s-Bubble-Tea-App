@@ -8,34 +8,39 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
-import { Frost, glassTabBarAvailable } from '@/components/ui/GlassTabBar'
+import { Frost, frostAvailable } from '@/components/ui/GlassTabBar'
 import { Icon, type IconName } from '@/components/brand/Icon'
 import { SLIDE_MS } from '@/lib/motion/slide'
 import { haptic } from '@/lib/haptics'
-import { IS_EVENING, T } from '@/constants/theme'
+import { CTA, IS_EVENING } from '@/constants/theme'
 
-// The tab bar as a floating pill: ink-dark, lifted off the bottom edge, the
-// page scrolling on underneath it. Icons only; the active one sits in a
-// lighter window that slides between tabs (Slide), the home glyph filling in
-// when it is the one. Native blur under the ink where the binary can blur —
-// iOS — and a solid pill where it cannot. Rick's reference, 2026-09-09: the
-// Instagram bar.
+// The tab bar as a floating pill of frosted glass — clear paper by day, dark
+// glass at night — lifted off the bottom edge with the page scrolling on
+// underneath. Icons only; the active one sits in a window nearly the pill's
+// own height that slides between tabs (Slide), the home glyph filling in
+// when it is the one. Proportions from the Instagram bar (Rick, 2026-09-09):
+// height an eighth of the screen width, a twentieth of it clear on each side,
+// the window inset four points from the pill's edge.
 
-export const FLOATING_BAR_H = 64
-/** Lift above the bottom safe inset — clear of the gesture handle on phones
- *  that report only a sliver of inset. */
-export const FLOATING_BAR_GAP = 16
+export const FLOATING_BAR_H = 52
 export const FLOATING_BAR_MARGIN = 20
-const BAR_PAD = 6
-const PILL_H = 48
+/** Lift off the bottom edge. Where the device reports a home-indicator inset
+ *  the pill sits a little inside it (as Instagram does); where there is only
+ *  a sliver, well clear of the gesture handle. */
+export function floatingBarLift(insetBottom: number): number {
+  return Math.max(14, insetBottom - 8)
+}
+const BAR_PAD = 4
+const WINDOW_H = FLOATING_BAR_H - 8
+const WINDOW_MAX_W = 78
 const SLIDE = { duration: SLIDE_MS, easing: Easing.out(Easing.exp) }
 
-/** What content must keep clear of at the bottom: the pill, its lift, and
- *  the inset under it. Screens inside the navigator get the same number from
+/** What content must keep clear of at the bottom: the pill and its lift.
+ *  Screens inside the navigator get the same number from
  *  useBottomTabBarHeight; things mounted beside it (the mini cart bar) ask
  *  here. */
 export function floatingTabBarClearance(insetBottom: number): number {
-  return FLOATING_BAR_H + FLOATING_BAR_GAP + insetBottom
+  return FLOATING_BAR_H + floatingBarLift(insetBottom)
 }
 
 const ICONS: Record<string, IconName> = {
@@ -45,13 +50,21 @@ const ICONS: Record<string, IconName> = {
   account: 'user',
 }
 
-// Cream on ink in both themes: the pill is the one deliberately dark surface
-// on the day page (PIN's reasoning) and simply the card tone at night.
-const BAR_BG = IS_EVENING ? 'rgba(44,37,30,0.94)' : 'rgba(42,30,20,0.92)'
-const BAR_BG_SOLID = IS_EVENING ? '#2C251E' : '#2A1E14'
-const ON = '#FFF3DE'
-const DIM = 'rgba(255,243,222,0.55)'
-const WINDOW = 'rgba(255,243,222,0.13)'
+// Frosted glass carries a light tint by day and a dark one at night; where
+// the device cannot blur, the same surfaces go nearly solid so the page does
+// not muddy through them.
+const BLURRED = frostAvailable(true)
+const GLASS = IS_EVENING
+  ? BLURRED
+    ? 'rgba(26,21,18,0.62)'
+    : 'rgba(34,28,22,0.96)'
+  : BLURRED
+    ? 'rgba(255,249,240,0.58)'
+    : 'rgba(255,249,240,0.96)'
+const EDGE = IS_EVENING ? 'rgba(245,237,225,0.12)' : 'rgba(42,30,20,0.10)'
+const ON = IS_EVENING ? '#F5EDE1' : '#2A1E14'
+const DIM = IS_EVENING ? 'rgba(245,237,225,0.55)' : 'rgba(42,30,20,0.5)'
+const WINDOW = IS_EVENING ? 'rgba(245,237,225,0.13)' : 'rgba(42,30,20,0.08)'
 
 export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   const reportHeight = useContext(BottomTabBarHeightCallbackContext)
@@ -64,16 +77,11 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
   const slotW = barW > 0 ? (barW - BAR_PAD * 2) / count : 0
 
   return (
-    <View pointerEvents="box-none" style={[styles.root, { bottom: insets.bottom + FLOATING_BAR_GAP }]}>
+    <View pointerEvents="box-none" style={[styles.root, { bottom: floatingBarLift(insets.bottom) }]}>
       <View style={styles.bar} onLayout={(e) => setBarW(e.nativeEvent.layout.width)}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Frost />
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: glassTabBarAvailable ? BAR_BG : BAR_BG_SOLID },
-            ]}
-          />
+          <Frost small intensity={IS_EVENING ? 60 : 50} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: GLASS }]} />
         </View>
         <SlidingWindow index={state.index} slotW={slotW} />
         {state.routes.map((route, i) => {
@@ -112,7 +120,7 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
               <View>
                 <Icon
                   name={ICONS[route.name] ?? 'home'}
-                  size={24}
+                  size={22}
                   color={focused ? ON : DIM}
                   filled={focused}
                 />
@@ -132,16 +140,18 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
   )
 }
 
-// The lighter window behind the active icon. First placement is instant;
-// Reduce Motion keeps every placement that way.
+// The window behind the active icon: centred in its slot, capped so four
+// tabs on a wide phone do not turn it into a bar of its own. First placement
+// is instant; Reduce Motion keeps every placement that way.
 function SlidingWindow({ index, slotW }: { index: number; slotW: number }) {
   const reduced = useReducedMotion()
   const x = useSharedValue(0)
   const shown = useSharedValue(0)
   const placed = useRef(false)
+  const w = Math.min(WINDOW_MAX_W, Math.max(0, slotW - 8))
   useEffect(() => {
     if (slotW === 0) return
-    const target = BAR_PAD + index * slotW + 4
+    const target = BAR_PAD + index * slotW + (slotW - w) / 2
     if (!placed.current || reduced) {
       x.value = target
       shown.value = 1
@@ -149,15 +159,13 @@ function SlidingWindow({ index, slotW }: { index: number; slotW: number }) {
       return
     }
     x.value = withTiming(target, SLIDE)
-  }, [index, slotW, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [index, slotW, w, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
   const style = useAnimatedStyle(() => ({
     opacity: shown.value,
     transform: [{ translateX: x.value }],
   }))
   if (slotW === 0) return null
-  return (
-    <Animated.View pointerEvents="none" style={[styles.window, { width: slotW - 8 }, style]} />
-  )
+  return <Animated.View pointerEvents="none" style={[styles.window, { width: w }, style]} />
 }
 
 const styles = StyleSheet.create({
@@ -176,19 +184,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,243,222,0.10)',
+    borderColor: EDGE,
     shadowColor: '#2A1E14',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.28,
-    shadowRadius: 22,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: IS_EVENING ? 0.45 : 0.16,
+    shadowRadius: 18,
+    elevation: 8,
   },
   window: {
     position: 'absolute',
     left: 0,
-    top: (FLOATING_BAR_H - PILL_H) / 2,
-    height: PILL_H,
-    borderRadius: PILL_H / 2,
+    top: (FLOATING_BAR_H - WINDOW_H) / 2,
+    height: WINDOW_H,
+    borderRadius: WINDOW_H / 2,
     backgroundColor: WINDOW,
   },
   tab: {
@@ -201,11 +209,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     right: -10,
-    minWidth: 18,
-    height: 18,
+    minWidth: 17,
+    height: 17,
     paddingHorizontal: 5,
     borderRadius: 9,
-    backgroundColor: T.star,
+    backgroundColor: CTA.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -213,6 +221,7 @@ const styles = StyleSheet.create({
     fontFamily: 'JetBrainsMono_700Bold',
     fontSize: 10,
     lineHeight: 12,
-    color: '#2A1E14',
+    color: CTA.on,
   },
 })
+
