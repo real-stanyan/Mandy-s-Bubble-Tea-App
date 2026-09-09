@@ -318,11 +318,14 @@ export function ItemDetailContent({
       return false
     }
     if (list.maxSelected === 1) return current < 1
-    // Exclusive modifier (Cheese Cream / Brulee): 0-or-1 and partner-mutex.
+    // Exclusive modifier (Cheese Cream / Brulee): partner-mutex only. Each
+    // still stacks on its own, bounded by the flat three-topping total below
+    // — same as every other topping, and the same as the web's canAdd and the
+    // chatbox validator. The `current >= 1` hard cap that used to sit here was
+    // this file disagreeing with all three.
     if (EXCLUSIVE_TOPPINGS.includes(mod.name)) {
       const partnerId = getExclusivePartner(list, modifierId)
       if (partnerId && (counts[partnerId] ?? 0) > 0) return false
-      if (current >= 1) return false
     }
     if (isToppingList(list.name)) {
       const mod = list.modifiers.find((m) => m.id === modifierId)
@@ -683,10 +686,14 @@ export function ItemDetailContent({
                       <View style={styles.tileGrid}>
                         {items.map(({ option: mod, identity }) => {
                           const count = counts[mod.id] ?? 0
-                          const isExclusive = EXCLUSIVE_TOPPINGS.includes(mod.name)
                           const canInc = canIncrement(ml, mod.id)
                           const locked = isLocked(mod.name)
                           return (
+                            // Every topping in this list gets a stepper. What
+                            // Cheese Cream and Brulee cannot do is sit in the
+                            // cup together — canIncrement handles that — and
+                            // hiding the stepper here was a second, unwritten
+                            // rule that capped both at one.
                             <ToppingTile
                               key={mod.id}
                               name={mod.name}
@@ -698,7 +705,7 @@ export function ItemDetailContent({
                               soldOut={mod.soldOut === true}
                               disabled={count === 0 && !canInc}
                               disabledReason={toppingBlockReason(ml, mod.id)}
-                              supportsStepper={!isExclusive}
+                              supportsStepper
                               canIncrement={canInc}
                               canDecrement={!(locked && count <= 1)}
                               onIncrement={() => incrementModifier(ml, mod.id)}
