@@ -50,6 +50,16 @@ interface CartState {
   addItem: (item: Omit<CartItem, 'quantity' | 'lineId'>) => void
   removeItem: (lineId: string) => void
   updateQuantity: (lineId: string, quantity: number) => void
+  /** Swap one line for a re-customised version of itself (the checkout
+   *  page's Edit). `quantity` is the new total for that drink. The row keeps
+   *  its place; an edit that lands on a drink already in the bag folds the
+   *  two together; per-cup label selections ride along to the new key so a
+   *  sticker picked before the edit is not lost. Mirrors web replaceLine. */
+  replaceItem: (
+    lineId: string,
+    item: Omit<CartItem, 'quantity' | 'lineId'>,
+    quantity: number,
+  ) => void
   clearCart: () => void
   /** Alias for clearCart — also wipes labelSelections. */
   clear: () => void
@@ -73,6 +83,31 @@ function newSessionId(): string {
   const b = Math.random().toString(16).slice(2, 10)
   const t = Date.now().toString(16)
   return `${t}-${a}-${b}`
+}
+
+/** Re-key one line's cup selections onto another line: cup i of `fromId`
+ *  becomes cup `offset + i` of `toId`, dropped if that lands past `maxQty`.
+ *  Selections already under `toId` (a twin line's own cups) are kept. */
+function moveSelectionsToLine(
+  selections: Record<string, CupLabelSelection>,
+  fromId: string,
+  toId: string,
+  offset: number,
+  maxQty: number,
+): Record<string, CupLabelSelection> {
+  const prefix = `${fromId}:`
+  const next: Record<string, CupLabelSelection> = {}
+  for (const [k, v] of Object.entries(selections)) {
+    if (!k.startsWith(prefix)) {
+      next[k] = v
+      continue
+    }
+    const idx = Number(k.slice(prefix.length))
+    if (!Number.isFinite(idx)) continue
+    const target = offset + idx
+    if (target < maxQty) next[cupKey(toId, target)] = v
+  }
+  return next
 }
 
 export function buildLineId(variationId: string, modifiers: CartModifier[]): string {
@@ -183,6 +218,68 @@ export const useCartStore = create<CartState>()(
               i.lineId === lineId ? { ...i, quantity } : i,
             ),
             labelSelections: nextSelections,
+          }
+        }),
+
+      replaceItem: (lineId, item, quantity) =>
+        set((state) => {
+          const qty = Math.max(1, Math.floor(quantity))
+          const modifiers = item.modifiers ?? []
+          const newId = buildLineId(item.variationId, modifiers)
+          const oldIdx = state.items.findIndex((i) => i.lineId === lineId)
+          if (oldIdx === -1) {
+            // The line went away under the form (a cleared bag). The
+            // customer still wants this drink: add it, quietly.
+            const twin = state.items.find((i) => i.lineId === newId)
+            return {
+              items: twin
+                ? state.items.map((i) =>
+                    i.lineId === newId ? { ...i, quantity: i.quantity + qty } : i,
+                  )
+                : [...state.items, { ...item, modifiers, lineId: newId, quantity: qty }],
+            }
+          }
+          if (newId === lineId) {
+            // Same drink, maybe a new quantity.
+            const nextSelections: Record<string, CupLabelSelection> = {}
+            for (const [k, v] of Object.entries(state.labelSelections)) {
+              if (k.startsWith(`${lineId}:`)) {
+                const cupIdx = parseInt(k.split(':').pop()!, 10)
+                if (cupIdx < qty) nextSelections[k] = v
+              } else {
+                nextSelections[k] = v
+              }
+            }
+            return {
+              items: state.items.map((i) =>
+                i.lineId === lineId ? { ...i, ...item, modifiers, quantity: qty } : i,
+              ),
+              labelSelections: nextSelections,
+            }
+          }
+          const twin = state.items.find((i) => i.lineId === newId)
+          if (!twin) {
+            const items = state.items.slice()
+            items[oldIdx] = { ...item, modifiers, lineId: newId, quantity: qty }
+            return {
+              items,
+              labelSelections: moveSelectionsToLine(state.labelSelections, lineId, newId, 0, qty),
+            }
+          }
+          // Edited into a drink that is already in the bag: fold these cups in
+          // after the ones it has, and drop the row that was edited.
+          const offset = twin.quantity
+          return {
+            items: state.items
+              .filter((i) => i.lineId !== lineId)
+              .map((i) => (i.lineId === newId ? { ...i, quantity: i.quantity + qty } : i)),
+            labelSelections: moveSelectionsToLine(
+              state.labelSelections,
+              lineId,
+              newId,
+              offset,
+              offset + qty,
+            ),
           }
         }),
 

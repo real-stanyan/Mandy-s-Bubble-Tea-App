@@ -676,6 +676,35 @@ export default function CheckoutScreen() {
     )
   }
 
+  // Every line removed from the order block: nothing to pay for. Not while a
+  // payment is in flight (its lines were captured at tap time) and not once
+  // it has landed — clearCart() empties the bag right before OrderPlaced.
+  if (items.length === 0 && !placed && !processing) {
+    return (
+      <View style={styles.root}>
+        <GrainGround />
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 40 }}>
+          <InlineHeader onBack={handleBack} total={0} />
+          <CardBlock eyebrow="Your order" title="Nothing in your bag">
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 12 }}>
+              <Text style={styles.emptyBody}>
+                Every drink was taken out. Pick something from the menu and come back.
+              </Text>
+              <Pressable
+                onPress={() => router.navigate('/(tabs)/menu')}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.emptyBtnText}>Browse the menu</Text>
+              </Pressable>
+            </View>
+          </CardBlock>
+        </ScrollView>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.root}>
       <GrainGround />
@@ -1069,7 +1098,15 @@ const pickupStyles = StyleSheet.create({
   },
 })
 
+// The lines with their controls. This block used to be read-only, so changing
+// a drink meant leaving checkout for the cart sheet (which itself only does
+// quantity). Now: −/+ per line, Remove, Edit (the detail route, pre-filled,
+// with "Update cart" swapping the line), and a way back to the menu for one
+// more drink.
 function OrderItemsBlock({ items }: { items: CartItem[] }) {
+  const router = useRouter()
+  const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const removeItem = useCartStore((s) => s.removeItem)
   const count = items.reduce((s, i) => s + i.quantity, 0)
   return (
     <CardBlock eyebrow="Your order" title={`${count} drink${count === 1 ? '' : 's'}`}>
@@ -1093,17 +1130,84 @@ function OrderItemsBlock({ items }: { items: CartItem[] }) {
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.itemName} numberOfLines={1}>
-                {it.quantity}× {it.name}
+                {it.name}
               </Text>
               {groupModifiers(it.modifiers) ? (
                 <Text style={styles.itemSub} numberOfLines={2}>
                   {groupModifiers(it.modifiers)}
                 </Text>
               ) : null}
+              <View style={styles.itemActions}>
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/menu/[id]', params: { id: it.id, edit: it.lineId } })
+                  }
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${it.name}`}
+                >
+                  <Text style={styles.itemActionEdit}>Edit</Text>
+                </Pressable>
+                <Text style={styles.itemActionDot}>·</Text>
+                <Pressable
+                  onPress={() => removeItem(it.lineId)}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${it.name}`}
+                >
+                  <Text style={styles.itemActionRemove}>Remove</Text>
+                </Pressable>
+              </View>
             </View>
-            <Text style={styles.itemPrice}>{formatPrice(it.price * it.quantity)}</Text>
+            <View style={styles.itemRight}>
+              <Text style={styles.itemPrice}>{formatPrice(it.price * it.quantity)}</Text>
+              <View style={styles.itemStepper}>
+                <Pressable
+                  onPress={() => updateQuantity(it.lineId, it.quantity - 1)}
+                  disabled={it.quantity <= 1}
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease quantity"
+                  accessibilityState={{ disabled: it.quantity <= 1 }}
+                  style={({ pressed }) => [
+                    styles.itemStepBtn,
+                    it.quantity <= 1 && { opacity: 0.35 },
+                    pressed && it.quantity > 1 && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={styles.itemStepMinus}>−</Text>
+                </Pressable>
+                <Text style={styles.itemQty} accessibilityLabel={`Quantity ${it.quantity}`}>
+                  {it.quantity}
+                </Text>
+                <Pressable
+                  onPress={() => updateQuantity(it.lineId, it.quantity + 1)}
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase quantity"
+                  style={({ pressed }) => [
+                    styles.itemStepBtn,
+                    styles.itemStepBtnPlus,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Icon name="plus" size={12} color="#fff" />
+                </Pressable>
+              </View>
+            </View>
           </View>
         ))}
+        <Pressable
+          // navigate, not push: the tabs are already under this screen, so
+          // this pops back to them on the menu tab; the mini cart bar brings
+          // the customer back here.
+          onPress={() => router.navigate('/(tabs)/menu')}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.addMoreBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Icon name="plus" size={14} color={T.brand} />
+          <Text style={styles.addMoreText}>Add another drink</Text>
+        </Pressable>
       </View>
     </CardBlock>
   )
@@ -1569,6 +1673,67 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: T.ink,
   },
+  itemActions: { marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  itemActionEdit: { fontFamily: FONT.sans, fontSize: 12, fontWeight: '700', color: T.brand },
+  itemActionDot: { fontFamily: FONT.sans, fontSize: 12, color: T.ink4 },
+  itemActionRemove: { fontFamily: FONT.sans, fontSize: 12, fontWeight: '600', color: T.ink3 },
+  itemRight: { alignItems: 'flex-end', gap: 6 },
+  // Same pill as the cart sheet stepper, one size down — it shares a row
+  // with the price and two text actions.
+  itemStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(42,30,20,0.05)',
+    borderRadius: 999,
+    padding: 2,
+  },
+  itemStepBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: T.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemStepBtnPlus: { backgroundColor: T.brand },
+  itemStepMinus: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: T.ink2,
+    lineHeight: 17,
+    includeFontPadding: false,
+  },
+  itemQty: {
+    minWidth: 14,
+    textAlign: 'center',
+    fontFamily: FONT.mono,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: T.ink,
+  },
+  addMoreBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: T.line,
+  },
+  addMoreText: { fontFamily: FONT.sans, fontSize: 13, fontWeight: '700', color: T.brand },
+  emptyBody: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 18, color: T.ink2 },
+  emptyBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: RADIUS.pill,
+    backgroundColor: CTA.bg,
+  },
+  emptyBtnText: { fontFamily: FONT.sans, fontSize: 13.5, fontWeight: '700', color: CTA.on },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stepperBtn: {
     width: 32, height: 32, borderRadius: 16,
