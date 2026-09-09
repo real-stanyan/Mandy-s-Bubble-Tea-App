@@ -67,16 +67,23 @@ function prefetchThumbs(items: CatalogItem[]) {
   // Two tiers: the small one for cart / order rows, the grid one for the menu
   // cards (~90 × ~7KB webp on top of the ~2.4KB thumbs).
   const raw = items.map((item) => item.imageUrl)
-  const urls = [...prefetchableThumbUrls(raw), ...prefetchableThumbUrls(raw, IMG_GRID)]
-  if (urls.length === 0) return
+  const thumbs = prefetchableThumbUrls(raw)
+  const grid = prefetchableThumbUrls(raw, IMG_GRID)
+  if (thumbs.length === 0 && grid.length === 0) return
   prefetchedThumbs = true
-  Image.prefetch(urls, {
-    cachePolicy: 'disk',
-    headers: SQUARE_IMAGE_HEADERS,
-  }).catch(() => {
-    // Fire-and-forget: offline or optimizer errors are non-fatal; images
-    // load lazily (with raw-URL fallback) when rows render.
-  })
+  const warm = (urls: string[]) =>
+    Image.prefetch(urls, {
+      cachePolicy: 'disk',
+      headers: SQUARE_IMAGE_HEADERS,
+    }).catch(() => {
+      // Fire-and-forget: offline or optimizer errors are non-fatal; images
+      // load lazily (with raw-URL fallback) when rows render.
+    })
+  warm(thumbs)
+  // The grid tier waits a few seconds: the cards on screen are fetching the
+  // same tier right now, and ninety warm-up requests ahead of them in the
+  // queue is exactly the stall this cache is meant to prevent.
+  setTimeout(() => warm(grid), 4000)
 }
 
 function load(force = false): Promise<MenuSnapshot> {

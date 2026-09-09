@@ -11,9 +11,8 @@ import {
   type NativeSyntheticEvent,
   type SectionListData,
   type TextInput,
-  type ViewToken,
 } from 'react-native'
-import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated'
+import Animated, { runOnJS, useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { glassTabBarAvailable } from '@/components/ui/GlassTabBar'
@@ -38,6 +37,7 @@ import {
   GRID_GAP,
   GRID_PAD,
   SECTION_CARD_H,
+  SECTION_H,
   buildGridLayout,
   gridMetrics,
   pairs,
@@ -96,11 +96,6 @@ export default function MenuScreen() {
     : `Closed · opens ${storeStatus.nextLabel}`
 
   const scrollY = useSharedValue(0)
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: (e) => {
-      scrollY.value = e.contentOffset.y
-    },
-  })
 
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -173,6 +168,64 @@ export default function MenuScreen() {
   )
   const firstId = menuSections[0]?.category.id ?? null
   const currentActive = activeId ?? firstId
+
+  // Which category is under the head, worked out from the scroll offset and
+  // the same geometry the list seeks by — not from the list's own viewability,
+  // which cannot see the floating head and kept naming the row hidden under
+  // it. Runs on the UI thread with the scroll; only a change crosses to JS.
+  const sectionOffsets = useMemo(() => {
+    const out: number[] = []
+    let off = contentTop + bannerH
+    for (const sec of menuSections) {
+      out.push(off)
+      off += SECTION_H + sec.data.length * metrics.rowH
+    }
+    return out
+  }, [menuSections, metrics.rowH, contentTop, bannerH])
+  const sectionUnderHead = useSharedValue(0)
+  const onSectionUnderHead = useCallback(
+    (idx: number) => {
+      const id = menuSections[idx]?.category.id
+      if (!id) return
+      // A tap's scroll passes through every category on the way; the rail
+      // waits for the one that was tapped. A change that comes from the finger
+      // ticks once — the rail has moved to a new category.
+      const target = scrollingToRef.current
+      if (target) {
+        if (id === target) scrollingToRef.current = null
+        return
+      }
+      setActiveId((prev) => {
+        if (prev === id) return prev
+        if (prev != null) haptic.tick()
+        return id
+      })
+    },
+    [menuSections],
+  )
+  const trackSections = !searching
+  const onScroll = useAnimatedScrollHandler(
+    {
+      onScroll: (e) => {
+        const y = e.contentOffset.y
+        scrollY.value = y
+        if (!trackSections) return
+        // The first content pixel below the docked head, plus a hair so a
+        // category parked exactly there counts as arrived.
+        const probe = y + headerCollapsed + 2
+        let idx = 0
+        for (let i = 0; i < sectionOffsets.length; i++) {
+          if (sectionOffsets[i] <= probe) idx = i
+          else break
+        }
+        if (idx !== sectionUnderHead.value) {
+          sectionUnderHead.value = idx
+          runOnJS(onSectionUnderHead)(idx)
+        }
+      },
+    },
+    [sectionOffsets, headerCollapsed, trackSections, onSectionUnderHead],
+  )
 
   const pendingScrollRef = useRef<{
     idx: number
@@ -258,33 +311,6 @@ export default function MenuScreen() {
     }, [menuSections, safeScrollToSection]),
   )
 
-  // We used to clear `scrollingToRef` on momentum/drag end, but with rapid
-  // successive taps the FIRST tap's momentum-end fires mid-way through the
-  // SECOND tap's scroll, which lets onViewableChanged snap `activeId` back to
-  // whatever intermediate section is passing through. Instead, keep the ref
-  // set to the latest target and only clear it once that target actually
-  // becomes the first viewable section. A change that comes from the finger
-  // (not a tap) ticks once — the rail has moved to a new category.
-  const onViewableChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems[0]
-    const section = first?.section as { category?: CatalogCategory; search?: boolean } | undefined
-    if (section?.search) return
-    const visibleId = section?.category?.id
-    if (!visibleId) return
-    const target = scrollingToRef.current
-    if (target) {
-      if (visibleId === target) scrollingToRef.current = null
-      return
-    }
-    setActiveId((prev) => {
-      if (prev === visibleId) return prev
-      if (prev != null) haptic.tick()
-      return visibleId
-    })
-  }).current
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 20 }).current
-
   const openItem = useCallback((item: CatalogItem, categorySlug: string | null) => {
     useItemSheetStore.getState().open(item.id, categorySlug)
   }, [])
@@ -349,6 +375,17 @@ export default function MenuScreen() {
     [menuSections, metrics.rowH, contentTop, bannerH],
   )
 
+  // One element, not one per render: a fresh element here re-renders every
+  // mounted cell of the list each time the screen renders.
+  const listHeader = useMemo(
+    () => (
+      <View onLayout={(e) => setBannerH(Math.round(e.nativeEvent.layout.height))}>
+        <PublicHolidayBanner />
+      </View>
+    ),
+    [],
+  )
+
   const onSearchTap = useCallback(() => {
     haptic.pick()
     sectionListRef.current?.getScrollResponder()?.scrollTo({ y: 0, animated: true })
@@ -382,11 +419,7 @@ export default function MenuScreen() {
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
-        ListHeaderComponent={
-          <View onLayout={(e) => setBannerH(Math.round(e.nativeEvent.layout.height))}>
-            <PublicHolidayBanner />
-          </View>
-        }
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           searching ? (
             <Text style={styles.empty}>No drinks match &quot;{query.trim()}&quot;</Text>
@@ -403,8 +436,6 @@ export default function MenuScreen() {
         windowSize={5}
         getItemLayout={searching ? undefined : gridLayout}
         onScrollBeginDrag={Keyboard.dismiss}
-        onViewableItemsChanged={onViewableChanged}
-        viewabilityConfig={viewabilityConfig}
         onScrollToIndexFailed={handleScrollToIndexFailed}
       />
       <MenuHeader

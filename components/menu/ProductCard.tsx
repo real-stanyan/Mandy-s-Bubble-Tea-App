@@ -1,7 +1,12 @@
 import { memo, useEffect, useState } from 'react'
 import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { Image } from 'expo-image'
-import Animated, { FadeOut } from 'react-native-reanimated'
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
 import { PressScale } from '@/components/ui/PressScale'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { CupArt } from '@/components/brand/CupArt'
@@ -70,29 +75,39 @@ export const ProductCard = memo(function ProductCard({
   // there. The beat matters: a cached photo arrives within a frame or two,
   // and a sketch that flashed on every card while scrolling would read as
   // the menu stuttering.
-  const [photoLoaded, setPhotoLoaded] = useState(false)
   const [photoSlow, setPhotoSlow] = useState(false)
+  // Gone once the fade has finished: the sketch is unmounted by hand rather
+  // than with a layout exit animation, which a list cell can leave behind.
+  const [sketchGone, setSketchGone] = useState(false)
+  const sketchOpacity = useSharedValue(1)
   useEffect(() => {
     const t = setTimeout(() => setPhotoSlow(true), 160)
     return () => clearTimeout(t)
   }, [])
-  const showSketch = !customImage && (!item.imageUrl || (photoSlow && !photoLoaded))
+  const onPhotoLoad = () => {
+    sketchOpacity.value = withTiming(0, { duration: 260 }, (finished) => {
+      if (finished) runOnJS(setSketchGone)(true)
+    })
+  }
+  const sketchStyle = useAnimatedStyle(() => ({ opacity: sketchOpacity.value }))
+  const showSketch = !customImage && (!item.imageUrl || (photoSlow && !sketchGone))
   const glyphSize = Math.round(thumbH * 0.42)
 
+  // The tap is felt on release, not on touch-down: a finger that lands on a
+  // card to scroll the grid is not a press, and answering it on the way down
+  // buzzed once per drag.
   const open = () => {
     if (soldOut) {
       haptic.warn()
       return
     }
+    haptic.tap()
     onOpen(item, categorySlug ?? null)
   }
 
   return (
     <PressScale
       scaleTo={0.975}
-      onPressIn={() => {
-        if (!soldOut) haptic.tap()
-      }}
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={`${name}${price != null ? `, ${formatPrice(price)}` : ''}${soldOut ? ', sold out' : ''}`}
@@ -117,15 +132,11 @@ export const ProductCard = memo(function ProductCard({
             contentFit="cover"
             contentPosition="center"
             transition={160}
-            onLoad={() => setPhotoLoaded(true)}
+            onLoad={onPhotoLoad}
           />
         ) : null}
         {showSketch ? (
-          <Animated.View
-            exiting={FadeOut.duration(260)}
-            style={styles.glyph}
-            pointerEvents="none"
-          >
+          <Animated.View style={[styles.glyph, sketchStyle]} pointerEvents="none">
             <CupArt fill={hashColor(item.id)} stroke={PIN.ink} size={glyphSize} />
           </Animated.View>
         ) : null}
