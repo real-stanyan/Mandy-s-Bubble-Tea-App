@@ -50,21 +50,23 @@ const ICONS: Record<string, IconName> = {
   account: 'user',
 }
 
-// Frosted glass carries a light tint by day and a dark one at night; where
-// the device cannot blur, the same surfaces go nearly solid so the page does
-// not muddy through them.
+// Frosted glass carries a light tint by day and, at night, a warm grey one a
+// clear step lighter than the espresso page — the way the Instagram bar sits
+// grey on black rather than black on black (Rick, 2026-09-09). Where the
+// device cannot blur, the same surfaces go nearly solid so the page does not
+// muddy through them.
 const BLURRED = frostAvailable(true)
 const GLASS = IS_EVENING
   ? BLURRED
-    ? 'rgba(26,21,18,0.62)'
-    : 'rgba(34,28,22,0.96)'
+    ? 'rgba(58,50,43,0.74)'
+    : 'rgba(58,50,43,0.97)'
   : BLURRED
     ? 'rgba(255,249,240,0.58)'
     : 'rgba(255,249,240,0.96)'
-const EDGE = IS_EVENING ? 'rgba(245,237,225,0.12)' : 'rgba(42,30,20,0.10)'
+const EDGE = IS_EVENING ? 'rgba(245,237,225,0.14)' : 'rgba(42,30,20,0.10)'
 const ON = IS_EVENING ? '#F5EDE1' : '#2A1E14'
-const DIM = IS_EVENING ? 'rgba(245,237,225,0.55)' : 'rgba(42,30,20,0.5)'
-const WINDOW = IS_EVENING ? 'rgba(245,237,225,0.13)' : 'rgba(42,30,20,0.08)'
+const DIM = IS_EVENING ? 'rgba(245,237,225,0.58)' : 'rgba(42,30,20,0.5)'
+const WINDOW = IS_EVENING ? 'rgba(245,237,225,0.15)' : 'rgba(42,30,20,0.08)'
 
 export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   const reportHeight = useContext(BottomTabBarHeightCallbackContext)
