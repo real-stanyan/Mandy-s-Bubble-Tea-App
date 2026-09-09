@@ -16,6 +16,7 @@ import { useCartSheetStore } from '@/store/cartSheet'
 import { useFlyToBagStore } from '@/store/flyToBag'
 import { miniCartCue } from '@/lib/motion/mini-cart'
 import { Icon } from '@/components/brand/Icon'
+import { floatingTabBarClearance } from '@/components/ui/FloatingTabBar'
 import { formatPrice } from '@/lib/utils'
 import { T, FONT, SHADOW } from '@/constants/theme'
 
@@ -32,8 +33,9 @@ export function MiniCartBar() {
   // simply there or not. (It used to keep bouncing regardless; the invariant
   // in lib/motion/motion-invariants.test.ts is what surfaced that.)
   const reduced = useReducedMotion()
-  const tabBarHeight =
-    Platform.OS === 'ios' ? 49 + insets.bottom + 8 : 56 + 8 + 8
+  // Sits just above the floating tab pill (which is why this is not
+  // useBottomTabBarHeight: the bar is mounted beside the navigator, not in it).
+  const tabBarHeight = floatingTabBarClearance(insets.bottom)
 
   const barScale = useSharedValue(1)
   const badgeScale = useSharedValue(1)

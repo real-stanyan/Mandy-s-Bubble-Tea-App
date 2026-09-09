@@ -22,14 +22,14 @@ import { CARD_INFO_H } from '@/lib/menu/grid'
 import { T, CTA, PIN, RADIUS, SHADOW } from '@/constants/theme'
 import type { CatalogItem } from '@/types/square'
 
-// One drink on the menu grid: the photo on its category's pastel, the name,
-// the price and a + that opens the sheet.
+// One drink on the menu grid: the photo, the name, the price and a + that
+// opens the sheet.
 //
-// The photos are studio shots on a near-white ground. Multiplied onto the
-// pastel, that ground becomes the pastel and the cup keeps its own colour —
-// the grey studio box disappears and every card in a category shares one
-// warm ground (the board's "照片用 multiply 压在茶色底上"). Drinks without a
-// photo get the cup glyph in a deterministic liquid colour on the same ground.
+// The photo is shown as shot — its own studio ground and all, the same way
+// the home page's This Week cards show it (Rick, 2026-09-09: the board's
+// multiply-onto-pastel treatment was tried and turned down). The category
+// pastel is only the ground under the sketched cup while a photo is on its
+// way, and the whole ground for drinks that have no photo.
 
 type Props = {
   item: CatalogItem
@@ -223,11 +223,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // The whole square, enlarged; multiply drops the studio ground into the tint.
+  // The whole square, enlarged so the cup fills it.
   photo: {
     ...StyleSheet.absoluteFillObject,
     transform: [{ scale: PHOTO_SCALE }, { translateY: 2 }],
-    mixBlendMode: 'multiply',
   },
   glyph: {
     ...StyleSheet.absoluteFillObject,

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
 
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -7,8 +7,8 @@ import { useOrdersStore } from '@/store/orders';
 import { Icon, type IconName } from '@/components/brand/Icon';
 import { MiniCartBar } from '@/components/cart/MiniCartBar';
 import { CartSheet } from '@/components/cart/CartSheet';
-import { GlassTabBarBackground, glassTabBarAvailable } from '@/components/ui/GlassTabBar';
-import { T, FONT } from '@/constants/theme';
+import { FloatingTabBar } from '@/components/ui/FloatingTabBar';
+import { T } from '@/constants/theme';
 
 function TabIcon({ name, color }: { name: IconName; color: string }) {
   return <Icon name={name} color={color} size={24} />;
@@ -28,32 +28,10 @@ export default function TabLayout() {
   return (
     <View style={styles.root}>
       <Tabs
+        // The floating pill (components/ui/FloatingTabBar) draws itself over
+        // the page; screens clear it with useBottomTabBarHeight.
+        tabBar={(props) => <FloatingTabBar {...props} />}
         screenOptions={{
-          tabBarActiveTintColor: T.brand,
-          tabBarInactiveTintColor: T.ink3,
-          tabBarStyle: {
-            backgroundColor: glassTabBarAvailable ? 'transparent' : T.paper,
-            borderTopColor: T.line,
-            borderTopWidth: StyleSheet.hairlineWidth,
-            paddingTop: 8,
-            paddingBottom: Platform.OS === 'android' ? 8 : undefined,
-            // Frosted: the bar floats and the content scrolls under it. Only
-            // where the binary can blur — elsewhere the old solid bar and the
-            // old layout stay exactly as they were.
-            ...(glassTabBarAvailable ? { position: 'absolute' as const } : null),
-          },
-          tabBarBackground: glassTabBarAvailable ? () => <GlassTabBarBackground /> : undefined,
-          tabBarLabelStyle: {
-            fontFamily: FONT.sans,
-            fontSize: 10.5,
-            letterSpacing: 0.1,
-          },
-          tabBarBadgeStyle: {
-            backgroundColor: T.brand,
-            color: '#fff',
-            fontSize: 11,
-            fontWeight: '700',
-          },
           headerStyle: { backgroundColor: T.paper },
           headerTintColor: T.ink,
           headerShown: true,

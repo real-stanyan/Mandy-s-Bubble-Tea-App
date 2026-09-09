@@ -15,7 +15,6 @@ import {
 import Animated, { runOnJS, useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
-import { glassTabBarAvailable } from '@/components/ui/GlassTabBar'
 import { useFocusEffect } from 'expo-router'
 import { getStoreStatus, resolveCategorySlug } from '@/components/home/helpers'
 import { useMenuJumpStore } from '@/store/menuJump'
@@ -69,11 +68,9 @@ export default function MenuScreen() {
   const { width } = useWindowDimensions()
   const metrics = useMemo(() => gridMetrics(width), [width])
   const { expanded: headerExpanded, collapsed: headerCollapsed } = headerHeights(insets.top)
-  // With the frosted bar the tab bar floats over the list, so the list needs
-  // its height as extra bottom padding; with the solid bar it takes no space.
-  // The mini cart bar floats over the last row either way.
-  const tabBarHeight = useBottomTabBarHeight()
-  const underBar = glassTabBarAvailable ? tabBarHeight : 0
+  // The tab bar floats over the list, so the list keeps its clearance as
+  // bottom padding. The mini cart bar floats over the last row either way.
+  const underBar = useBottomTabBarHeight()
   // Where the first cell sits in scroll coordinates: the padding that keeps
   // the grid out from under the floating head, plus the holiday banner when
   // there is one (measured — it is rarely there and never the same height).

@@ -1,3 +1,4 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { GrainGround } from '@/components/ui/GrainOverlay'
 import { useCallback, useMemo, useState } from 'react'
 import {
@@ -45,6 +46,8 @@ const EMPTY_LOYALTY: LoyaltyAccount = {
 }
 
 export default function AccountScreen() {
+  // The tab bar floats over the page; keep the last card clear of it.
+  const underBar = useBottomTabBarHeight()
   const auth = useAuth()
   const {
     profile,
@@ -108,7 +111,7 @@ export default function AccountScreen() {
       <View style={styles.screen}>
         <GrainGround />
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: 56 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: 56, paddingBottom: 32 + underBar }]}
           keyboardShouldPersistTaps="handled"
         >
           <SignInCard />
@@ -141,7 +144,7 @@ export default function AccountScreen() {
     <View style={styles.screen}>
       <GrainGround />
       <ScrollView
-        contentContainerStyle={{ paddingTop: 56, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: 56, paddingBottom: 32 + underBar }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={T.brand} />
         }

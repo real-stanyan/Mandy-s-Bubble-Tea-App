@@ -2,6 +2,7 @@
 import { GrainGround } from '@/components/ui/GrainOverlay';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner';
 import { OrderInProgress } from '@/components/home/OrderInProgress';
@@ -20,11 +21,13 @@ import { Reveal } from '@/components/ui/Reveal';
 // on this week, the rewards strip, the offers, browse, and the store itself.
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  // The tab bar floats over the page; keep the last card clear of it.
+  const underBar = useBottomTabBarHeight();
   return (
     <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: insets.top }}>
       <GrainGround />
       <ScrollView
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 + underBar }}
         showsVerticalScrollIndicator={false}
       >
         <PublicHolidayBanner />

@@ -1,3 +1,4 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { GrainGround } from '@/components/ui/GrainOverlay'
 import { useCallback, useMemo, useState } from 'react'
 import {
@@ -42,6 +43,8 @@ function subtitleText(activeCount: number, pastCount: number): string {
 }
 
 export default function OrderScreen() {
+  // The tab bar floats over the page; keep the last card clear of it.
+  const underBar = useBottomTabBarHeight()
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
   const { orders, loading, error, refresh } = useOrderHistory()
@@ -184,7 +187,7 @@ export default function OrderScreen() {
       <GrainGround />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + underBar }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -309,7 +312,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 56,
-    paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
