@@ -48,3 +48,15 @@ export function GlassTabBarBackground() {
 const styles = StyleSheet.create({
   solid: { ...StyleSheet.absoluteFillObject, backgroundColor: IS_EVENING ? '#1A1512' : '#FFF9F0' },
 })
+
+/** The frosted sheet on its own, for other floating chrome (the menu header):
+ *  native blur where the binary has it, nothing where it does not — the
+ *  caller paints its own tint over it (FROST_TINT is the bar's). */
+export function Frost() {
+  if (!BlurView) return null
+  return (
+    <BlurView tint={IS_EVENING ? 'dark' : 'light'} intensity={70} style={StyleSheet.absoluteFill} />
+  )
+}
+
+export const FROST_TINT = PAPER_TINT

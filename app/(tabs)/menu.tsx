@@ -1,29 +1,19 @@
 import { GrainGround } from '@/components/ui/GrainOverlay'
-import { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import {
   View,
-  ScrollView,
   SectionList,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Keyboard,
-  type LayoutChangeEvent,
+  useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type SectionListData,
+  type TextInput,
   type ViewToken,
 } from 'react-native'
-import { Image } from 'expo-image'
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated'
-import { PulseDot } from '@/components/ui/PulseDot'
-import { SLIDE_MS, slotFor, slotFromLayout, type Slot } from '@/lib/motion/slide'
-import * as Haptics from 'expo-haptics'
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { glassTabBarAvailable } from '@/components/ui/GlassTabBar'
@@ -35,97 +25,87 @@ import { SkeletonSection } from '@/components/menu/SkeletonCard'
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner'
 import { CategoryArt } from '@/components/brand/CategoryArt'
 import { CATEGORY_ART_TINT, categoryArtKind } from '@/lib/menu/category-art'
-import { formatPrice } from '@/lib/utils'
 import { useItemSheetStore } from '@/store/itemSheet'
-import { displayNameFor, imageSourceFor, TOP10_CATEGORY_SLUG } from '@/lib/menu/top10-presets'
 import {
   WEEKLY_SPECIALS_CATEGORY_ID,
   WEEKLY_SPECIALS_CATEGORY_NAME,
   orderedWeeklySpecialNames,
-  originalPriceCentsFor,
   normalizeItemName,
 } from '@/lib/menu/weekly-specials'
-import { SquareImage } from '@/components/ui/SquareImage'
-import { IMG_THUMB } from '@/lib/optimized-image'
-import { Icon } from '@/components/brand/Icon'
-import { CupArt } from '@/components/brand/CupArt'
-import { hashColor } from '@/components/brand/color'
-import { isBestseller } from '@/components/menu/bestsellers'
-import { PressScale } from '@/components/ui/PressScale'
+import { MenuHeader, headerHeights } from '@/components/menu/MenuHeader'
+import { ProductCard } from '@/components/menu/ProductCard'
+import {
+  GRID_GAP,
+  GRID_PAD,
+  SECTION_CARD_H,
+  buildGridLayout,
+  gridMetrics,
+  pairs,
+} from '@/lib/menu/grid'
+import { haptic } from '@/lib/haptics'
 import { Reveal } from '@/components/ui/Reveal'
-import { T, CTA, PIN, TYPE, RADIUS, SHADOW } from '@/constants/theme'
+import { T, PIN, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
-type SectionMeta = { category: CatalogCategory; index: number }
-type MenuSection = SectionListData<CatalogItem, SectionMeta>
+// The menu: a floating head (title, search, category rail — MenuHeader) over
+// one SectionList of drinks, two cards to a row (ProductCard), each category
+// opening with its illustrated card. The head folds as the list scrolls and
+// the rail follows the category under the finger; the geometry that lets the
+// list seek straight to a category lives in lib/menu/grid.
 
-// Estimated native heights, used to synthesize getItemLayout so SectionList
-// can seek to any section directly by pixel offset instead of virtualizing
-// forward and firing onScrollToIndexFailed on far jumps.
-// SectionHeader: marginTop(20) + card(144) + marginBottom(8) = 172 — every
-//                section header measures the same (each has a drawing now).
-// Row:           paddingV(10) + image(76) + paddingV(10) = 96
-const ROW_H = 96
-const HEADER_H = 172
-const HEADER_CARD_H = 144
-const FOOTER_H = 0
+type SectionMeta = { category: CatalogCategory; index: number; search?: boolean }
+type MenuSection = SectionListData<CatalogItem[], SectionMeta>
 
-function buildGetItemLayout(sections: MenuSection[]) {
-  return (_data: unknown, flatIndex: number) => {
-    let offset = 0
-    let counter = 0
-    for (const s of sections) {
-      if (counter === flatIndex) return { length: HEADER_H, offset, index: flatIndex }
-      counter++
-      offset += HEADER_H
-      for (let i = 0; i < s.data.length; i++) {
-        if (counter === flatIndex) return { length: ROW_H, offset, index: flatIndex }
-        counter++
-        offset += ROW_H
-      }
-      if (counter === flatIndex) return { length: FOOTER_H, offset, index: flatIndex }
-      counter++
-      offset += FOOTER_H
-    }
-    return { length: 0, offset, index: flatIndex }
-  }
-}
+const SEARCH_SECTION_ID = '__search__'
 
+// SectionList has no numColumns; rows of two cards are the list's items. The
+// animated wrapper is what lets Reanimated read the scroll offset for the head.
+const AnimatedSectionList = Animated.createAnimatedComponent(
+  SectionList,
+) as unknown as typeof SectionList<CatalogItem[], SectionMeta>
 
 export default function MenuScreen() {
   const insets = useSafeAreaInsets()
+  const { width } = useWindowDimensions()
+  const metrics = useMemo(() => gridMetrics(width), [width])
+  const { expanded: headerExpanded, collapsed: headerCollapsed } = headerHeights(insets.top)
   // With the frosted bar the tab bar floats over the list, so the list needs
   // its height as extra bottom padding; with the solid bar it takes no space.
+  // The mini cart bar floats over the last row either way.
   const tabBarHeight = useBottomTabBarHeight()
   const underBar = glassTabBarAvailable ? tabBarHeight : 0
-  const mainContent = useMemo(
-    () => [styles.mainContent, { paddingBottom: 48 + underBar }],
-    [underBar],
-  )
-  const sidebarContent = useMemo(
-    () => [styles.sidebarContent, { paddingBottom: 8 + underBar }],
-    [underBar],
+  // Where the first cell sits in scroll coordinates: the padding that keeps
+  // the grid out from under the floating head, plus the holiday banner when
+  // there is one (measured — it is rarely there and never the same height).
+  const contentTop = headerExpanded + 4
+  const [bannerH, setBannerH] = useState(0)
+  const listContent = useMemo(
+    () => [styles.listContent, { paddingTop: contentTop, paddingBottom: 120 + underBar }],
+    [contentTop, underBar],
   )
   const { items, categories, loading, error } = useMenu()
-  const sectionListRef = useRef<SectionList<CatalogItem, SectionMeta>>(null)
+  const sectionListRef = useRef<SectionList<CatalogItem[], SectionMeta>>(null)
+  const inputRef = useRef<TextInput>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const scrollingToRef = useRef<string | null>(null)
   const [query, setQuery] = useState('')
-  // Where each category tab sits in the rail, so the brand bar can slide to
-  // the active one instead of re-mounting on it (Slide).
-  const [railSlots, setRailSlots] = useState<Record<string, Slot>>({})
   const searching = query.trim().length > 0
   const storeStatus = getStoreStatus()
   const statusLabel = storeStatus.open
     ? `Open · closes ${storeStatus.nextLabel.replace(/^until\s+/, '')}`
     : `Closed · opens ${storeStatus.nextLabel}`
 
+  const scrollY = useSharedValue(0)
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y
+    },
+  })
+
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return []
-    return items.filter((it) =>
-      (it.itemData?.name ?? '').toLowerCase().includes(q),
-    )
+    return items.filter((it) => (it.itemData?.name ?? '').toLowerCase().includes(q))
   }, [items, query])
 
   // Weekly Specials — a virtual shelf pinned first, not a real Square
@@ -149,14 +129,12 @@ export default function MenuScreen() {
     return out
   }, [items])
 
-  const sections = useMemo<MenuSection[]>(() => {
+  const menuSections = useMemo<MenuSection[]>(() => {
     if (categories.length === 0 || items.length === 0) return []
     const base = categories
       .map((cat) => ({
         category: cat,
-        data: items.filter((item) =>
-          item.itemData?.categories?.some((c) => c.id === cat.id),
-        ),
+        data: items.filter((item) => item.itemData?.categories?.some((c) => c.id === cat.id)),
       }))
       .filter((s) => s.data.length > 0)
     const withSpecials =
@@ -172,23 +150,29 @@ export default function MenuScreen() {
             ...base,
           ]
         : base
-    return withSpecials.map((s, i) => ({ category: s.category, index: i, data: s.data }))
+    return withSpecials.map((s, i) => ({ category: s.category, index: i, data: pairs(s.data) }))
   }, [items, categories, specialItems])
 
-  const firstId = sections[0]?.category.id ?? null
-  const currentActive = activeId ?? firstId
-  const railSlot = slotFor(railSlots, currentActive)
-  const measureTab = useCallback(
-    (id: string) => (e: LayoutChangeEvent) => {
-      const slot = slotFromLayout(e.nativeEvent.layout)
-      setRailSlots((prev) => {
-        const cur = prev[id]
-        if (cur && cur.y === slot.y && cur.height === slot.height) return prev
-        return { ...prev, [id]: slot }
-      })
-    },
-    [],
+  // Search results ride the same list as one flat section, so the head and
+  // its scroll offset carry over instead of the whole screen swapping out.
+  const sections = useMemo<MenuSection[]>(() => {
+    if (!searching) return menuSections
+    return [
+      {
+        category: { id: SEARCH_SECTION_ID, name: 'Results' } as CatalogCategory,
+        index: 0,
+        search: true,
+        data: pairs(searchResults),
+      },
+    ]
+  }, [searching, menuSections, searchResults])
+
+  const railCategories = useMemo(
+    () => menuSections.map((s) => ({ id: s.category.id, name: s.category.name })),
+    [menuSections],
   )
+  const firstId = menuSections[0]?.category.id ?? null
+  const currentActive = activeId ?? firstId
 
   const pendingScrollRef = useRef<{
     idx: number
@@ -205,6 +189,9 @@ export default function MenuScreen() {
   // section's native cells may not be laid out yet; calling scrollToLocation
   // straight away can hand a NaN offset to the native ScrollView command,
   // which iOS 26 Fabric turns into an uncaught NSException → SIGABRT.
+  // viewOffset parks the category card right under the docked head; the first
+  // category parks under the open head instead, so tapping it from the top
+  // moves nothing.
   const safeScrollToSection = useCallback(
     (idx: number, animated: boolean, seq: number, attempt = 0) => {
       if (seq !== scrollSeqRef.current) return
@@ -217,6 +204,7 @@ export default function MenuScreen() {
           itemIndex: 0,
           animated,
           viewPosition: 0,
+          viewOffset: idx === 0 ? contentTop : headerCollapsed,
         })
       } catch {
         if (attempt < 4) {
@@ -226,7 +214,7 @@ export default function MenuScreen() {
         }
       }
     },
-    [],
+    [contentTop, headerCollapsed],
   )
 
   const handleScrollToIndexFailed = useCallback(() => {
@@ -237,13 +225,7 @@ export default function MenuScreen() {
       return
     }
     setTimeout(
-      () =>
-        safeScrollToSection(
-          pending.idx,
-          pending.animated,
-          pending.seq,
-          pending.attempt + 1,
-        ),
+      () => safeScrollToSection(pending.idx, pending.animated, pending.seq, pending.attempt + 1),
       120,
     )
   }, [safeScrollToSection])
@@ -251,31 +233,29 @@ export default function MenuScreen() {
   const handleTabPress = useCallback(
     (id: string) => {
       Keyboard.dismiss()
-      const sectionIndex = sections.findIndex((s) => s.category.id === id)
+      const sectionIndex = menuSections.findIndex((s) => s.category.id === id)
       if (sectionIndex < 0) return
       const seq = ++scrollSeqRef.current
       scrollingToRef.current = id
       setActiveId(id)
       safeScrollToSection(sectionIndex, true, seq)
     },
-    [sections, safeScrollToSection],
+    [menuSections, safeScrollToSection],
   )
 
   useFocusEffect(
     useCallback(() => {
       const pending = useMenuJumpStore.getState().pendingSlug
-      if (!pending || sections.length === 0) return
-      const idx = sections.findIndex(
-        (s) => resolveCategorySlug(s.category.name) === pending,
-      )
+      if (!pending || menuSections.length === 0) return
+      const idx = menuSections.findIndex((s) => resolveCategorySlug(s.category.name) === pending)
       useMenuJumpStore.getState().setPending(null)
       if (idx < 0) return
-      const target = sections[idx].category.id
+      const target = menuSections[idx].category.id
       const seq = ++scrollSeqRef.current
       scrollingToRef.current = target
       setActiveId(target)
       requestAnimationFrame(() => safeScrollToSection(idx, false, seq))
-    }, [sections, safeScrollToSection]),
+    }, [menuSections, safeScrollToSection]),
   )
 
   // We used to clear `scrollingToRef` on momentum/drag end, but with rapid
@@ -283,47 +263,97 @@ export default function MenuScreen() {
   // SECOND tap's scroll, which lets onViewableChanged snap `activeId` back to
   // whatever intermediate section is passing through. Instead, keep the ref
   // set to the latest target and only clear it once that target actually
-  // becomes the first viewable section.
-  const onViewableChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const first = viewableItems[0]
-      const section = first?.section as { category?: CatalogCategory } | undefined
-      const visibleId = section?.category?.id
-      if (!visibleId) return
-      const target = scrollingToRef.current
-      if (target) {
-        if (visibleId === target) scrollingToRef.current = null
-        return
-      }
-      setActiveId((prev) => (prev === visibleId ? prev : visibleId))
-    },
-  ).current
+  // becomes the first viewable section. A change that comes from the finger
+  // (not a tap) ticks once — the rail has moved to a new category.
+  const onViewableChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const first = viewableItems[0]
+    const section = first?.section as { category?: CatalogCategory; search?: boolean } | undefined
+    if (section?.search) return
+    const visibleId = section?.category?.id
+    if (!visibleId) return
+    const target = scrollingToRef.current
+    if (target) {
+      if (visibleId === target) scrollingToRef.current = null
+      return
+    }
+    setActiveId((prev) => {
+      if (prev === visibleId) return prev
+      if (prev != null) haptic.tick()
+      return visibleId
+    })
+  }).current
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 20 }).current
 
+  const openItem = useCallback((item: CatalogItem, categorySlug: string | null) => {
+    useItemSheetStore.getState().open(item.id, categorySlug)
+  }, [])
+
   const renderItem = useCallback(
-    ({ item, section, index }: { item: CatalogItem; section: MenuSection; index: number }) => (
-      <ProductRow
-        item={item}
-        categorySlug={resolveCategorySlug(section.category.name)}
-        index={index}
-      />
-    ),
-    [],
+    ({ item: row, section, index }: { item: CatalogItem[]; section: MenuSection; index: number }) => {
+      const slug = section.search ? undefined : resolveCategorySlug(section.category.name)
+      const sectionTint = section.search ? null : tintFor(section.category.name)
+      const cards = (
+        <View style={styles.gridRow}>
+          {row.map((item) => (
+            <ProductCard
+              key={item.id}
+              item={item}
+              categorySlug={slug}
+              tint={sectionTint ?? tintFor(item.itemData?.categories?.[0]?.name)}
+              width={metrics.cardW}
+              thumbH={metrics.thumbH}
+              onOpen={openItem}
+            />
+          ))}
+        </View>
+      )
+      // Only the first screenful animates: rows further down mount off-screen
+      // while scrolling, where an entrance would just be work nobody sees.
+      if (index < 3) return <Reveal index={index}>{cards}</Reveal>
+      return cards
+    },
+    [metrics.cardW, metrics.thumbH, openItem],
   )
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: MenuSection }) => (
-      <Reveal>
-        <SectionHeader category={section.category} count={section.data.length} />
-      </Reveal>
-    ),
-    [],
+    ({ section }: { section: MenuSection }) => {
+      if (section.search) {
+        const n = searchResults.length
+        return (
+          <Text style={styles.resultsCount}>
+            {n} {n === 1 ? 'drink' : 'drinks'}
+          </Text>
+        )
+      }
+      const count = section.data.reduce((s, row) => s + row.length, 0)
+      return (
+        <Reveal>
+          <SectionHeader category={section.category} count={count} />
+        </Reveal>
+      )
+    },
+    [searchResults.length],
   )
 
-  const keyExtractor = useCallback((item: CatalogItem) => item.id, [])
+  const keyExtractor = useCallback((row: CatalogItem[]) => row[0]?.id ?? 'row', [])
 
-  const getItemLayout = useMemo(() => buildGetItemLayout(sections), [sections])
+  // Fixed heights only hold for the menu proper; search rows are measured.
+  const gridLayout = useMemo(
+    () =>
+      buildGridLayout(
+        menuSections.map((s) => s.data.length),
+        metrics.rowH,
+        contentTop + bannerH,
+      ),
+    [menuSections, metrics.rowH, contentTop, bannerH],
+  )
+
+  const onSearchTap = useCallback(() => {
+    haptic.pick()
+    sectionListRef.current?.getScrollResponder()?.scrollTo({ y: 0, animated: true })
+    setTimeout(() => inputRef.current?.focus(), 380)
+  }, [])
 
   if (loading && items.length === 0) {
     return <SkeletonSection />
@@ -341,169 +371,65 @@ export default function MenuScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={styles.root}>
       <GrainGround />
-      <PublicHolidayBanner />
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>MANDY&apos;S · SOUTHPORT</Text>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Menu</Text>
-          <View style={[styles.statusPill, !storeStatus.open && styles.statusPillClosed]}>
-            <PulseDot
-              color={storeStatus.open ? T.green : T.ink4}
-              size={7}
-              active={storeStatus.open}
-            />
-            <Text
-              style={[
-                styles.statusText,
-                { color: storeStatus.open ? T.greenDark : T.ink2 },
-              ]}
-              numberOfLines={1}
-            >
-              {statusLabel}
-            </Text>
+      <AnimatedSectionList
+        ref={sectionListRef}
+        style={styles.list}
+        contentContainerStyle={listContent}
+        scrollIndicatorInsets={{ top: headerExpanded }}
+        sections={sections}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        ListHeaderComponent={
+          <View onLayout={(e) => setBannerH(Math.round(e.nativeEvent.layout.height))}>
+            <PublicHolidayBanner />
           </View>
-        </View>
-      </View>
-      <View style={styles.searchBar}>
-        <Icon name="search" color={T.ink3} size={18} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search drinks"
-          placeholderTextColor={T.ink3}
-          value={query}
-          onChangeText={setQuery}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {query.length > 0 ? (
-          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={styles.searchClearBtn}>
-            <Icon name="close" color={T.ink3} size={16} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {searching ? (
-        <ScrollView
-          style={styles.main}
-          contentContainerStyle={mainContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          onScrollBeginDrag={Keyboard.dismiss}
-        >
-          {searchResults.length === 0 ? (
+        }
+        ListEmptyComponent={
+          searching ? (
             <Text style={styles.empty}>No drinks match &quot;{query.trim()}&quot;</Text>
-          ) : (
-            <View style={styles.searchResults}>
-              <Text style={styles.resultsCount}>
-                {searchResults.length} {searchResults.length === 1 ? 'drink' : 'drinks'}
-              </Text>
-              {searchResults.map((item) => (
-                <ProductRow key={item.id} item={item} />
-              ))}
-            </View>
-          )}
-        </ScrollView>
-      ) : (
-        <View style={styles.container}>
-          <View style={styles.sidebarWrap}>
-            <ScrollView
-              style={styles.sidebar}
-              contentContainerStyle={sidebarContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {sections.map(({ category }) => {
-                const active = category.id === currentActive
-                return (
-                  <TouchableOpacity
-                    key={category.id}
-                    onPress={() => handleTabPress(category.id)}
-                    onLayout={measureTab(category.id)}
-                    activeOpacity={0.7}
-                    style={[styles.tab, active && styles.tabActive]}
-                  >
-                    <Text
-                      style={[styles.tabText, active && styles.tabTextActive]}
-                      numberOfLines={2}
-                    >
-                      {category.name}
-                    </Text>
-                  </TouchableOpacity>
-                )
-              })}
-              {/* One brand bar for the whole rail; it travels to the active tab.
-                  Rendered LAST so it paints over the active tab (paper background):
-                  as the first child it sat under the tabs and never showed (Stan,
-                  2026-09-06). */}
-              <SlidingRail slot={railSlot} />
-            </ScrollView>
-          </View>
-
-          <View style={styles.mainWrap}>
-            <SectionList<CatalogItem, SectionMeta>
-              ref={sectionListRef}
-              style={styles.main}
-              contentContainerStyle={mainContent}
-              sections={sections}
-              keyExtractor={keyExtractor}
-              renderItem={renderItem}
-              renderSectionHeader={renderSectionHeader}
-              stickySectionHeadersEnabled={false}
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={16}
-              keyboardDismissMode="on-drag"
-              initialNumToRender={12}
-              maxToRenderPerBatch={8}
-              windowSize={5}
-              getItemLayout={getItemLayout}
-              onScrollBeginDrag={Keyboard.dismiss}
-              onViewableItemsChanged={onViewableChanged}
-              viewabilityConfig={viewabilityConfig}
-              onScrollToIndexFailed={handleScrollToIndexFailed}
-            />
-          </View>
-        </View>
-      )}
+          ) : null
+        }
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll as unknown as (e: NativeSyntheticEvent<NativeScrollEvent>) => void}
+        scrollEventThrottle={16}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        getItemLayout={searching ? undefined : gridLayout}
+        onScrollBeginDrag={Keyboard.dismiss}
+        onViewableItemsChanged={onViewableChanged}
+        viewabilityConfig={viewabilityConfig}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
+      />
+      <MenuHeader
+        scrollY={scrollY}
+        insetTop={insets.top}
+        open={storeStatus.open}
+        statusLabel={statusLabel}
+        query={query}
+        onQueryChange={setQuery}
+        drinkCount={items.length}
+        inputRef={inputRef}
+        onSearchTap={onSearchTap}
+        categories={railCategories}
+        activeId={currentActive}
+        onTabPress={handleTabPress}
+      />
     </View>
   )
 }
 
-const RAIL_INSET = 12
-const RAIL_SLIDE = { duration: SLIDE_MS, easing: Easing.out(Easing.exp) }
-
-// The rail's brand bar: absolutely positioned in the sidebar's content, it
-// slides (and resizes — tab heights differ with two-line names) to whichever
-// tab is active. First placement is instant; Reduce Motion keeps it that way.
-function SlidingRail({ slot }: { slot: Slot | null }) {
-  const reduced = useReducedMotion()
-  const y = useSharedValue(0)
-  const h = useSharedValue(0)
-  const shown = useSharedValue(0)
-  const placed = useRef(false)
-  useEffect(() => {
-    if (!slot) return
-    const top = slot.y + RAIL_INSET
-    const height = Math.max(0, slot.height - RAIL_INSET * 2)
-    if (!placed.current || reduced) {
-      y.value = top
-      h.value = height
-      shown.value = 1
-      placed.current = true
-      return
-    }
-    y.value = withTiming(top, RAIL_SLIDE)
-    h.value = withTiming(height, RAIL_SLIDE)
-  }, [slot?.y, slot?.height, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
-  const style = useAnimatedStyle(() => ({
-    opacity: shown.value,
-    height: h.value,
-    transform: [{ translateY: y.value }],
-  }))
-  return <Animated.View pointerEvents="none" style={[styles.tabBar, style]} />
+/** The pastel a drink's photo sits on: its category's, or the page's second
+ *  tone for anything Square adds that has no illustration yet. */
+function tintFor(categoryName: string | null | undefined): string {
+  const art = categoryArtKind(categoryName)
+  return art ? CATEGORY_ART_TINT[art] : T.bg2
 }
 
 // One card per category: the name with the count under it at the top of the
@@ -554,218 +480,22 @@ const SectionHeader = memo(function SectionHeader({
   )
 })
 
-function Chip({ label, tone }: { label: string; tone: 'star' | 'special' }) {
-  return (
-    <View style={[styles.chip, tone === 'star' ? styles.chipStar : styles.chipSpecial]}>
-      <Text style={[styles.chipText, tone === 'star' ? styles.chipStarText : styles.chipSpecialText]}>
-        {label}
-      </Text>
-    </View>
-  )
-}
-
-const ProductRow = memo(function ProductRow({
-  item,
-  categorySlug,
-  index,
-}: {
-  item: CatalogItem
-  categorySlug?: string
-  /** Position in its section — the first screenful staggers in. */
-  index?: number
-}) {
-  const rawName = item.itemData?.name ?? 'Unknown'
-  const name = displayNameFor(categorySlug ?? undefined, rawName) || rawName
-  const customImage = imageSourceFor(categorySlug ?? undefined, rawName)
-  const firstVariation = item.itemData?.variations?.[0]
-  const rawPrice = firstVariation?.itemVariationData?.priceMoney?.amount
-  // Inside TOP 10 the locked toppings are mandatory, so show base + surcharge.
-  const surcharge =
-    categorySlug === TOP10_CATEGORY_SLUG ? item.itemData?.top10SurchargeCents ?? 0 : 0
-  const price = rawPrice != null ? Number(rawPrice) + surcharge : undefined
-  const originalPriceCents = originalPriceCentsFor(rawName)
-  const isOnSpecial = originalPriceCents != null && price != null && originalPriceCents > price
-  const variationName = firstVariation?.itemVariationData?.name
-  const showVariationSubtitle =
-    variationName && variationName.toLowerCase() !== 'regular'
-  const soldOut = item.soldOut === true
-
-  const openSheet = () => {
-    if (soldOut) return
-    Haptics.selectionAsync()
-    useItemSheetStore.getState().open(item.id, categorySlug ?? null)
-  }
-
-  const row = (
-    <TouchableOpacity
-      style={[styles.row, soldOut && styles.rowSoldOut]}
-      onPress={openSheet}
-      disabled={soldOut}
-      activeOpacity={0.6}
-    >
-      {customImage ? (
-        <Image
-          source={customImage}
-          style={styles.rowImage}
-          contentFit="cover"
-          contentPosition="center"
-        />
-      ) : item.imageUrl ? (
-        <SquareImage
-          url={item.imageUrl}
-          width={IMG_THUMB}
-          style={styles.rowImage}
-          contentPosition="center"
-        />
-      ) : (
-        <View style={[styles.rowImage, styles.placeholder]}>
-          <CupArt fill={hashColor(item.id)} size={60} />
-        </View>
-      )}
-      <View style={styles.rowInfo}>
-        <View style={styles.rowNameRow}>
-          <Text style={styles.rowName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
-            {name}
-          </Text>
-          {soldOut ? (
-            <View style={styles.soldOutPill}>
-              <Text style={styles.soldOutPillText}>SOLD OUT</Text>
-            </View>
-          ) : null}
-          {!soldOut && isOnSpecial ? <Chip label="SPECIAL" tone="special" /> : null}
-          {!soldOut && !isOnSpecial && isBestseller(rawName) ? (
-            <Chip label="★ BESTSELLER" tone="star" />
-          ) : null}
-        </View>
-        {showVariationSubtitle ? (
-          <Text style={styles.rowSubtitle} numberOfLines={1}>
-            {variationName}
-          </Text>
-        ) : null}
-        {price != null ? (
-          <View style={styles.rowPriceRow}>
-            {isOnSpecial ? (
-              <Text style={styles.rowPriceOriginal}>{formatPrice(originalPriceCents)}</Text>
-            ) : null}
-            <Text style={[styles.rowPrice, isOnSpecial && styles.rowPriceSpecial]}>
-              {formatPrice(price)}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-      <PressScale
-        onPress={(e) => {
-          e.stopPropagation?.()
-          openSheet()
-        }}
-        disabled={soldOut}
-        hitSlop={8}
-        haptic
-        scaleTo={0.88}
-        style={[styles.addBtn, soldOut && styles.addBtnDisabled]}
-      >
-        <Icon name="plus" color={soldOut ? '#fff' : CTA.on} size={18} />
-      </PressScale>
-    </TouchableOpacity>
-  )
-  // Only the first screenful animates: rows further down mount off-screen
-  // while scrolling, where an entrance would just be work nobody sees.
-  if (index != null && index < 6) return <Reveal index={index}>{row}</Reveal>
-  return row
-})
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: T.bg,
   },
-  container: {
+  list: {
     flex: 1,
+  },
+  listContent: {
+    paddingBottom: 120,
+  },
+  gridRow: {
     flexDirection: 'row',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
-  },
-  eyebrow: {
-    ...TYPE.eyebrow,
-    color: T.brand,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 4,
-  },
-  title: {
-    fontFamily: 'ShantellSans_700Bold',
-    fontSize: 34,
-    lineHeight: 38,
-    color: T.ink,
-    letterSpacing: -0.5,
-    flexShrink: 0,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(46,127,82,0.12)',
-    flexShrink: 1,
-  },
-  statusPillClosed: {
-    backgroundColor: 'rgba(42,30,20,0.08)',
-  },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-  },
-  statusText: {
-    fontFamily: 'ShantellSans_600SemiBold',
-    fontSize: 13,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginHorizontal: 12,
-    marginTop: 8,
-    marginBottom: 6,
-    paddingHorizontal: 14,
-    height: 42,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: T.line,
-    backgroundColor: T.paper,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'ShantellSans_400Regular',
-    fontSize: 14,
-    color: T.ink,
-    paddingVertical: 0,
-  },
-  searchClearBtn: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  empty: {
-    textAlign: 'center',
-    fontFamily: 'ShantellSans_400Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: T.ink3,
-    marginTop: 40,
-  },
-  searchResults: {
-    paddingTop: 8,
+    paddingHorizontal: GRID_PAD,
+    gap: GRID_GAP,
+    marginBottom: GRID_GAP,
   },
   center: {
     flex: 1,
@@ -780,63 +510,27 @@ const styles = StyleSheet.create({
     color: T.ink3,
     textAlign: 'center',
   },
-  sidebarWrap: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  sidebar: {
-    flex: 1,
-  },
-  sidebarContent: {
-    paddingVertical: 8,
-  },
-  tab: {
-    minHeight: 64,
-    paddingHorizontal: 6,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabActive: {
-    backgroundColor: T.paper,
-  },
-  tabBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    zIndex: 2,
-    width: 4,
-    backgroundColor: T.brand,
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
-  },
-  tabText: {
-    flex: 1,
-    fontFamily: 'ShantellSans_500Medium',
-    fontSize: 12,
-    lineHeight: 15,
+  empty: {
     textAlign: 'center',
+    fontFamily: 'ShantellSans_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
     color: T.ink3,
+    marginTop: 40,
+    paddingHorizontal: 24,
   },
-  tabTextActive: {
-    fontFamily: 'ShantellSans_600SemiBold',
-    color: T.brand,
-  },
-  mainWrap: {
-    flex: 3.2,
-  },
-  main: {
-    flex: 1,
-  },
-  mainContent: {
-    paddingBottom: 48,
+  resultsCount: {
+    ...TYPE.eyebrow,
+    color: T.ink3,
+    paddingHorizontal: GRID_PAD,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
   sectionHeader: {
-    marginHorizontal: 16,
+    marginHorizontal: GRID_PAD,
     marginTop: 20,
     marginBottom: 8,
-    height: HEADER_CARD_H,
+    height: SECTION_CARD_H,
     paddingHorizontal: 16,
     paddingTop: 12,
     backgroundColor: T.sage,
@@ -880,116 +574,4 @@ const styles = StyleSheet.create({
   onArtSub: { color: PIN.ink2 },
   onSpecials: { color: PIN.ink },
   onSpecialsSub: { color: PIN.ink2 },
-  chip: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  chipStar: { backgroundColor: 'rgba(242,182,74,0.28)' },
-  chipSpecial: { backgroundColor: 'rgba(220,38,38,0.10)' },
-  chipText: {
-    fontFamily: 'ShantellSans_600SemiBold',
-    fontSize: 9,
-    letterSpacing: 0.8,
-  },
-  chipStarText: { color: T.ink2 },
-  chipSpecialText: { color: '#dc2626' },
-  resultsCount: {
-    ...TYPE.eyebrow,
-    color: T.ink3,
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 14,
-  },
-  rowImage: {
-    width: 76,
-    height: 76,
-    borderRadius: RADIUS.tile,
-    backgroundColor: T.sage,
-  },
-  placeholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowInfo: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 4,
-  },
-  rowName: {
-    ...TYPE.cardTitle,
-    color: T.ink,
-  },
-  rowSubtitle: {
-    fontFamily: 'ShantellSans_400Regular',
-    fontSize: 11,
-    color: T.ink3,
-  },
-  rowPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  rowPriceOriginal: {
-    fontFamily: 'JetBrainsMono_700Bold',
-    fontSize: 11,
-    color: T.ink4,
-    textDecorationLine: 'line-through',
-  },
-  // Mono, like every other price in the app (cart, receipt, order card).
-  rowPrice: {
-    ...TYPE.priceSm,
-    color: T.ink,
-  },
-  rowPriceSpecial: {
-    color: '#dc2626',
-  },
-  addBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    backgroundColor: CTA.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  addBtnDisabled: {
-    backgroundColor: T.ink4,
-  },
-  rowSoldOut: {
-    opacity: 0.55,
-  },
-  rowNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  soldOutPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: T.ink2,
-  },
-  soldOutPillText: {
-    fontFamily: 'ShantellSans_600SemiBold',
-    fontSize: 9,
-    letterSpacing: 1.1,
-    color: '#fff',
-  },
-  addBtnGlyph: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 })
