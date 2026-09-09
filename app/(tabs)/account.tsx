@@ -1,10 +1,11 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import Animated from 'react-native-reanimated'
+import { useChromeScrollHandler } from '@/lib/motion/chrome'
 import { GrainGround } from '@/components/ui/GrainOverlay'
 import { useCallback, useMemo, useState } from 'react'
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
@@ -48,6 +49,8 @@ const EMPTY_LOYALTY: LoyaltyAccount = {
 export default function AccountScreen() {
   // The tab bar floats over the page; keep the last card clear of it.
   const underBar = useBottomTabBarHeight()
+  // Reading down shrinks the floating tab pill; scrolling up brings it back.
+  const onScroll = useChromeScrollHandler()
   const auth = useAuth()
   const {
     profile,
@@ -110,13 +113,15 @@ export default function AccountScreen() {
     return (
       <View style={styles.screen}>
         <GrainGround />
-        <ScrollView
+        <Animated.ScrollView
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.scrollContent, { paddingTop: 56, paddingBottom: 32 + underBar }]}
           keyboardShouldPersistTaps="handled"
         >
           <SignInCard />
           <HowItWorks />
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     )
   }
@@ -143,7 +148,9 @@ export default function AccountScreen() {
   return (
     <View style={styles.screen}>
       <GrainGround />
-      <ScrollView
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={{ paddingTop: 56, paddingBottom: 32 + underBar }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={T.brand} />
@@ -203,7 +210,7 @@ export default function AccountScreen() {
         <LegalFooter />
         <SignOutBtn onPress={signOut} />
         <DeleteAccountBtn onConfirm={deleteAccount} />
-      </ScrollView>
+      </Animated.ScrollView>
       {/* Mount only after loyalty data arrives: the celebration effect records
           the current tier to storage, and before `account` settles `tier` is a
           placeholder silver — recording it would overwrite a gold/diamond

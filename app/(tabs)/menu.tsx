@@ -42,6 +42,7 @@ import {
   pairs,
 } from '@/lib/menu/grid'
 import { haptic } from '@/lib/haptics'
+import { driveChromeShrink } from '@/lib/motion/chrome'
 import { Reveal } from '@/components/ui/Reveal'
 import { T, PIN, TYPE, RADIUS, SHADOW } from '@/constants/theme'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
@@ -93,6 +94,9 @@ export default function MenuScreen() {
     : `Closed · opens ${storeStatus.nextLabel}`
 
   const scrollY = useSharedValue(0)
+  // Reading down shrinks the floating tab pill; scrolling up brings it back.
+  const chromeLastY = useSharedValue(0)
+  const chromeTarget = useSharedValue(0)
 
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -206,6 +210,7 @@ export default function MenuScreen() {
       onScroll: (e) => {
         const y = e.contentOffset.y
         scrollY.value = y
+        driveChromeShrink(y, chromeLastY, chromeTarget)
         if (!trackSections) return
         // The first content pixel below the docked head, plus a hair so a
         // category parked exactly there counts as arrived.

@@ -11,6 +11,7 @@ import Animated, {
 import { Frost, frostAvailable } from '@/components/ui/GlassTabBar'
 import { Icon, type IconName } from '@/components/brand/Icon'
 import { SLIDE_MS } from '@/lib/motion/slide'
+import { SHRINK_DROP, SHRINK_SCALE, expandChrome, tabBarShrink } from '@/lib/motion/chrome'
 import { haptic } from '@/lib/haptics'
 import { CTA, IS_EVENING } from '@/constants/theme'
 
@@ -78,9 +79,21 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
   const count = state.routes.length
   const slotW = barW > 0 ? (barW - BAR_PAD * 2) / count : 0
 
+  // Reading down the page shrinks the pill toward its centre and lets it sit
+  // a touch lower; scrolling up brings it back (lib/motion/chrome).
+  const shrinkStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: tabBarShrink.value * SHRINK_DROP },
+      { scale: 1 - (1 - SHRINK_SCALE) * tabBarShrink.value },
+    ],
+  }))
+
   return (
     <View pointerEvents="box-none" style={[styles.root, { bottom: floatingBarLift(insets.bottom) }]}>
-      <View style={styles.bar} onLayout={(e) => setBarW(e.nativeEvent.layout.width)}>
+      <Animated.View
+        style={[styles.bar, shrinkStyle]}
+        onLayout={(e) => setBarW(e.nativeEvent.layout.width)}
+      >
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Frost small intensity={IS_EVENING ? 60 : 50} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: GLASS }]} />
@@ -101,6 +114,8 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
             })
             if (!focused && !event.defaultPrevented) {
               haptic.pick()
+              // A fresh tab starts with the pill whole.
+              expandChrome()
               navigation.navigate(route.name, route.params)
             }
           }
@@ -137,7 +152,7 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
             </Pressable>
           )
         })}
-      </View>
+      </Animated.View>
     </View>
   )
 }

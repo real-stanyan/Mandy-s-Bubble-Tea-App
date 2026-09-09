@@ -1,10 +1,11 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import Animated from 'react-native-reanimated'
+import { useChromeScrollHandler } from '@/lib/motion/chrome'
 import { GrainGround } from '@/components/ui/GrainOverlay'
 import { useCallback, useMemo, useState } from 'react'
 import {
   View,
   Text,
-  ScrollView,
   Pressable,
   ActivityIndicator,
   RefreshControl,
@@ -45,6 +46,8 @@ function subtitleText(activeCount: number, pastCount: number): string {
 export default function OrderScreen() {
   // The tab bar floats over the page; keep the last card clear of it.
   const underBar = useBottomTabBarHeight()
+  // Reading down shrinks the floating tab pill; scrolling up brings it back.
+  const onScroll = useChromeScrollHandler()
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
   const { orders, loading, error, refresh } = useOrderHistory()
@@ -185,7 +188,9 @@ export default function OrderScreen() {
   return (
     <View style={styles.screen}>
       <GrainGround />
-      <ScrollView
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + underBar }]}
         refreshControl={
@@ -260,7 +265,7 @@ export default function OrderScreen() {
         )}
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   )
 }
