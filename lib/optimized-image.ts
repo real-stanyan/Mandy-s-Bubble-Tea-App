@@ -8,6 +8,7 @@ export const OPTIMIZER_ENABLED = true
 // legal (`deviceSizes` + `imageSizes` in the web repo's next.config.ts);
 // any other `w` — or any `q` other than 75 — makes /_next/image return 400.
 export const IMG_THUMB = 384 // list thumbnails (36–76pt → ≤228px @3x)
+export const IMG_GRID = 640 // menu grid cards (~170pt square → ≤510px @3x)
 export const IMG_HERO = 1080 // item-detail full-width hero
 
 const ALLOWED_WIDTHS = new Set([
@@ -85,10 +86,13 @@ export function shouldFallback(rawUrl: string, w: number, failed: boolean): bool
  * hosts, malformed URLs) are excluded — prefetching them would bulk-download
  * full-size originals (~1.5MB each), which lazy loading should absorb instead.
  */
-export function prefetchableThumbUrls(rawUrls: (string | null | undefined)[]): string[] {
+export function prefetchableThumbUrls(
+  rawUrls: (string | null | undefined)[],
+  w: number = IMG_THUMB,
+): string[] {
   return rawUrls.flatMap((raw) => {
     if (!raw) return []
-    const u = optimizedImageUrl(raw, IMG_THUMB)
+    const u = optimizedImageUrl(raw, w)
     return u === raw ? [] : [u]
   })
 }

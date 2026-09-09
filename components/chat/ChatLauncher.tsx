@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { floatingTabBarClearance } from '@/components/ui/FloatingTabBar'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -86,11 +87,10 @@ export function ChatLauncher() {
     open()
   }
 
-  // Clears the tab bar (which already accounts for insets.bottom). With
-  // items in the cart, MiniCartBar floats at tabBarHeight+8 (~48px tall) —
-  // the launcher hops over it instead of sitting on View Cart (Stan's
-  // screenshot, 2026-08-10).
-  const bottom = 88 + insets.bottom + (hasCartBar ? 56 : 0)
+  // Clears the floating tab pill and its lift. With items in the cart,
+  // MiniCartBar floats just above the pill (~48px tall) — the launcher hops
+  // over it instead of sitting on View Cart (Stan's screenshot, 2026-08-10).
+  const bottom = floatingTabBarClearance(insets.bottom) + 12 + (hasCartBar ? 56 : 0)
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>

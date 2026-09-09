@@ -1,7 +1,10 @@
 // app/(tabs)/index.tsx
 import { GrainGround } from '@/components/ui/GrainOverlay';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useChromeScrollHandler } from '@/lib/motion/chrome';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { PublicHolidayBanner } from '@/components/home/PublicHolidayBanner';
 import { OrderInProgress } from '@/components/home/OrderInProgress';
@@ -20,11 +23,17 @@ import { Reveal } from '@/components/ui/Reveal';
 // on this week, the rewards strip, the offers, browse, and the store itself.
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  // The tab bar floats over the page; keep the last card clear of it.
+  const underBar = useBottomTabBarHeight();
+  // Reading down shrinks the floating tab pill; scrolling up brings it back.
+  const onScroll = useChromeScrollHandler();
   return (
     <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: insets.top }}>
       <GrainGround />
-      <ScrollView
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 + underBar }}
         showsVerticalScrollIndicator={false}
       >
         <PublicHolidayBanner />
@@ -36,7 +45,7 @@ export default function HomeScreen() {
         <Reveal index={4}><OffersCarousel /></Reveal>
         <Reveal index={5}><CategoriesGrid /></Reveal>
         <Reveal index={6}><StoreCard /></Reveal>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

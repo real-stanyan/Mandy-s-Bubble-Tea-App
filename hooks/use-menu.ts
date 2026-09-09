@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Image } from 'expo-image'
 import { apiFetch } from '@/lib/api'
-import { prefetchableThumbUrls, SQUARE_IMAGE_HEADERS } from '@/lib/optimized-image'
+import { IMG_GRID, prefetchableThumbUrls, SQUARE_IMAGE_HEADERS } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 interface MenuSnapshot {
@@ -64,16 +64,26 @@ function prefetchThumbs(items: CatalogItem[]) {
   // Only optimizer-rewritten URLs: if the kill-switch is off (or a URL
   // passes through for any reason) prefetching would bulk-download ~90
   // full-size PNGs (~126MB total) — strictly worse than today's lazy loading.
-  const urls = prefetchableThumbUrls(items.map((item) => item.imageUrl))
-  if (urls.length === 0) return
+  // Two tiers: the small one for cart / order rows, the grid one for the menu
+  // cards (~90 × ~7KB webp on top of the ~2.4KB thumbs).
+  const raw = items.map((item) => item.imageUrl)
+  const thumbs = prefetchableThumbUrls(raw)
+  const grid = prefetchableThumbUrls(raw, IMG_GRID)
+  if (thumbs.length === 0 && grid.length === 0) return
   prefetchedThumbs = true
-  Image.prefetch(urls, {
-    cachePolicy: 'disk',
-    headers: SQUARE_IMAGE_HEADERS,
-  }).catch(() => {
-    // Fire-and-forget: offline or optimizer errors are non-fatal; images
-    // load lazily (with raw-URL fallback) when rows render.
-  })
+  const warm = (urls: string[]) =>
+    Image.prefetch(urls, {
+      cachePolicy: 'disk',
+      headers: SQUARE_IMAGE_HEADERS,
+    }).catch(() => {
+      // Fire-and-forget: offline or optimizer errors are non-fatal; images
+      // load lazily (with raw-URL fallback) when rows render.
+    })
+  warm(thumbs)
+  // The grid tier waits a few seconds: the cards on screen are fetching the
+  // same tier right now, and ninety warm-up requests ahead of them in the
+  // queue is exactly the stall this cache is meant to prevent.
+  setTimeout(() => warm(grid), 4000)
 }
 
 function load(force = false): Promise<MenuSnapshot> {
