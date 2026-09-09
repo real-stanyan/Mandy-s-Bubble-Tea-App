@@ -108,6 +108,11 @@ interface Props {
    *  dismisses, the stack route pops. Fired after RETURN_DELAY_MS so the
    *  "Added" tick and the fly-to-bag dot both get their beat first. */
   onAdded?: () => void
+  /** Cart line being re-customised from the checkout page. The form opens on
+   *  that line's size, sugar, toppings and quantity instead of the defaults,
+   *  the button reads "Update cart", and saving swaps the line in place
+   *  (store replaceItem) instead of adding a second one. */
+  editLineId?: string
 }
 
 // One beat between the tap and the exit. Long enough that the tick reads as a
@@ -124,8 +129,18 @@ export function ItemDetailContent({
   onLoaded,
   flyToBag = false,
   onAdded,
+  editLineId,
 }: Props) {
   const addItem = useCartStore((s) => s.addItem)
+  const replaceItem = useCartStore((s) => s.replaceItem)
+  // Whether the line under edit is still in the bag (it leaves the moment the
+  // edit is saved under a new signature), plus a latch so the button keeps
+  // reading "Update" through the exit beat instead of snapping to "Add".
+  const editingLive = useCartStore((s) =>
+    editLineId ? s.items.some((i) => i.lineId === editLineId) : false,
+  )
+  const [updated, setUpdated] = useState(false)
+  const isEditing = editingLive || updated
   const ctaRef = useRef<View>(null)
   const insets = useSafeAreaInsets()
   const onLoadedRef = useRef(onLoaded)
@@ -213,7 +228,37 @@ export function ItemDetailContent({
           if ((map[modifierId] ?? 0) < 1) map[modifierId] = 1
           initial[listId] = map
         }
-        setSelectedByList(initial)
+        // Editing from checkout: open on what the line already has instead of
+        // the defaults. A modifier the catalog no longer offers is dropped
+        // (the form can only show what exists); TOP 10 locked toppings keep
+        // their floor of one either way.
+        const editing = editLineId
+          ? useCartStore.getState().items.find((i) => i.lineId === editLineId)
+          : undefined
+        if (editing) {
+          const own = vars.find((v) => v.id === editing.variationId)
+          if (own) setSelectedVariation(own)
+          const tally = new Map<string, number>()
+          for (const m of editing.modifiers ?? []) tally.set(m.id, (tally.get(m.id) ?? 0) + 1)
+          const fromLine: Record<string, CountMap> = {}
+          for (const ml of mls) {
+            const map: CountMap = {}
+            for (const mod of ml.modifiers) {
+              const n = tally.get(mod.id) ?? 0
+              if (n > 0) map[mod.id] = n
+            }
+            if (Object.keys(map).length > 0) fromLine[ml.id] = map
+          }
+          for (const { listId, modifierId } of lockedIds) {
+            const map = fromLine[listId] ?? {}
+            if ((map[modifierId] ?? 0) < 1) map[modifierId] = 1
+            fromLine[listId] = map
+          }
+          setSelectedByList(fromLine)
+          setQuantity(editing.quantity)
+        } else {
+          setSelectedByList(initial)
+        }
         onLoadedRef.current?.(data.item)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load item')
@@ -224,7 +269,7 @@ export function ItemDetailContent({
     return () => {
       cancelled = true
     }
-  }, [itemId, retryNonce, categorySlug])
+  }, [itemId, retryNonce, categorySlug, editLineId])
 
   useEffect(
     () => () => {
@@ -383,28 +428,37 @@ export function ItemDetailContent({
       })
     })
     const modifierTotal = chosenModifiers.reduce((sum, m) => sum + m.priceCents, 0)
-    if (flyToBag) {
-      ctaRef.current?.measureInWindow((x, y, w, h) => {
-        if (![x, y, w, h].every(Number.isFinite)) return
-        // A beat later than the store update, so an empty cart's bar has
-        // mounted by the time the dot arrives to be caught.
-        setTimeout(() => useFlyToBagStore.getState().launch({ x: x + w / 2, y: y + h / 2 }), 40)
-      })
+    const built = {
+      id: item.id,
+      variationId: selectedVariation.id,
+      name: displayNameFor(categorySlug ?? undefined, item.itemData?.name ?? '') || (item.itemData?.name ?? 'Unknown'),
+      price: basePrice + modifierTotal,
+      imageUrl: item.imageUrl,
+      variationName: selectedVariation.itemVariationData?.name,
+      modifiers: chosenModifiers,
     }
-    for (let i = 0; i < quantity; i++) {
-      addItem({
-        id: item.id,
-        variationId: selectedVariation.id,
-        name: displayNameFor(categorySlug ?? undefined, item.itemData?.name ?? '') || (item.itemData?.name ?? 'Unknown'),
-        price: basePrice + modifierTotal,
-        imageUrl: item.imageUrl,
-        variationName: selectedVariation.itemVariationData?.name,
-        modifiers: chosenModifiers,
-      })
+    const editing = editLineId
+      ? useCartStore.getState().items.find((i) => i.lineId === editLineId)
+      : undefined
+    if (editing) {
+      // The line is swapped where it sits: nothing was added, so no dot flies
+      // and the count stays put through the exit beat.
+      replaceItem(editing.lineId, built, quantity)
+      setUpdated(true)
+    } else {
+      if (flyToBag) {
+        ctaRef.current?.measureInWindow((x, y, w, h) => {
+          if (![x, y, w, h].every(Number.isFinite)) return
+          // A beat later than the store update, so an empty cart's bar has
+          // mounted by the time the dot arrives to be caught.
+          setTimeout(() => useFlyToBagStore.getState().launch({ x: x + w / 2, y: y + h / 2 }), 40)
+        })
+      }
+      for (let i = 0; i < quantity; i++) addItem(built)
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     setAdded(true)
-    setQuantity(1)
+    if (!editing) setQuantity(1)
     if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
     addedTimerRef.current = setTimeout(() => setAdded(false), 1500)
     if (onAddedRef.current) {
@@ -850,11 +904,11 @@ export function ItemDetailContent({
           {added ? (
             <View style={styles.ctaAddedRow}>
               <Icon name="check" color="#fff" size={18} />
-              <Text style={styles.ctaAddedText}>Added</Text>
+              <Text style={styles.ctaAddedText}>{updated ? 'Updated' : 'Added'}</Text>
             </View>
           ) : (
             <>
-              <Text style={styles.ctaLeft}>Add to cart</Text>
+              <Text style={styles.ctaLeft}>{isEditing ? 'Update cart' : 'Add to cart'}</Text>
               {!addDisabled ? (
                 <Text style={styles.ctaRight}>{formatPrice(totalCents * quantity)}</Text>
               ) : null}
