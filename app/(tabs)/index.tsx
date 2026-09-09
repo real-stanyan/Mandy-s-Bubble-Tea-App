@@ -1,7 +1,8 @@
 // app/(tabs)/index.tsx
 import { GrainGround } from '@/components/ui/GrainOverlay';
+import { StatusFrost } from '@/components/ui/StatusFrost';
 import { View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { useChromeScrollHandler } from '@/lib/motion/chrome';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -26,14 +27,18 @@ export default function HomeScreen() {
   // The tab bar floats over the page; keep the last card clear of it.
   const underBar = useBottomTabBarHeight();
   // Reading down shrinks the floating tab pill; scrolling up brings it back.
-  const onScroll = useChromeScrollHandler();
+  const scrollY = useSharedValue(0);
+  const onScroll = useChromeScrollHandler(scrollY, useReducedMotion());
+  // The page runs to the top edge of the screen: the first card starts
+  // under the clock and the rest scroll beneath it (the counter used to stop
+  // at the status bar and cut every card off on that line — Rick, 2026-09-09).
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
       <GrainGround />
       <Animated.ScrollView
         onScroll={onScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 + underBar }}
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 32 + underBar }}
         showsVerticalScrollIndicator={false}
       >
         <PublicHolidayBanner />
@@ -46,6 +51,7 @@ export default function HomeScreen() {
         <Reveal index={5}><CategoriesGrid /></Reveal>
         <Reveal index={6}><StoreCard /></Reveal>
       </Animated.ScrollView>
+      <StatusFrost scrollY={scrollY} insetTop={insets.top} />
     </View>
   );
 }

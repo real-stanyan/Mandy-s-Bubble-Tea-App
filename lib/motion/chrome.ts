@@ -42,13 +42,19 @@ export function chromeShrinkTarget(y: number, lastY: number, current: number): n
   return -1
 }
 
-/** Feed one scroll event into the shared value. UI thread only. */
+/** Feed one scroll event into the shared value. UI thread only. Under
+ *  Reduce Motion the pill stays whole: it only remembers where the page is. */
 export function driveChromeShrink(
   y: number,
   lastY: SharedValue<number>,
   target: SharedValue<number>,
+  reduced = false,
 ): void {
   'worklet'
+  if (reduced) {
+    lastY.value = y
+    return
+  }
   const t = chromeShrinkTarget(y, lastY.value, target.value)
   lastY.value = y
   if (t >= 0) {
@@ -62,14 +68,18 @@ export function expandChrome(): void {
   tabBarShrink.value = withTiming(0, SHRINK)
 }
 
-/** A scroll handler for plain lists (Animated.ScrollView) that only drives
- *  the pill. Lists with their own worklet call driveChromeShrink inside it. */
-export function useChromeScrollHandler() {
+/** A scroll handler for plain lists (Animated.ScrollView) that drives the
+ *  pill and, given one, keeps `scrollY` current for the page's own chrome
+ *  (the strip under the clock). Lists with their own worklet call
+ *  driveChromeShrink inside it. */
+export function useChromeScrollHandler(scrollY?: SharedValue<number>, reduced = false) {
   const lastY = useSharedValue(0)
   const target = useSharedValue(0)
   return useAnimatedScrollHandler({
     onScroll: (e) => {
-      driveChromeShrink(e.contentOffset.y, lastY, target)
+      const y = e.contentOffset.y
+      if (scrollY) scrollY.value = y
+      driveChromeShrink(y, lastY, target, reduced)
     },
   })
 }

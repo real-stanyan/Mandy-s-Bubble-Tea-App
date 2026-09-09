@@ -1,7 +1,9 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
-import Animated from 'react-native-reanimated'
+import Animated, { useReducedMotion, useSharedValue } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useChromeScrollHandler } from '@/lib/motion/chrome'
 import { GrainGround } from '@/components/ui/GrainOverlay'
+import { StatusFrost } from '@/components/ui/StatusFrost'
 import { useCallback, useMemo, useState } from 'react'
 import {
   View,
@@ -47,7 +49,11 @@ export default function OrderScreen() {
   // The tab bar floats over the page; keep the last card clear of it.
   const underBar = useBottomTabBarHeight()
   // Reading down shrinks the floating tab pill; scrolling up brings it back.
-  const onScroll = useChromeScrollHandler()
+  const insets = useSafeAreaInsets()
+  const scrollY = useSharedValue(0)
+  const onScroll = useChromeScrollHandler(scrollY, useReducedMotion())
+  // The page runs under the clock; the title sits a little clear of it.
+  const topPad = insets.top + 12
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
   const { orders, loading, error, refresh } = useOrderHistory()
@@ -192,7 +198,7 @@ export default function OrderScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + underBar }]}
+        contentContainerStyle={{ paddingTop: topPad, paddingBottom: 32 + underBar }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -266,6 +272,7 @@ export default function OrderScreen() {
 
         <View style={{ height: 40 }} />
       </Animated.ScrollView>
+      <StatusFrost scrollY={scrollY} insetTop={insets.top} />
     </View>
   )
 }
@@ -314,9 +321,6 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 56,
   },
   header: {
     flexDirection: 'row',

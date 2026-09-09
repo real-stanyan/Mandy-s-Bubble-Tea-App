@@ -6,6 +6,7 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   type SharedValue,
 } from 'react-native-reanimated'
 import { Frost, FROST_TINT, glassTabBarAvailable } from '@/components/ui/GlassTabBar'
@@ -21,10 +22,11 @@ import { T, TYPE, RADIUS } from '@/constants/theme'
 //   the block  — the big title and the search field; folds away as the list
 //                scrolls (height → 0, drifting up a little as it goes)
 //   the rail   — category pills, always there, always at the bottom edge
-// Ground: transparent at rest so the page shows through, frosting up into
-// paper as the block folds — the same sheet as the tab bar where the binary
-// can blur, solid paper where it cannot. Docking and undocking each give one
-// soft tap under the finger.
+// Ground: nothing at rest — no blur either, so the page's grain runs to the
+// top edge of the screen under the clock — frosting up into paper as the
+// block folds: the same sheet as the tab bar where the binary can blur,
+// solid paper where it cannot. Docking and undocking each give one soft tap
+// under the finger.
 
 export const HEADER_ROW_H = 44
 /** Title (46) + gap (10) + search (44) + breathing room (12). */
@@ -95,9 +97,10 @@ export function MenuHeader({
       { translateY: interpolate(scrollY.value, [HEADER_RANGE * 0.45, HEADER_RANGE], [8, 0], Extrapolation.CLAMP) },
     ],
   }))
-  const groundStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
-  }))
+  const frost = useDerivedValue(() =>
+    interpolate(scrollY.value, [0, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
+  )
+  const groundStyle = useAnimatedStyle(() => ({ opacity: frost.value }))
   const hairlineStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [HEADER_RANGE * 0.8, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
   }))
@@ -105,7 +108,7 @@ export function MenuHeader({
   return (
     <View style={[styles.wrap, { paddingTop: insetTop }]} pointerEvents="box-none">
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Frost />
+        <Frost progress={frost} />
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
