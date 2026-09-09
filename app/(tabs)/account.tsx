@@ -1,7 +1,9 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
-import Animated from 'react-native-reanimated'
+import Animated, { useReducedMotion, useSharedValue } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useChromeScrollHandler } from '@/lib/motion/chrome'
 import { GrainGround } from '@/components/ui/GrainOverlay'
+import { StatusFrost } from '@/components/ui/StatusFrost'
 import { useCallback, useMemo, useState } from 'react'
 import {
   View,
@@ -50,7 +52,11 @@ export default function AccountScreen() {
   // The tab bar floats over the page; keep the last card clear of it.
   const underBar = useBottomTabBarHeight()
   // Reading down shrinks the floating tab pill; scrolling up brings it back.
-  const onScroll = useChromeScrollHandler()
+  const insets = useSafeAreaInsets()
+  const scrollY = useSharedValue(0)
+  const onScroll = useChromeScrollHandler(scrollY, useReducedMotion())
+  // The page runs under the clock; the title sits a little clear of it.
+  const topPad = insets.top + 12
   const auth = useAuth()
   const {
     profile,
@@ -116,12 +122,13 @@ export default function AccountScreen() {
         <Animated.ScrollView
           onScroll={onScroll}
           scrollEventThrottle={16}
-          contentContainerStyle={[styles.scrollContent, { paddingTop: 56, paddingBottom: 32 + underBar }]}
+          contentContainerStyle={{ paddingTop: topPad, paddingBottom: 32 + underBar }}
           keyboardShouldPersistTaps="handled"
         >
           <SignInCard />
           <HowItWorks />
         </Animated.ScrollView>
+        <StatusFrost scrollY={scrollY} insetTop={insets.top} />
       </View>
     )
   }
@@ -151,7 +158,7 @@ export default function AccountScreen() {
       <Animated.ScrollView
         onScroll={onScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingTop: 56, paddingBottom: 32 + underBar }}
+        contentContainerStyle={{ paddingTop: topPad, paddingBottom: 32 + underBar }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={T.brand} />
         }
@@ -245,7 +252,6 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: T.bg,
   },
-  scrollContent: { paddingBottom: 40 },
   errorText: { color: '#b91c1c', fontSize: 16, textAlign: 'center', marginBottom: 12 },
   retryBtn: {
     backgroundColor: T.brand,

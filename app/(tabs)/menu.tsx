@@ -12,7 +12,12 @@ import {
   type SectionListData,
   type TextInput,
 } from 'react-native'
-import Animated, { runOnJS, useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated'
+import Animated, {
+  runOnJS,
+  useAnimatedScrollHandler,
+  useReducedMotion,
+  useSharedValue,
+} from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { useFocusEffect } from 'expo-router'
@@ -66,6 +71,7 @@ const AnimatedSectionList = Animated.createAnimatedComponent(
 
 export default function MenuScreen() {
   const insets = useSafeAreaInsets()
+  const reduced = useReducedMotion()
   const { width } = useWindowDimensions()
   const metrics = useMemo(() => gridMetrics(width), [width])
   const { expanded: headerExpanded, collapsed: headerCollapsed } = headerHeights(insets.top)
@@ -210,7 +216,7 @@ export default function MenuScreen() {
       onScroll: (e) => {
         const y = e.contentOffset.y
         scrollY.value = y
-        driveChromeShrink(y, chromeLastY, chromeTarget)
+        driveChromeShrink(y, chromeLastY, chromeTarget, reduced)
         if (!trackSections) return
         // The first content pixel below the docked head, plus a hair so a
         // category parked exactly there counts as arrived.
@@ -226,7 +232,7 @@ export default function MenuScreen() {
         }
       },
     },
-    [sectionOffsets, headerCollapsed, trackSections, onSectionUnderHead],
+    [sectionOffsets, headerCollapsed, trackSections, onSectionUnderHead, reduced],
   )
 
   const pendingScrollRef = useRef<{

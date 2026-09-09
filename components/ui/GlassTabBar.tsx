@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { Platform, StyleSheet } from 'react-native'
+import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated'
 import { requireOptionalNativeModule } from 'expo'
 import { IS_EVENING } from '@/constants/theme'
 
@@ -36,6 +37,11 @@ function loadBlurView(): ComponentType<BlurProps> | null {
 }
 
 const BlurView = loadBlurView()
+// Reanimated drives the blur's intensity straight on the UI thread. That is
+// the one supported way to fade a UIVisualEffectView — expo-blur runs it as a
+// paused UIViewPropertyAnimator and intensity is its fraction; alpha on the
+// effect view (or any view above it) breaks the effect, per Apple.
+const AnimatedBlurView = BlurView ? Animated.createAnimatedComponent(BlurView) : null
 
 /** True when this binary carries expo-blur and the platform blurs any surface
  *  natively — iOS. Large surfaces (the menu head) key off this. */
@@ -53,27 +59,41 @@ export function frostAvailable(small: boolean): boolean {
   return Platform.OS === 'ios' || (small && ANDROID_EXPERIMENTAL_BLUR)
 }
 
-/** 80% paper over a 22px-ish blur: the board's "毛玻璃". */
-const PAPER_TINT = IS_EVENING ? 'rgba(26,21,18,0.78)' : 'rgba(255,249,240,0.8)'
+/** Paper over the blur: the board's "毛玻璃", denser than the tab pill's
+ *  glass because these are full-width bands with the clock over them. By
+ *  night the page sits at ~19/255 and a product photo at ~240; at 78% paper
+ *  a row of photos passing under the head lit the strip under the status bar
+ *  a clear step brighter than the rest of the head (Rick's phone,
+ *  2026-09-09), so night is nearly opaque — the glass survives as a breath
+ *  of light, not a band. Day's photos are as light as its paper. */
+const PAPER_TINT = IS_EVENING ? 'rgba(26,21,18,0.94)' : 'rgba(255,249,240,0.9)'
+
+type FrostProps = {
+  /** Chrome small enough for the Android experimental blur; without it
+   *  Android renders nothing here. */
+  small?: boolean
+  intensity?: number
+  /** 0 → 1, how far in the frost is; the blur follows it, so a sheet can be
+   *  nothing at all while its page rests and frost up as content slides
+   *  under. Absent, the frost is simply on. */
+  progress?: SharedValue<number>
+}
 
 /** The frosted sheet on its own; the caller paints its own tint over it
- *  (FROST_TINT is the head's). `small` marks chrome small enough for the
- *  Android experimental blur; without it Android renders nothing here. */
-export function Frost({ small = false, intensity = 70 }: { small?: boolean; intensity?: number }) {
-  if (!BlurView) return null
-  if (Platform.OS === 'android') {
-    if (!small || !ANDROID_EXPERIMENTAL_BLUR) return null
-    return (
-      <BlurView
-        tint={IS_EVENING ? 'dark' : 'light'}
-        intensity={intensity}
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-    )
-  }
+ *  (FROST_TINT is the head's). */
+export function Frost({ small = false, intensity = 70, progress }: FrostProps) {
+  const animatedProps = useAnimatedProps(() => ({
+    intensity: progress ? intensity * progress.value : intensity,
+  }))
+  if (!AnimatedBlurView) return null
+  if (Platform.OS === 'android' && (!small || !ANDROID_EXPERIMENTAL_BLUR)) return null
   return (
-    <BlurView tint={IS_EVENING ? 'dark' : 'light'} intensity={intensity} style={StyleSheet.absoluteFill} />
+    <AnimatedBlurView
+      tint={IS_EVENING ? 'dark' : 'light'}
+      animatedProps={animatedProps}
+      experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+      style={StyleSheet.absoluteFill}
+    />
   )
 }
 
