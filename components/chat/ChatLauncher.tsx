@@ -141,7 +141,7 @@ export function ChatLauncher() {
         accessibilityLabel={t.launcherAria}
         style={({ pressed }) => [styles.fab, { bottom }, pressed && styles.fabPressed]}
       >
-        <BobaChatIcon />
+        <BobaChatIcon size={20} />
         <Text style={styles.fabLabel}>{t.launcherLabel}</Text>
       </Pressable>
     </View>
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 10,
     backgroundColor: T.brand,
     shadowColor: T.brandDark,
     shadowOpacity: 0.35,
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 10,
     backgroundColor: T.brand,
     shadowColor: T.brandDark,
     shadowOpacity: 0.35,
@@ -187,9 +187,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
+  // The bag capsule's own measure (components/cart/CartCapsule: 52 high, 16
+  // padding, a 20pt glyph, 10 gap) with the label a size down, so the two
+  // pills stacked at the dock's edge read as one column (Rick, 2026-09-11).
   fabLabel: {
     fontFamily: 'ShantellSans_700Bold',
-    fontSize: 14,
+    fontSize: 13,
     color: ON_BRAND,
   },
   teaser: {
