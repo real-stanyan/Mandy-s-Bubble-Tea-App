@@ -6,7 +6,7 @@ import {
   OVERDRAG,
   SNAP_MAX_VELOCITY,
   SWIPE_SNAP,
-  fogSheetX,
+  fogSheet,
   fringeOpacity,
   hazeStrength,
   overdrag,
@@ -133,26 +133,34 @@ describe('seamSide', () => {
   })
 })
 
-describe('fogSheetX', () => {
-  it('keeps the sheet wholly beyond the seam edge while there is no haze', () => {
-    // Sheet laid out from x=0, 2W wide: at W it starts at the right edge.
-    expect(fogSheetX(0, 1, W)).toBe(W)
-    // From the left: its right end sits at the left edge.
-    expect(fogSheetX(0, -1, W)).toBe(-2 * W)
+describe('fogSheet', () => {
+  /** Where the sheet's edges land after RN scales it about its centre and
+   *  then shifts it. */
+  const edges = (haze: number, side: 1 | -1) => {
+    const { translateX, scaleX } = fogSheet(haze, side, W)
+    const half = (scaleX * W) / 2
+    return { left: W / 2 - half + translateX, right: W / 2 + half + translateX, scaleX }
+  }
+
+  it('is next to nothing while there is no haze', () => {
+    expect(edges(0, 1).scaleX).toBeLessThan(0.01)
+    expect(edges(0, -1).scaleX).toBeLessThan(0.01)
   })
 
-  it('has the solid half over the page at full haze', () => {
-    expect(fogSheetX(1, 1, W)).toBe(-W)
-    expect(fogSheetX(1, -1, W)).toBe(0)
+  it('keeps the seam edge fixed and reaches across the page by the haze', () => {
+    for (const haze of [0.2, 0.5, 0.85, 1]) {
+      // Anchored on the right: the right edge stays at the seam.
+      expect(edges(haze, 1).right).toBeCloseTo(W)
+      expect(edges(haze, 1).left).toBeCloseTo(W - haze * W)
+      // Anchored on the left.
+      expect(edges(haze, -1).left).toBeCloseTo(0)
+      expect(edges(haze, -1).right).toBeCloseTo(haze * W)
+    }
   })
 
-  it('rolls the soft front in from the seam', () => {
-    // Halfway: the fading half covers the page, solid at the seam edge.
-    expect(fogSheetX(0.5, 1, W)).toBe(0)
-    expect(fogSheetX(0.5, -1, W)).toBe(-W)
-    // Monotonic: more haze, further in.
-    expect(fogSheetX(0.7, 1, W)).toBeLessThan(fogSheetX(0.3, 1, W))
-    expect(fogSheetX(0.7, -1, W)).toBeGreaterThan(fogSheetX(0.3, -1, W))
+  it('covers the whole page at full haze and never more', () => {
+    expect(edges(1, 1).left).toBeCloseTo(0)
+    expect(edges(1.3, -1).right).toBeCloseTo(W)
   })
 })
 

@@ -124,19 +124,29 @@ export function seamSide(position: number, index: number): 1 | -1 {
   return position >= index ? 1 : -1
 }
 
+/** The least a fog sheet is ever scaled to: a zero scale is a matrix
+ *  nobody can invert. */
+const FOG_SHEET_MIN = 0.001
+
 /**
- * Where the fog sheet sits over a page. The sheet is twice the page wide,
- * laid out from the page's left edge: solid over the half nearest the
- * seam, fading to nothing over the other. It sits wholly beyond the seam
- * edge at no haze and slides in as the haze grows, so on the page being
- * left the fog rolls in from the join — a soft front, never an edge — and
- * has covered it by the time it is gone; on the page coming in the same
- * sheet slides back out through the join as the page clears.
+ * How the fog sheet sits over a page. The sheet is the page's width,
+ * anchored to the page's seam edge, opaque at that edge and fading to
+ * nothing at its other end; it is scaled from the seam by the haze, so at
+ * no haze it is nothing, and at full haze it reaches across the page. The
+ * seam edge is always whole fog on both pages, so the join between them
+ * is one colour — no line — and each page emerges from the fog with
+ * distance from it: the page being left has the fog spread over it as it
+ * goes, the page coming in has it drain back into the join as it lands
+ * (Rick: dissolve the boundary, let the two pages fuse). Returns the
+ * transform that keeps the seam edge fixed while scaling: React Native
+ * scales about the centre, so the sheet is shifted half the lost width
+ * toward its anchored edge.
  */
-export function fogSheetX(haze: number, side: 1 | -1, width: number): number {
+export function fogSheet(haze: number, side: 1 | -1, width: number): { translateX: number; scaleX: number } {
   'worklet'
-  if (side === 1) return width - 2 * width * haze
-  return -2 * width + 2 * width * haze
+  const scaleX = Math.max(FOG_SHEET_MIN, Math.min(1, haze))
+  const shift = ((1 - scaleX) * width) / 2
+  return { translateX: side === 1 ? shift : -shift, scaleX }
 }
 
 /** How much of page `index` to draw for a pager at `position`: whole until
