@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Dimensions, StyleSheet, View, type LayoutChangeEvent } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Dimensions, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native'
 import {
   TabActions,
   TabRouter,
@@ -216,6 +216,26 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
    *  React decision: which pages carry a blur sheet while it lasts — that
    *  one and its neighbours, plus wherever the pager is headed (see Fog). */
   const [departingIndex, setDepartingIndex] = useState(index)
+
+  // The other half of "a swipe is never a tap". The pan taking the touch is
+  // meant to cancel the press under the finger, but the loyalty card and
+  // the drink cards still fired on release after a swipe on Rick's phone
+  // (2026-09-11). So the viewport also claims the touch in RN's own
+  // responder system the moment it has moved sideways by the pan's own
+  // threshold: the card that held it is terminated then and there, on
+  // both platforms, whatever the native side did. Vertical reading is
+  // left alone (a scroll cancels the press itself), and claiming the
+  // responder blocks no native scroll view — the rails keep rolling.
+  const touchStart = useRef({ x: 0, y: 0 })
+  const noteTouchStart = useCallback((e: GestureResponderEvent) => {
+    touchStart.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }
+    return false
+  }, [])
+  const claimSideways = useCallback((e: GestureResponderEvent) => {
+    const dx = e.nativeEvent.pageX - touchStart.current.x
+    const dy = e.nativeEvent.pageY - touchStart.current.y
+    return Math.abs(dx) >= ACTIVE_X && Math.abs(dx) > Math.abs(dy)
+  }, [])
   const begin = useCallback((leaving: number) => {
     setDepartingIndex(leaving)
     setMoving(true)
@@ -339,7 +359,13 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
       <BottomTabBarHeightContext.Provider value={tabBarHeight}>
         <SwipeScrollContext.Provider value={registry}>
         <GestureDetector gesture={pan}>
-          <View style={styles.viewport} onLayout={onLayout} pointerEvents={moving ? 'box-only' : 'auto'}>
+          <View
+            style={styles.viewport}
+            onLayout={onLayout}
+            pointerEvents={moving ? 'box-only' : 'auto'}
+            onStartShouldSetResponderCapture={noteTouchStart}
+            onMoveShouldSetResponderCapture={claimSideways}
+          >
             <Animated.View style={[styles.row, { width: width * count }, rowStyle]}>
               {state.routes.map((route, i) => {
                 if (!(mountedMask & (1 << i))) return null
