@@ -1,12 +1,6 @@
-import { memo, useEffect, useState } from 'react'
-import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
+import { memo, useEffect, useRef, useState } from 'react'
+import { Animated, View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { Image } from 'expo-image'
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated'
 import { PressScale } from '@/components/ui/PressScale'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { CupArt } from '@/components/brand/CupArt'
@@ -19,7 +13,7 @@ import { displayNameFor, imageSourceFor, TOP10_CATEGORY_SLUG } from '@/lib/menu/
 import { originalPriceCentsFor } from '@/lib/menu/weekly-specials'
 import { isBestseller } from '@/components/menu/bestsellers'
 import { CARD_INFO_H } from '@/lib/menu/grid'
-import { T, CTA, PIN, RADIUS, SHADOW } from '@/constants/theme'
+import { T, CTA, PIN, RADIUS, SHADOW, clippedShadow } from '@/constants/theme'
 import type { CatalogItem } from '@/types/square'
 
 // One drink on the menu grid: the photo, the name, the price and a + that
@@ -79,7 +73,10 @@ export const ProductCard = memo(function ProductCard({
   // Gone once the fade has finished: the sketch is unmounted by hand rather
   // than with a layout exit animation, which a list cell can leave behind.
   const [sketchGone, setSketchGone] = useState(false)
-  const sketchOpacity = useSharedValue(1)
+  // React Native's own Animated, on the native driver: a card is mounted
+  // mid-scroll thirty at a time, and a Reanimated style here cost a
+  // UI-thread mapper per card for a fade that mostly never runs.
+  const sketchOpacity = useRef(new Animated.Value(1)).current
   useEffect(() => {
     const t = setTimeout(() => setPhotoSlow(true), 160)
     return () => clearTimeout(t)
@@ -89,11 +86,12 @@ export const ProductCard = memo(function ProductCard({
   // left over a visible photo is worse than no sketch at all. Running the
   // fade twice is harmless.
   const onPhotoLoad = () => {
-    sketchOpacity.value = withTiming(0, { duration: 260 }, (finished) => {
-      if (finished) runOnJS(setSketchGone)(true)
-    })
+    Animated.timing(sketchOpacity, { toValue: 0, duration: 260, useNativeDriver: true }).start(
+      ({ finished }) => {
+        if (finished) setSketchGone(true)
+      },
+    )
   }
-  const sketchStyle = useAnimatedStyle(() => ({ opacity: sketchOpacity.value }))
   const showSketch = !customImage && (!item.imageUrl || (photoSlow && !sketchGone))
   const glyphSize = Math.round(thumbH * 0.42)
 
@@ -141,7 +139,7 @@ export const ProductCard = memo(function ProductCard({
           />
         ) : null}
         {showSketch ? (
-          <Animated.View style={[styles.glyph, sketchStyle]} pointerEvents="none">
+          <Animated.View style={[styles.glyph, { opacity: sketchOpacity }]} pointerEvents="none">
             <CupArt fill={hashColor(item.id)} stroke={PIN.ink} size={glyphSize} />
           </Animated.View>
         ) : null}
@@ -217,7 +215,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.line,
     overflow: 'hidden',
-    ...SHADOW.card,
+    // The card clips its photo, so on iOS its shadow could never show;
+    // only Android's elevation does (constants/theme clippedShadow).
+    ...clippedShadow(SHADOW.card.elevation),
   },
   cardSoldOut: {
     opacity: 0.62,
