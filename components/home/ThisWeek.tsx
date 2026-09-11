@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
+import { HorizontalScrollView } from '@/components/navigation/HorizontalScrollView'
 import { useRouter } from 'expo-router'
 import { useMenu } from '@/hooks/use-menu'
 import { useItemSheetStore } from '@/store/itemSheet'
@@ -70,7 +71,7 @@ export function ThisWeek() {
           router.push('/(tabs)/menu')
         }}
       />
-      <ScrollView
+      <HorizontalScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
@@ -80,7 +81,7 @@ export function ThisWeek() {
         {specials.map((s) => (
           <SpecialCard key={s.item.id} special={s} />
         ))}
-      </ScrollView>
+      </HorizontalScrollView>
     </View>
   )
 }

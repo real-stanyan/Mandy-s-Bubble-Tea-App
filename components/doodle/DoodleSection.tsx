@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
+import { HorizontalScrollView } from '@/components/navigation/HorizontalScrollView'
 import { PressScale } from '@/components/ui/PressScale'
 import { CardBlock } from '@/components/checkout/CardBlock'
 import { DoodleModal } from './DoodleModal'
@@ -55,7 +56,7 @@ function DoodlePickerSection({ slots, onSlotChange }: Props) {
         Every cup gets a printed sticker. Leave it for a surprise lucky cat, or tap a cup to
         put your own design on it.
       </Text>
-      <ScrollView
+      <HorizontalScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
@@ -98,7 +99,7 @@ function DoodlePickerSection({ slots, onSlotChange }: Props) {
             </PressScale>
           )
         })}
-      </ScrollView>
+      </HorizontalScrollView>
 
       <DoodleModal
         visible={openIdx !== null}
