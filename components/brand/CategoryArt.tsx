@@ -3,7 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { useAnimatedProps, useReducedMotion } from 'react-native-reanimated'
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { wavePath } from '@/lib/motion/wave'
-import { ambientClock, loopKey, loopPhase, memoProps } from '@/lib/motion/ambient'
+import { SVG_MOTION, ambientClock, loopKey, loopPhase, memoProps } from '@/lib/motion/ambient'
 import { rotateAbout, tiltAngle } from '@/lib/motion/category-art'
 import type { CategoryArtKind } from '@/lib/menu/category-art'
 import { AnimG, Cup, INK, Motion, light, nextId, useLoop } from '@/components/brand/art-kit'
@@ -35,7 +35,9 @@ type Props = {
 
 export function CategoryArt({ kind, crop = 'banner', style, placement }: Props) {
   const reduced = useReducedMotion()
-  const live = !reduced
+  // Still under Reduce Motion, and still on Android, where a moving SVG is
+  // a software bitmap per tick (lib/motion/ambient SVG_MOTION).
+  const live = !reduced && SVG_MOTION
   // A tile is small and carries its label bottom-left, so the drawing drops
   // the loose piece that would sit under the words.
   const tile = crop === 'tile'

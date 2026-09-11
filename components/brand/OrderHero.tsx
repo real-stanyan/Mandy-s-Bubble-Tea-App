@@ -7,6 +7,7 @@ import type { CupVisual } from '@/lib/cup-visual'
 import { AMP, BODY, INK, Motion, PEARLS, Surface, WL, light, nextId } from '@/components/brand/art-kit'
 import { CheckoutHero, FRAME } from '@/components/brand/CheckoutHero'
 import { LoopScope, useSceneGate } from '@/components/ui/LoopScope'
+import { SVG_MOTION } from '@/lib/motion/ambient'
 import {
   COUNTER_Y,
   DONE_CUP,
@@ -77,7 +78,8 @@ export function OrderHero({
   style?: StyleProp<ViewStyle>
 }) {
   const reduced = useReducedMotion()
-  const live = !reduced
+  // Still under Reduce Motion, and still on Android (lib/motion/ambient SVG_MOTION).
+  const live = !reduced && SVG_MOTION
   // Moves only while its screen is focused (components/ui/LoopScope).
   const sceneGate = useSceneGate()
 

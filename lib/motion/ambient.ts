@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import { makeMutable, type SharedValue } from 'react-native-reanimated'
 
 // The ambient clock. Every decorative loop in the app — the living category
@@ -36,6 +37,20 @@ export const SCROLL_HOLD_MS = 90
 /** A frame longer than this (the app was suspended, the thread stalled)
  *  moves the clock on by this much only, so nothing leaps. */
 export const MAX_FRAME_MS = 100
+
+/**
+ * Whether drawings move at all. react-native-svg on Android rasterises a
+ * whole <Svg> into a fresh software bitmap on every change to any part of
+ * it (SvgView.onDraw → drawOutput → Bitmap.createBitmap, 15.15.4), so a
+ * drawing that moves costs a bitmap the size of the drawing, drawn on the
+ * UI thread, every tick: eight Home tiles at 20fps were most of what an
+ * Android phone was doing (Rick, 2026-09-11: iOS smooth after #189,
+ * Android still not). iOS draws the same with CoreGraphics straight into
+ * the layer and keeps up. So on Android every SVG scene holds frame zero —
+ * drawn, still — and the clock only moves the view-based loops (the card's
+ * light, the star row's breath).
+ */
+export const SVG_MOTION = Platform.OS !== 'android'
 
 /** Ambient time in ms, quantised to AMBIENT_STEP_MS. The one input every
  *  ambient mapper reads. */

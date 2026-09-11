@@ -41,6 +41,13 @@ type Props = {
  *  middle third of the studio frame, and at 1 it would be a sliver. */
 const PHOTO_SCALE = 1.22
 
+/** A name longer than this may not fit its two lines at full size and is
+ *  allowed to shrink. Most names fit with room to spare, and the shrink is
+ *  not free: adjustsFontSizeToFit re-lays the text out at every size on
+ *  the way down, each time the card is measured — on Android a visible
+ *  part of what a batch of new cards cost while the menu scrolled. */
+const LONG_NAME = 34
+
 export const ProductCard = memo(function ProductCard({
   item,
   categorySlug,
@@ -167,7 +174,12 @@ export const ProductCard = memo(function ProductCard({
       <View style={styles.info}>
         {/* Top 10 builds carry their topping in the name ("… (with Aloe
             Vera)"): shrink a little before cutting the tail off. */}
-        <Text style={styles.name} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+        <Text
+          style={styles.name}
+          numberOfLines={2}
+          adjustsFontSizeToFit={name.length > LONG_NAME}
+          minimumFontScale={0.8}
+        >
           {name}
         </Text>
         <View style={styles.priceRow}>
