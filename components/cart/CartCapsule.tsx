@@ -17,6 +17,7 @@ import { useFlyToBagStore } from '@/store/flyToBag'
 import { miniCartCue } from '@/lib/motion/mini-cart'
 import { expandChrome } from '@/lib/motion/chrome'
 import { capsuleOpacity, capsuleSlide, capsuleWidth } from '@/lib/motion/cart-dock'
+import { FLARE_IN_MS, FLARE_OUT_MS, FLARE_WAIT_MS } from '@/lib/motion/glow'
 import { Icon } from '@/components/brand/Icon'
 import { formatPrice } from '@/lib/utils'
 import { CTA, T } from '@/constants/theme'
@@ -29,8 +30,19 @@ import { CTA, T } from '@/constants/theme'
 // makes room, another drink bumps it, and the fly-to-bag dot lands on the
 // glyph. It replaces the mini cart bar, which was a second, wider, solid bar
 // stacked above the glass pill (Rick, 2026-09-11: the two did not agree).
+// Behind it glows a light of its own colour (components/ui/DockGlow), which
+// this flares — through the dock's `flare` — when a drink goes in.
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
+/** The capsule's glow brightens and grows, then settles back to its breath. */
+function flareUp(flare: SharedValue<number>) {
+  cancelAnimation(flare)
+  flare.value = withSequence(
+    withTiming(1, { duration: FLARE_IN_MS, easing: Easing.out(Easing.quad) }),
+    withTiming(0, { duration: FLARE_OUT_MS, easing: Easing.out(Easing.cubic) }),
+  )
+}
 
 /** The capsule's entrance and exit: a spring with a little give, so the
  *  pill lands on its new width like something with weight. */
@@ -41,6 +53,8 @@ export type CartDock = {
   open: SharedValue<number>
   /** The capsule's width for its current total. */
   capsuleW: SharedValue<number>
+  /** 0 at rest; 1 at the top of the flare its glow gives when a drink goes in. */
+  flare: SharedValue<number>
   count: number
   label: string
 }
@@ -54,6 +68,7 @@ export function useCartDock(): CartDock {
   const width = capsuleWidth(label)
   const open = useSharedValue(count > 0 ? 1 : 0)
   const capsuleW = useSharedValue(width)
+  const flare = useSharedValue(0)
   const filled = count > 0
   useEffect(() => {
     // A total that grew a digit widens the capsule a touch; the pill follows.
@@ -67,14 +82,14 @@ export function useCartDock(): CartDock {
     }
     open.value = withSpring(target, DOCK_SPRING)
   }, [filled, reduced, open])
-  return useMemo(() => ({ open, capsuleW, count, label }), [open, capsuleW, count, label])
+  return useMemo(() => ({ open, capsuleW, flare, count, label }), [open, capsuleW, flare, count, label])
 }
 
 export function CartCapsule({ dock }: { dock: CartDock }) {
   const show = useCartSheetStore((s) => s.show)
   const landed = useFlyToBagStore((s) => s.landed)
   const reduced = useReducedMotion()
-  const { open, capsuleW, count, label } = dock
+  const { open, capsuleW, flare, count, label } = dock
 
   // The capsule's own scale: the press, and a bump when a drink joins.
   const scale = useSharedValue(1)
@@ -90,8 +105,10 @@ export function CartCapsule({ dock }: { dock: CartDock }) {
     if (cue.rest || reduced) {
       cancelAnimation(scale)
       cancelAnimation(badge)
+      cancelAnimation(flare)
       scale.value = 1
       badge.value = 1
+      flare.value = 0
       return
     }
     // Something went into the bag: the dock comes back whole to show it.
@@ -106,7 +123,15 @@ export function CartCapsule({ dock }: { dock: CartDock }) {
         withTiming(1, { duration: 180, easing: Easing.out(Easing.quad) }),
       )
     }
-  }, [count, reduced, scale, badge])
+    if (!cue.enter && !cue.bump) return
+    // …and its glow flares — unless a dot is on its way from the item
+    // sheet, launched a beat after the store changed: then the glow flares
+    // when the dot lands (below), once rather than twice.
+    const wait = setTimeout(() => {
+      if (useFlyToBagStore.getState().flights.length === 0) flareUp(flare)
+    }, FLARE_WAIT_MS)
+    return () => clearTimeout(wait)
+  }, [count, reduced, scale, badge, flare])
 
   // Fly-to-bag: the dot has just landed on the glyph, so the capsule catches
   // it — a second, springier bump on arrival. `landed` only ever counts up,
@@ -126,7 +151,8 @@ export function CartCapsule({ dock }: { dock: CartDock }) {
       withTiming(1.35, { duration: 90, easing: Easing.out(Easing.quad) }),
       withSpring(1, { damping: 10, stiffness: 260 }),
     )
-  }, [landed, reduced, scale, badge])
+    flareUp(flare)
+  }, [landed, reduced, scale, badge, flare])
 
   const capsuleStyle = useAnimatedStyle(() => ({
     width: capsuleW.value,
