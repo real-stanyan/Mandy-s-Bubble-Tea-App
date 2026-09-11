@@ -12,6 +12,7 @@ import Animated, {
 import type { CartDock } from '@/components/cart/CartCapsule'
 import { useLoop } from '@/components/brand/art-kit'
 import { GlowBlob } from '@/components/ui/Glow'
+import { CTA_HALO as CAPSULE_HALO, GLASS_HALO as PILL_HALO } from '@/components/ui/Halo'
 import { useFocusValue } from '@/components/ui/LoopScope'
 import { ambientClock, loopKey, loopPhase, memoProps } from '@/lib/motion/ambient'
 import { capsuleOpacity, capsuleSlide, pillWidth } from '@/lib/motion/cart-dock'
@@ -57,13 +58,8 @@ import { IS_EVENING } from '@/constants/theme'
 // once (components/ui/Glow), moved as a transform. Reduce Motion holds the
 // breath at frame zero and the pool steps between tabs.
 
-// By day, apricot and amber on the cream page — the light has to be
-// brighter than what it sits on, or it reads as a stain. By night, brass
-// and gold: the shop's lamps on the espresso ground. No offset: light
-// spreads evenly from its source; a shadow is what falls one way.
-// `x y blur spread colour`.
-const PILL_HALO = IS_EVENING ? '0px 0px 30px 2px rgba(232,168,84,0.6)' : '0px 0px 30px 2px rgba(255,166,102,0.7)'
-const CAPSULE_HALO = IS_EVENING ? '0px 0px 24px 2px rgba(242,186,96,0.62)' : '0px 0px 24px 2px rgba(255,140,70,0.7)'
+// The halos' light is components/ui/Halo's, shared with the controls that
+// float over the item sheet and checkout. `x y blur spread colour`.
 /** The wider bloom round the capsule at the top of a flare. */
 const CAPSULE_BURST = IS_EVENING ? '0px 0px 42px 8px rgba(246,198,112,0.75)' : '0px 0px 42px 8px rgba(255,158,88,0.8)'
 const POOL = IS_EVENING ? { color: '#F2B64A', alpha: 0.55 } : { color: '#FFA868', alpha: 0.55 }

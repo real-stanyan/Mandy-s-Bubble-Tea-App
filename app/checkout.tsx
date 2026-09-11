@@ -49,6 +49,8 @@ import { SignInCard } from '@/components/auth/SignInCard'
 import { Icon } from '@/components/brand/Icon'
 import { CupArt } from '@/components/brand/CupArt'
 import { CardBlock } from '@/components/checkout/CardBlock'
+import { GlassFill, PILL_EDGE } from '@/components/ui/GlassTabBar'
+import { Halo } from '@/components/ui/Halo'
 import { OrderPlaced } from '@/components/checkout/OrderPlaced'
 import {
   GooglePayButton,
@@ -600,6 +602,8 @@ export default function CheckoutScreen() {
     }
   }
 
+  // The floating pay bar's height, measured, so the page can scroll clear of it.
+  const [barH, setBarH] = useState(0)
   const isLoading = orderLoading || payLoading || processing
   const acceptance = useOrderAcceptance()
   const deliveryReady = fulfillmentType !== 'DELIVERY' || quote.kind === 'ok'
@@ -723,8 +727,11 @@ export default function CheckoutScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: insets.top + 8,
-          // The Google Pay bar is taller (summary line + button) than the pill.
-          paddingBottom: payMethod === 'google' && googlePayButtonAvailable ? 180 : 130,
+          // Clear of the floating pay bar, whatever it holds (a notice, the
+          // Google Pay card), with some air; until it has been measured, the
+          // old allowances (the Google Pay card is taller than the pill).
+          paddingBottom:
+            barH > 0 ? barH + 16 : payMethod === 'google' && googlePayButtonAvailable ? 180 : 130,
         }}
       >
         <InlineHeader onBack={handleBack} total={displayedTotal} />
@@ -806,9 +813,14 @@ export default function CheckoutScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.ctaBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[styles.ctaBar, { paddingBottom: Math.max(insets.bottom, 16) }]}
+        pointerEvents="box-none"
+        onLayout={(e) => setBarH(Math.round(e.nativeEvent.layout.height))}
+      >
         {squareInitFailed && (
           <View style={styles.noticeBar}>
+            <GlassFill />
             <Text style={styles.noticeText}>
               Payments couldn&apos;t start on this device. Please close and
               reopen the app, then try again.
@@ -817,6 +829,7 @@ export default function CheckoutScreen() {
         )}
         {!squareInitFailed && payNotice && (
           <View style={styles.noticeBar}>
+            <GlassFill />
             <Text style={styles.noticeText}>{payNotice}</Text>
           </View>
         )}
@@ -835,53 +848,62 @@ export default function CheckoutScreen() {
             (see payBlocked): Google's artwork is all-or-nothing, so "closed"
             gets our own CTA rather than a faded copy of theirs. */}
         {usingGoogleButton ? (
-          // The pill variant floats over the page; this one carries copy, so it
-          // sits on an opaque strip of page colour — the totals card scrolled
-          // straight through the summary line otherwise (emulator, 2026-09-04).
-          <View style={styles.gpayBar}>
-            <View style={styles.gpaySummary}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.gpayEyebrow}>{cta.eyebrow}</Text>
-                <Text style={styles.gpayTitle} numberOfLines={1}>
-                  {cta.title}
-                </Text>
+          // The pill floats on its own; this variant carries copy, so it floats
+          // as a card of the dock's glass and the page scrolls behind the
+          // summary line, not through it (it went straight through it on an
+          // open bar — emulator, 2026-09-04).
+          <View>
+            <Halo kind="glass" radius={RADIUS.card} />
+            <View style={styles.gpayBar}>
+              <GlassFill />
+              <View style={styles.gpaySummary}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.gpayEyebrow}>{cta.eyebrow}</Text>
+                  <Text style={styles.gpayTitle} numberOfLines={1}>
+                    {cta.title}
+                  </Text>
+                </View>
+                {cta.showSpinner ? (
+                  <ActivityIndicator color={T.brand} />
+                ) : (
+                  <Text style={styles.gpayAmount}>{formatPrice(displayedTotal)}</Text>
+                )}
               </View>
-              {cta.showSpinner ? (
-                <ActivityIndicator color={T.brand} />
-              ) : (
-                <Text style={styles.gpayAmount}>{formatPrice(displayedTotal)}</Text>
-              )}
+              {/* No `enabled` prop on purpose: the native view dims itself to
+                  40% when disabled, and a faded black button on this cream page
+                  is the "colour similar to the background" the guidelines rule
+                  out. It stays full-strength black; handlePay is the gate. */}
+              <GooglePayButton
+                theme="dark"
+                type="pay"
+                cornerRadius={26}
+                onPress={handlePay}
+                style={styles.gpayButton}
+              />
             </View>
-            {/* No `enabled` prop on purpose: the native view dims itself to
-                40% when disabled, and a faded black button on this cream page
-                is the "colour similar to the background" the guidelines rule
-                out. It stays full-strength black; handlePay is the gate. */}
-            <GooglePayButton
-              theme="dark"
-              type="pay"
-              cornerRadius={26}
-              onPress={handlePay}
-              style={styles.gpayButton}
-            />
           </View>
         ) : (
-          <Pressable
-            onPress={handlePay}
-            disabled={payDisabled}
-            style={[styles.placeBtn, payDisabled && { opacity: 0.5 }, ctaShadow]}
-          >
-            <View style={{ flex: 1, paddingLeft: 18 }}>
-              <Text style={styles.placeEyebrow}>{cta.eyebrow}</Text>
-              <Text style={styles.placeTitle}>{cta.title}</Text>
-            </View>
-            <View style={styles.placeAmount}>
-              {cta.showSpinner ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.placeAmountText}>{formatPrice(displayedTotal)}</Text>
-              )}
-            </View>
-          </Pressable>
+          // In the dock capsule's light, which goes out while it cannot pay.
+          <View>
+            <Halo kind="cta" radius={RADIUS.pill} on={!payDisabled} />
+            <Pressable
+              onPress={handlePay}
+              disabled={payDisabled}
+              style={[styles.placeBtn, payDisabled && { opacity: 0.5 }, ctaShadow]}
+            >
+              <View style={{ flex: 1, paddingLeft: 18 }}>
+                <Text style={styles.placeEyebrow}>{cta.eyebrow}</Text>
+                <Text style={styles.placeTitle}>{cta.title}</Text>
+              </View>
+              <View style={styles.placeAmount}>
+                {cta.showSpinner ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.placeAmountText}>{formatPrice(displayedTotal)}</Text>
+                )}
+              </View>
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -1916,14 +1938,15 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#8A6E14',
   },
+  // On the dock's glass (GlassFill), so the page scrolls behind the words.
   noticeBar: {
     marginBottom: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: T.card,
     borderRadius: RADIUS.small,
-    borderWidth: 1,
-    borderColor: T.line,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PILL_EDGE,
   },
   noticeText: {
     fontFamily: FONT.sans,
@@ -1968,10 +1991,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fecaca',
   },
-  // A solid panel, not a floating bar: the pay control and its total/gate
-  // line sit on their own paper surface with a top edge, so the order
-  // summary scrolls UNDER it instead of through it (Stan, 2026-09-04: 给
-  // 下方 PAY 专门做一个底框，不用悬浮无背景显示).
+  // A floating bar, the way the tab dock floats over the tabs, lit the way
+  // the dock is lit: no panel under it (Rick, 2026-09-11). That reverses the
+  // solid panel Stan asked for on 2026-09-04 (给下方 PAY 专门做一个底框，不用
+  // 悬浮无背景显示) so the order summary would scroll under the pay bar and
+  // not through it — which still holds: the pay button is opaque, and all
+  // copy (the notices, the Google Pay card) sits on the dock's glass.
   ctaBar: {
     position: 'absolute',
     left: 0,
@@ -1979,16 +2004,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 16,
     paddingTop: 12,
-    backgroundColor: T.paper,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: T.line,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#2A1E14',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 10,
   },
   // CTA, not PIN.chip. Pinning the dark ink fixed the label but cost the
   // button its surface: #2A1E14 on the evening page is 1.16:1, so the pay bar
@@ -2002,10 +2017,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingRight: 6,
   },
-  // Total + gate reason, above Google's button. It sits on the bar's own
-  // background so the button keeps clear space on all four sides, and the
-  // 10pt gap below is that clear space on top.
-  gpayBar: {},
+  // The Google Pay card: total and gate reason above Google's button, on
+  // the dock's glass. Its padding is the button's clear space on the sides
+  // and below, and the 10pt gap under the summary the clear space on top.
+  gpayBar: {
+    padding: 12,
+    borderRadius: RADIUS.card,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PILL_EDGE,
+  },
   gpaySummary: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -11,7 +11,7 @@ import Animated, {
   type DerivedValue,
   type SharedValue,
 } from 'react-native-reanimated'
-import { Frost, frostAvailable } from '@/components/ui/GlassTabBar'
+import { GlassFill, PILL_EDGE } from '@/components/ui/GlassTabBar'
 import { DockGlow } from '@/components/ui/DockGlow'
 import { CartCapsule, useCartDock } from '@/components/cart/CartCapsule'
 import { Icon, type IconName } from '@/components/brand/Icon'
@@ -67,20 +67,9 @@ const ICONS: Record<string, IconName> = {
   account: 'user',
 }
 
-// Frosted glass carries a light tint by day and, at night, a warm grey one a
-// clear step lighter than the espresso page — the way the Instagram bar sits
-// grey on black rather than black on black (Rick, 2026-09-09). Where the
-// device cannot blur, the same surfaces go nearly solid so the page does not
-// muddy through them.
-const BLURRED = frostAvailable(true)
-const GLASS = IS_EVENING
-  ? BLURRED
-    ? 'rgba(58,50,43,0.74)'
-    : 'rgba(58,50,43,0.97)'
-  : BLURRED
-    ? 'rgba(255,249,240,0.58)'
-    : 'rgba(255,249,240,0.96)'
-const EDGE = IS_EVENING ? 'rgba(245,237,225,0.14)' : 'rgba(42,30,20,0.10)'
+// The pill is frosted glass (components/ui/GlassTabBar: GlassFill,
+// PILL_EDGE), the same glass the item sheet's stepper and the pay notices
+// float in.
 const ON = IS_EVENING ? '#F5EDE1' : '#2A1E14'
 const DIM = IS_EVENING ? 'rgba(245,237,225,0.58)' : 'rgba(42,30,20,0.5)'
 const WINDOW = IS_EVENING ? 'rgba(245,237,225,0.15)' : 'rgba(42,30,20,0.08)'
@@ -143,10 +132,7 @@ export function FloatingTabBar({ state, descriptors, navigation, insets, positio
           pad={BAR_PAD}
         />
         <Animated.View style={[styles.bar, barStyle]}>
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Frost small intensity={IS_EVENING ? 60 : 50} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: GLASS }]} />
-          </View>
+          <GlassFill />
           <SlidingWindow index={state.index} slotW={slotW} position={position} />
           {state.routes.map((route, i) => {
             const focused = state.index === i
@@ -282,7 +268,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: EDGE,
+    borderColor: PILL_EDGE,
     // The pill clips (the window slides inside it), so on iOS a shadow of
     // its own could never show; only Android's elevation does.
     ...clippedShadow(8),
