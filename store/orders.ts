@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { ApiError, TimeoutError, apiFetchWithTimeout } from '@/lib/api'
+import { deepEqual } from '@/lib/deep-equal'
 
 // History fans out to Square's order search + the full catalog server-side, so
 // it is the slowest read the app makes — but a customer staring at a spinner
@@ -98,7 +99,7 @@ function withActiveCount(orders: OrderHistoryItem[]) {
 // popping back. Tracked outside state to avoid re-render on assign.
 let inFlight: Promise<void> | null = null
 
-export const useOrdersStore = create<OrdersState>((set) => ({
+export const useOrdersStore = create<OrdersState>((set, get) => ({
   orders: [],
   activeOrderCount: 0,
   loading: false,
@@ -113,7 +114,12 @@ export const useOrdersStore = create<OrdersState>((set) => ({
           ok: boolean
           orders: OrderHistoryItem[]
         }>('/api/orders/history', HISTORY_TIMEOUT_MS)
-        set(withActiveCount(historyRes.orders ?? []))
+        // The Orders and Account tabs poll every ten seconds while an order
+        // is open. A poll that brought back the same history keeps the same
+        // array: the Home tiles, the inbox and the tab badge all key on it,
+        // and a fresh array for nothing re-rendered the lot every poll.
+        const next = historyRes.orders ?? []
+        if (!deepEqual(get().orders, next)) set(withActiveCount(next))
       } catch (e) {
         // A signed-out caller hitting /api/orders/history gets a 401 —
         // that's not a user-facing error, it's expected. Only surface
