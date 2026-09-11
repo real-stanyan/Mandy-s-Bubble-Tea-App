@@ -12,6 +12,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import { Frost, frostAvailable } from '@/components/ui/GlassTabBar'
+import { DockGlow } from '@/components/ui/DockGlow'
 import { CartCapsule, useCartDock } from '@/components/cart/CartCapsule'
 import { Icon, type IconName } from '@/components/brand/Icon'
 import { SLIDE_MS } from '@/lib/motion/slide'
@@ -33,6 +34,10 @@ import { CTA, IS_EVENING, clippedShadow } from '@/constants/theme'
 // the row's right end, the pill's own height and radius, and the pill gives
 // up that much of the row: one shared value moves both, so the pill lands
 // on its new width as the capsule slides in. Empty, the pill has the row.
+//
+// Behind both, in the same row so it shrinks with the dock, the light
+// (components/ui/DockGlow): a halo along the pill, a pool under the showing
+// tab that follows the pages, and a glow behind the capsule.
 
 export const FLOATING_BAR_H = 52
 export const FLOATING_BAR_MARGIN = 20
@@ -126,6 +131,17 @@ export function FloatingTabBar({ state, descriptors, navigation, insets, positio
   return (
     <View pointerEvents="box-none" style={[styles.root, { bottom: floatingBarLift(insets.bottom) }]}>
       <Animated.View style={[styles.row, shrinkStyle]} onLayout={onRowLayout} pointerEvents="box-none">
+        <DockGlow
+          rowW={rowW}
+          rowW0={ROW_W}
+          dock={dock}
+          slotW={slotW}
+          position={position}
+          index={state.index}
+          count={count}
+          height={FLOATING_BAR_H}
+          pad={BAR_PAD}
+        />
         <Animated.View style={[styles.bar, barStyle]}>
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <Frost small intensity={IS_EVENING ? 60 : 50} />

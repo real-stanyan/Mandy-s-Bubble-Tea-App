@@ -109,6 +109,27 @@ describe('svg scenes hold still on Android', () => {
 })
 
 /**
+ * The light round the bottom dock (components/ui/DockGlow) breathes,
+ * follows the pill and the pager, and flares, under the tab bar on every
+ * page. Its pool is an <Svg>, and any change to an <Svg> re-rasterises it in
+ * software on Android (above), so the pool is a drawing made once and every
+ * bit of the light's motion is on the views that hold it. A glow that
+ * animated its drawing would put a bitmap per tick back under the tab bar.
+ */
+describe('the dock glow never redraws its drawings', () => {
+  it('draws its light as a static SVG', () => {
+    const src = read('components/ui/Glow.tsx')
+    expect(src).not.toMatch(/useAnimatedProps|animatedProps|createAnimatedComponent|react-native-reanimated/)
+  })
+
+  it('moves only the views around the drawings', () => {
+    const src = read('components/ui/DockGlow.tsx')
+    expect(src).not.toMatch(/useAnimatedProps|animatedProps/)
+    expect(src).toMatch(/<GlowBlob/)
+  })
+})
+
+/**
  * The launch screen opens on the colour the native splash left behind, so
  * the hand-off has no seam. app.json owns that colour (expo-splash-screen
  * → backgroundColor); the screen must not drift from it.
