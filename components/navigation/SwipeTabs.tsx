@@ -59,8 +59,9 @@ import {
 // horizontal drag anywhere on a page pulls the next one in under the finger,
 // Home to Menu to Orders to Account (Rick, 2026-09-11). A tap on the pill
 // travels the same way. The page being left fogs over as it goes — a haze
-// that rolls in from the join and has covered it by the time it is gone
-// (real blur under it on a binary that can, iOS with expo-blur) — and the
+// that rolls in from the join and has covered it by the time it is gone —
+// and the page coming in arrives out of the same fog, clearing as it lands
+// (real blur under the haze on a binary that can, iOS with expo-blur). The
 // landing has a little give, the page settling like something with weight.
 //
 // Built on React Navigation's TabRouter, so everything the bottom-tabs
@@ -197,8 +198,6 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
   /** The page the pager itself last landed on: a state change that already
    *  matches it came from a swipe and needs no travel. */
   const settled = useSharedValue(index)
-  /** The page the pager is leaving — the one that fogs over. */
-  const departing = useSharedValue(index)
   const from = useSharedValue(index)
   const startPos = useSharedValue(0)
   const hover = useSharedValue(index)
@@ -212,8 +211,9 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
   // landing animation reports it finished; a landing cut short by a new
   // drag never reports, and the new drag owns the flag.
   const [moving, setMoving] = useState(false)
-  /** Mirror of `departing` for the one thing that has to be a React
-   *  decision: which page carries the blur sheet (see Fog). */
+  /** The page the motion set out from, for the one thing that has to be a
+   *  React decision: which pages carry a blur sheet while it lasts — that
+   *  one and its neighbours, plus wherever the pager is headed (see Fog). */
   const [departingIndex, setDepartingIndex] = useState(index)
   const begin = useCallback((leaving: number) => {
     setDepartingIndex(leaving)
@@ -228,7 +228,6 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
     if (settled.value === index) return
     const leaving = settled.value
     const pages = index - leaving
-    departing.value = leaving
     settled.value = index
     cancelAnimation(position)
     if (reduced) {
@@ -243,7 +242,7 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
         if (finished) runOnJS(rest)()
       },
     )
-  }, [index, reduced, position, settled, departing, begin, rest])
+  }, [index, reduced, position, settled, begin, rest])
 
   const tick = useCallback(() => haptic.tick(), [])
   const commit = useCallback(
@@ -289,7 +288,6 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
         cancelAnimation(position)
         startPos.value = position.value
         from.value = settled.value
-        departing.value = settled.value
         hover.value = Math.round(position.value)
         dragging.value = 1
         runOnJS(begin)(settled.value)
@@ -314,7 +312,7 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
         // touch) still has to land somewhere.
         if (dragging.value === 1) land(0)
       })
-  }, [count, reduced, commit, tick, begin, rest, mountAround, position, settled, departing, from, startPos, hover, dragging, widthSv])
+  }, [count, reduced, commit, tick, begin, rest, mountAround, position, settled, from, startPos, hover, dragging, widthSv])
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: pageX(0, position.value, widthSv.value) }],
@@ -335,9 +333,8 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
                     width={width}
                     widthSv={widthSv}
                     position={position}
-                    departing={departing}
                     focused={i === index}
-                    fogged={moving && departingIndex === i}
+                    blur={moving && (Math.abs(i - departingIndex) <= 1 || i === index)}
                     reduced={reduced}
                   >
                     {descriptors[route.key].render()}
@@ -360,10 +357,10 @@ type PageProps = {
   width: number
   widthSv: SharedValue<number>
   position: SharedValue<number>
-  departing: SharedValue<number>
   focused: boolean
-  /** This page is the one being left, and the pager is in motion. */
-  fogged: boolean
+  /** The pager is in motion and this page may be part of it: carry the
+   *  blur sheet under the fog for as long as that lasts. */
+  blur: boolean
   reduced: boolean
   children: ReactNode
 }
@@ -371,7 +368,7 @@ type PageProps = {
 // One page in the row. Its last sliver fades rather than being drawn to
 // the edge (fringeOpacity): that is what the landing bounce would show of
 // the page beyond, and it is the ground colour either way.
-function Page({ index, width, widthSv, position, departing, focused, fogged, reduced, children }: PageProps) {
+function Page({ index, width, widthSv, position, focused, blur, reduced, children }: PageProps) {
   const fringe = useAnimatedStyle(() => ({ opacity: fringeOpacity(index, position.value) }))
   return (
     <Animated.View
@@ -381,21 +378,24 @@ function Page({ index, width, widthSv, position, departing, focused, fogged, red
       importantForAccessibility={focused ? 'auto' : 'no-hide-descendants'}
     >
       {children}
-      <Fog index={index} widthSv={widthSv} position={position} departing={departing} blur={fogged} reduced={reduced} />
+      <Fog index={index} widthSv={widthSv} position={position} blur={blur} reduced={reduced} />
     </Animated.View>
   )
 }
 
-// The fog over the page being left. Two sheets, each twice the page wide
-// and solid on the half nearest one edge, fading over the other; the one
-// on the seam side slides in as the haze grows, so the fog rolls in from
-// the join with a soft front and has covered the page by the time the page
-// is gone — no edge anywhere, unlike the banded seam this replaces (Rick:
-// "like a mosaic"). Under the sheet, where the binary can blur, one
-// full-page blur whose intensity follows the same haze; it is mounted only
-// while this page is the one leaving, so four idle blur views never sit
-// over four pages. Intensity is driven, never opacity: alpha on a blur
-// view breaks the effect (Apple).
+// The fog on a page in motion, by its distance from the pager
+// (hazeStrength): the page being left fogs over as it goes, the page
+// coming in arrives fogged and clears as it lands. Two sheets, each twice
+// the page wide and solid on the half nearest one edge, fading over the
+// other; the one on the seam side slides in as the haze grows and back
+// out as it thins, so the fog always rolls in from, and drains out
+// through, the join — a soft front, no edge anywhere, unlike the banded
+// seam this replaces (Rick: "like a mosaic"). Under the sheet, where the
+// binary can blur, one full-page blur whose intensity follows the same
+// haze; it is mounted only while the pager moves and only on the pages
+// that can be part of the move, so idle blur views never sit over four
+// pages. Intensity is driven, never opacity: alpha on a blur view breaks
+// the effect (Apple).
 const FOG = IS_EVENING ? 'rgba(58,50,43,0.8)' : 'rgba(255,249,240,0.88)'
 const CLEAR = IS_EVENING ? 'rgba(58,50,43,0)' : 'rgba(255,249,240,0)'
 const FOG_FROM_RIGHT = [CLEAR, FOG, FOG] as const
@@ -405,15 +405,12 @@ type FogProps = {
   index: number
   widthSv: SharedValue<number>
   position: SharedValue<number>
-  departing: SharedValue<number>
   blur: boolean
   reduced: boolean
 }
 
-function Fog({ index, widthSv, position, departing, blur, reduced }: FogProps) {
-  const haze = useDerivedValue(() =>
-    reduced || departing.value !== index ? 0 : hazeStrength(position.value, index),
-  )
+function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
+  const haze = useDerivedValue(() => (reduced ? 0 : hazeStrength(position.value, index)))
   const fromRight = useAnimatedStyle(() => {
     const h = haze.value
     const w = widthSv.value

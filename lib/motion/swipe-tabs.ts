@@ -45,11 +45,12 @@ export const SWIPE_TRAVEL: WithTimingConfig = {
  *  more than one tab over — the far pages sweep past rather than blink. */
 export const TRAVEL_PER_EXTRA_PAGE_MS = 90
 
-/** How far, in pages, the page being left has to be gone before it is
- *  wholly fogged; the haze grows from nothing at rest to full here. */
+/** How far, in pages, a page is from the pager when it is wholly fogged:
+ *  the page being left is whole fog once it has gone this far, and the page
+ *  coming in stays whole fog until it is this close, then clears. */
 export const HAZE_FULL_AT = 0.85
 
-/** expo-blur intensity of the page being left at full haze. */
+/** expo-blur intensity of a page at full haze. */
 export const HAZE_BLUR = 36
 
 /** A page more than this far from the pager, in pages, begins to fade;
@@ -104,29 +105,33 @@ export function pageX(index: number, position: number, width: number): number {
   return (index - position) * width
 }
 
-/** How fogged the page being left (`departing`) is: nothing while the pager
- *  rests on it, growing as it goes, whole by HAZE_FULL_AT — and staying
- *  whole past its mark, so a bounce does not clear it. Pulling the page
- *  back thins the fog again. */
-export function hazeStrength(position: number, departing: number): number {
+/** How fogged page `index` is: nothing while the pager rests on it, whole
+ *  when it is HAZE_FULL_AT or further away. So the page being left fogs
+ *  over as it goes — and stays fogged through a bounce past its mark — and
+ *  the page coming in arrives out of the fog, clearing as it lands (Rick:
+ *  the page sliding in should go from blurred to sharp too). Pulling a
+ *  page back thins its fog again. */
+export function hazeStrength(position: number, index: number): number {
   'worklet'
-  return Math.min(1, Math.abs(position - departing) / HAZE_FULL_AT)
+  return Math.min(1, Math.abs(position - index) / HAZE_FULL_AT)
 }
 
-/** Which edge of the page being left meets the page coming in: 1 when the
- *  pager moves toward higher indices (its right edge), -1 the other way. */
-export function seamSide(position: number, departing: number): 1 | -1 {
+/** Which edge of page `index` faces the seam — the join with the page it
+ *  is leaving for or arriving from: 1 for its right edge (the pager is
+ *  beyond it, toward higher indices), -1 for its left. */
+export function seamSide(position: number, index: number): 1 | -1 {
   'worklet'
-  return position >= departing ? 1 : -1
+  return position >= index ? 1 : -1
 }
 
 /**
- * Where the fog sheet sits over the page being left. The sheet is twice
- * the page wide, laid out from the page's left edge: solid over the half
- * nearest the seam, fading to nothing over the other. It starts wholly
- * beyond the seam edge and slides in as the haze grows, so the fog rolls
- * in from the join — a soft front, never an edge — and has covered the
- * page by the time the page is gone.
+ * Where the fog sheet sits over a page. The sheet is twice the page wide,
+ * laid out from the page's left edge: solid over the half nearest the
+ * seam, fading to nothing over the other. It sits wholly beyond the seam
+ * edge at no haze and slides in as the haze grows, so on the page being
+ * left the fog rolls in from the join — a soft front, never an edge — and
+ * has covered it by the time it is gone; on the page coming in the same
+ * sheet slides back out through the join as the page clears.
  */
 export function fogSheetX(haze: number, side: 1 | -1, width: number): number {
   'worklet'

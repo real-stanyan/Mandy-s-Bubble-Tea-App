@@ -98,15 +98,22 @@ describe('the landing spring', () => {
 })
 
 describe('hazeStrength', () => {
-  it('is nothing while the pager rests on the page being left', () => {
+  it('is nothing while the pager rests on a page', () => {
     expect(hazeStrength(0, 0)).toBe(0)
     expect(hazeStrength(2, 2)).toBe(0)
   })
 
-  it('grows with the distance gone, either way', () => {
+  it('fogs the page being left as it goes, either way', () => {
     expect(hazeStrength(0.2, 0)).toBeGreaterThan(0)
     expect(hazeStrength(0.4, 0)).toBeGreaterThan(hazeStrength(0.2, 0))
     expect(hazeStrength(1.6, 2)).toBeCloseTo(hazeStrength(2.4, 2))
+  })
+
+  it('brings the page coming in out of the fog, clear as it lands', () => {
+    expect(hazeStrength(0.1, 1)).toBe(1)
+    expect(hazeStrength(0.5, 1)).toBeGreaterThan(hazeStrength(0.8, 1))
+    expect(hazeStrength(0.8, 1)).toBeGreaterThan(0)
+    expect(hazeStrength(1, 1)).toBe(0)
   })
 
   it('is whole by HAZE_FULL_AT and stays whole through a bounce', () => {
@@ -116,9 +123,13 @@ describe('hazeStrength', () => {
 })
 
 describe('seamSide', () => {
-  it('names the edge that meets the page coming in', () => {
+  it('names the edge of each page that faces the join', () => {
+    // Leaving Home for Menu: Home meets Menu on its right, Menu on its left.
     expect(seamSide(0.3, 0)).toBe(1)
+    expect(seamSide(0.3, 1)).toBe(-1)
+    // Leaving Orders for Menu: the other way round.
     expect(seamSide(1.7, 2)).toBe(-1)
+    expect(seamSide(1.7, 1)).toBe(1)
   })
 })
 
