@@ -44,7 +44,7 @@ import {
   HAZE_BLUR,
   SWIPE_SNAP,
   SWIPE_TRAVEL,
-  fogSheetX,
+  fogSheet,
   fringeOpacity,
   hazeStrength,
   pageX,
@@ -385,21 +385,33 @@ function Page({ index, width, widthSv, position, focused, blur, reduced, childre
 
 // The fog on a page in motion, by its distance from the pager
 // (hazeStrength): the page being left fogs over as it goes, the page
-// coming in arrives fogged and clears as it lands. Two sheets, each twice
-// the page wide and solid on the half nearest one edge, fading over the
-// other; the one on the seam side slides in as the haze grows and back
-// out as it thins, so the fog always rolls in from, and drains out
-// through, the join — a soft front, no edge anywhere, unlike the banded
-// seam this replaces (Rick: "like a mosaic"). Under the sheet, where the
-// binary can blur, one full-page blur whose intensity follows the same
-// haze; it is mounted only while the pager moves and only on the pages
-// that can be part of the move, so idle blur views never sit over four
-// pages. Intensity is driven, never opacity: alpha on a blur view breaks
-// the effect (Apple).
-const FOG = IS_EVENING ? 'rgba(58,50,43,0.8)' : 'rgba(255,249,240,0.88)'
-const CLEAR = IS_EVENING ? 'rgba(58,50,43,0)' : 'rgba(255,249,240,0)'
-const FOG_FROM_RIGHT = [CLEAR, FOG, FOG] as const
-const FOG_FROM_LEFT = [FOG, FOG, CLEAR] as const
+// coming in arrives fogged and clears as it lands. One sheet per side,
+// the page's width, anchored to that edge — whole fog at the edge, fading
+// to nothing at the far end — and scaled from the edge by the haze
+// (fogSheet); only the sheet on the seam side shows. So the join between
+// the two moving pages is always whole fog on both sides, one colour, and
+// the boundary between them dissolves (Rick: let the two pages fuse);
+// each page emerges from the fog with distance from the join, the fog
+// spreading over the page being left and draining back into the join on
+// the page coming in. No edge anywhere, unlike the banded seam this
+// replaces (Rick: "like a mosaic"). Under the sheet, where the binary can
+// blur, one full-page blur whose intensity follows the same haze; it is
+// mounted only while the pager moves and only on the pages that can be
+// part of the move, so idle blur views never sit over four pages.
+// Intensity is driven, never opacity: alpha on a blur view breaks the
+// effect (Apple).
+//
+// The fog sits above everything on the page, including the floating heads
+// that carry a zIndex of their own (the menu head, the strip under the
+// clock): on iOS zIndex is the layer's z position, and a head at 10 would
+// otherwise come through the fog sharp (Rick's phone, 2026-09-11).
+export const FOG = IS_EVENING ? '#221C16' : '#FFF9F0'
+const FOG_SOFT = IS_EVENING ? 'rgba(34,28,22,0.72)' : 'rgba(255,249,240,0.72)'
+const CLEAR = IS_EVENING ? 'rgba(34,28,22,0)' : 'rgba(255,249,240,0)'
+const FOG_FROM_RIGHT = [CLEAR, FOG_SOFT, FOG] as const
+const FOG_FROM_RIGHT_STOPS = [0, 0.62, 1] as const
+const FOG_FROM_LEFT = [FOG, FOG_SOFT, CLEAR] as const
+const FOG_FROM_LEFT_STOPS = [0, 0.38, 1] as const
 
 type FogProps = {
   index: number
@@ -413,25 +425,25 @@ function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
   const haze = useDerivedValue(() => (reduced ? 0 : hazeStrength(position.value, index)))
   const fromRight = useAnimatedStyle(() => {
     const h = haze.value
-    const w = widthSv.value
+    const { translateX, scaleX } = fogSheet(h, 1, widthSv.value)
     return {
-      width: w * 2,
+      width: widthSv.value,
       opacity: h > 0 && seamSide(position.value, index) === 1 ? 1 : 0,
-      transform: [{ translateX: fogSheetX(h, 1, w) }],
+      transform: [{ translateX }, { scaleX }],
     }
   })
   const fromLeft = useAnimatedStyle(() => {
     const h = haze.value
-    const w = widthSv.value
+    const { translateX, scaleX } = fogSheet(h, -1, widthSv.value)
     return {
-      width: w * 2,
+      width: widthSv.value,
       opacity: h > 0 && seamSide(position.value, index) === -1 ? 1 : 0,
-      transform: [{ translateX: fogSheetX(h, -1, w) }],
+      transform: [{ translateX }, { scaleX }],
     }
   })
   return (
     <View
-      style={StyleSheet.absoluteFill}
+      style={styles.fog}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -440,7 +452,7 @@ function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
       <Animated.View style={[styles.sheet, fromRight]}>
         <LinearGradient
           colors={FOG_FROM_RIGHT}
-          locations={[0, 0.5, 1]}
+          locations={FOG_FROM_RIGHT_STOPS}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFill}
@@ -449,7 +461,7 @@ function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
       <Animated.View style={[styles.sheet, fromLeft]}>
         <LinearGradient
           colors={FOG_FROM_LEFT}
-          locations={[0, 0.5, 1]}
+          locations={FOG_FROM_LEFT_STOPS}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFill}
@@ -461,7 +473,9 @@ function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  viewport: { flex: 1, overflow: 'hidden' },
+  // The ground is the fog's own colour: whatever shows between or beyond
+  // the pages — a hairline at the join, the bounce past a mark — is fog.
+  viewport: { flex: 1, overflow: 'hidden', backgroundColor: FOG },
   row: {
     position: 'absolute',
     top: 0,
@@ -475,6 +489,10 @@ const styles = StyleSheet.create({
     // The fog sheets are wider than the page and slide across it; nothing
     // of them may reach the page next door.
     overflow: 'hidden',
+  },
+  fog: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
   },
   sheet: {
     position: 'absolute',
