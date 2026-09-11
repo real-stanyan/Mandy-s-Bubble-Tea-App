@@ -1,25 +1,36 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import Animated, {
-  Easing,
-  cancelAnimation,
-  useAnimatedProps,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import Animated, { runOnUI, useAnimatedProps, useReducedMotion } from 'react-native-reanimated'
 import { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { wavePath } from '@/lib/motion/wave'
+import {
+  ambientClock,
+  loopId,
+  loopKey,
+  loopPhase,
+  memoProps,
+  releaseSlot,
+  type LoopSpec,
+} from '@/lib/motion/ambient'
 import { LOOPS, matrixAt, rotateAbout, translate, waveOffset, type Frame, type LoopName } from '@/lib/motion/category-art'
 import { HERO_LOOPS, type HeroLoopName } from '@/lib/motion/checkout-hero'
+import { useLoopGate } from '@/components/ui/LoopScope'
 
-// The drawing kit the illustrations share (CategoryArt, CheckoutHero): the
-// Mini Cup's cup, the moving-part plumbing, and the palette rules. A moving
-// part is a <G> whose native `matrix` / `opacity` props follow a loop's
-// frame from a phase 0→1 (lib/motion); nothing else is animated, which is
-// the rule rn-svg groups impose on Fabric. The caller decides `live`
-// (Reduce Motion → false → every part holds frame zero).
+// The drawing kit the illustrations share (CategoryArt, CheckoutHero,
+// OrderHero): the Mini Cup's cup, the moving-part plumbing, and the palette
+// rules. A moving part is a <G> whose native `matrix` / `opacity` props
+// follow a loop's frame from a phase 0→1; nothing else is animated, which is
+// the rule rn-svg groups impose on Fabric.
+//
+// The phase comes off the ambient clock (lib/motion/ambient), not from an
+// animation of the part's own: one clock ticks for every loop in the app,
+// at a rate the eye cannot tell from the display's, and it stands still
+// while a list scrolls, while the pager moves and while the app is away.
+// Each part's mapper reads the clock, and hands its props through memoProps
+// — so a part that is asleep (its scene's gate shut: the tab not showing,
+// the tile off screen) returns the same object every tick and Reanimated
+// sends nothing native, and rn-svg never re-rasterises the drawing for it.
+// The caller decides `live` (Reduce Motion → false → every part holds frame
+// zero); the gate comes from the nearest LoopScope (components/ui/LoopScope).
 
 export const AnimG = Animated.createAnimatedComponent(G)
 export const INK = '#2A1E14'
@@ -32,18 +43,21 @@ export function nextId(): string {
   return `ak${++seq}`
 }
 
-/** A phase 0→1 repeating every `period` ms, started after `delay`; frozen at 0 when not live, and always under Reduce Motion. */
-export function useLoop(period: number, delay: number, live: boolean) {
+/**
+ * A loop for this component: a phase 0→1 every `period` ms, starting
+ * `delay` ms after it first wakes; frozen at 0 when not live, and always
+ * under Reduce Motion. Read it inside a mapper — `loopKey` against the
+ * ambient clock, then `loopPhase` — and return through `memoProps`, so a
+ * loop that stands still sends nothing native. The spec is stable across
+ * renders, which keeps the mapper that reads it stable too.
+ */
+export function useLoop(period: number, delay: number, live: boolean): LoopSpec {
   const reduced = useReducedMotion()
-  const on = live && !reduced
-  const p = useSharedValue(0)
-  useEffect(() => {
-    p.value = 0
-    if (!on) return
-    p.value = withDelay(delay, withRepeat(withTiming(1, { duration: period, easing: Easing.linear }), -1, false))
-    return () => cancelAnimation(p)
-  }, [on, period, delay, p])
-  return p
+  const idRef = useRef<string | null>(null)
+  if (idRef.current === null) idRef.current = loopId()
+  const id = idRef.current
+  useEffect(() => () => runOnUI(releaseSlot)(id), [id])
+  return useMemo(() => ({ id, period, delay, on: live && !reduced }), [id, period, delay, live, reduced])
 }
 
 export type FrameFn = (p: number) => Frame
@@ -67,19 +81,30 @@ type MotionProps = {
 
 /** One moving part: a loop's frame, applied as a matrix about the shape's own origin. */
 export function Motion({ x, y, loop, frame, period, delay = 0, rot = 0, live, children }: MotionProps) {
-  const p = useLoop(period, delay, live)
+  const spec = useLoop(period, delay, live)
+  const gate = useLoopGate()
   const fn: FrameFn = frame ?? TABLE[loop ?? 'rise']
   const animatedProps = useAnimatedProps(() => {
-    const f = fn(p.value)
-    return { matrix: matrixAt(x, y, rot + f.rot, f.scale, f.tx, f.ty, f.sy ?? 1), opacity: f.opacity }
+    const key = loopKey(spec, ambientClock.value, gate.value > 0)
+    return memoProps(spec.id, key, () => {
+      const f = fn(loopPhase(spec, key))
+      return { matrix: matrixAt(x, y, rot + f.rot, f.scale, f.tx, f.ty, f.sy ?? 1), opacity: f.opacity }
+    })
   })
   return <AnimG animatedProps={animatedProps}>{children}</AnimG>
 }
 
 /** The Mini Cup's surface: a lighter ribbon whose wavy edge is the surface, scrolling one wavelength every 2.2 s. */
 export function Surface({ d, color, live }: { d: string; color: string; live: boolean }) {
-  const p = useLoop(2200, 0, live)
-  const animatedProps = useAnimatedProps(() => ({ matrix: translate(waveOffset(p.value, WL), 0), opacity: 1 }))
+  const spec = useLoop(2200, 0, live)
+  const gate = useLoopGate()
+  const animatedProps = useAnimatedProps(() => {
+    const key = loopKey(spec, ambientClock.value, gate.value > 0)
+    return memoProps(spec.id, key, () => ({
+      matrix: translate(waveOffset(loopPhase(spec, key), WL), 0),
+      opacity: 1,
+    }))
+  })
   return (
     <AnimG animatedProps={animatedProps}>
       <Path d={d} fill={color} />
@@ -89,8 +114,15 @@ export function Surface({ d, color, live }: { d: string; color: string; live: bo
 
 /** Two colours turning inside the cup (Special Mix). */
 export function Swirl({ cx, cy, live, children }: { cx: number; cy: number; live: boolean; children: ReactNode }) {
-  const p = useLoop(9000, 0, live)
-  const animatedProps = useAnimatedProps(() => ({ matrix: rotateAbout(360 * p.value, cx, cy), opacity: 1 }))
+  const spec = useLoop(9000, 0, live)
+  const gate = useLoopGate()
+  const animatedProps = useAnimatedProps(() => {
+    const key = loopKey(spec, ambientClock.value, gate.value > 0)
+    return memoProps(spec.id, key, () => ({
+      matrix: rotateAbout(360 * loopPhase(spec, key), cx, cy),
+      opacity: 1,
+    }))
+  })
   return <AnimG animatedProps={animatedProps}>{children}</AnimG>
 }
 

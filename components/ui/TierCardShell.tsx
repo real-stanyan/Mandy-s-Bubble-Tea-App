@@ -1,18 +1,19 @@
 import { ReactNode, useEffect, useState } from 'react'
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
 import Animated, {
-  cancelAnimation,
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated'
 import { RADIUS } from '@/constants/theme'
+import { ambientClock, loopKey, loopPhase, memoProps } from '@/lib/motion/ambient'
+import { hump, keyframes } from '@/lib/motion/category-art'
+import { useLoop } from '@/components/brand/art-kit'
+import { LoopScope, useLoopGate, useSceneGate } from '@/components/ui/LoopScope'
 import type { MembershipTier } from '@/lib/membership-tier'
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
@@ -86,30 +87,47 @@ const SPARKLES: { left: `${number}%`; top: `${number}%`; size: number }[] = [
   { left: '92%', top: '70%', size: 10 },
 ]
 
-const sine = Easing.inOut(Easing.sin)
+// The idle timelines, on the ambient clock (lib/motion/ambient): the
+// reflection breathes across the metal (web: xPercent −22 ↔ 22, 7s a way),
+// the card floats — rotationY 0 → 5 → −4, rotationX 0 → −3 → 2.5, 3.2s a
+// leg, and back (web's no-gyro fallback). They used to be Reanimated loops
+// of their own, running at the display rate whether the card was on screen
+// or not; on the clock they hold still with the page and cost nothing off it.
+const REFLEX_PERIOD_MS = 14000
+const REFLEX_TRAVEL = 0.22
+const SWAY_PERIOD_MS = 12800
+const SWAY_Y: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.25, 5],
+  [0.5, -4],
+  [0.75, 5],
+  [1, 0],
+]
+const SWAY_X: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.25, -3],
+  [0.5, 2.5],
+  [0.75, -3],
+  [1, 0],
+]
 
 function Sparkle({
   left,
   top,
   size,
   index,
-  animate,
-}: (typeof SPARKLES)[number] & { index: number; animate: boolean }) {
-  const glow = useSharedValue(0.08)
-
-  useEffect(() => {
-    if (!animate) return
-    glow.value = withDelay(
-      index * 400,
-      withRepeat(withTiming(0.9, { duration: 900 + index * 140, easing: sine }), -1, true),
-    )
-    return () => cancelAnimation(glow)
-  }, [animate, glow, index])
-
-  const style = useAnimatedStyle(() => ({
-    opacity: glow.value,
-    transform: [{ scale: 0.5 + glow.value * 0.55 }],
-  }))
+  live,
+}: (typeof SPARKLES)[number] & { index: number; live: boolean }) {
+  // Glow 0.08 ↔ 0.9, each sparkle on its own beat and its own head start.
+  const loop = useLoop(2 * (900 + index * 140), index * 400, live)
+  const gate = useLoopGate()
+  const style = useAnimatedStyle(() => {
+    const key = loopKey(loop, ambientClock.value, gate.value > 0)
+    return memoProps(loop.id, key, () => {
+      const glow = 0.08 + 0.82 * hump(loopPhase(loop, key))
+      return { opacity: glow, transform: [{ scale: 0.5 + glow * 0.55 }] }
+    })
+  })
 
   return (
     <Animated.Text
@@ -149,79 +167,36 @@ interface ShellProps {
  * Reduce-motion: materials render static, no loops, no entrance.
  */
 export function TierCardShell({ tier, onPress, entrance = false, compact = false, children }: ShellProps) {
-  const [animate, setAnimate] = useState(false)
+  const reduced = useReducedMotion()
+  const animate = !reduced
   const [cardW, setCardW] = useState(0)
+  // The card animates only while its page is focused and it is in view.
+  const scene = useSceneGate()
+  const gate = scene.gate
 
   const scale = useSharedValue(1)
-  const enter = useSharedValue(entrance ? 0 : 1)
-  const swayY = useSharedValue(0)
-  const swayX = useSharedValue(0)
-  const reflex = useSharedValue(-0.22)
+  const enter = useSharedValue(entrance && animate ? 0 : 1)
 
   useEffect(() => {
-    let active = true
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((reduce) => {
-        if (!active) return
-        if (reduce) {
-          enter.value = 1
-        } else {
-          setAnimate(true)
-        }
-      })
-      .catch(() => {
-        if (active) setAnimate(true)
-      })
-    return () => {
-      active = false
-    }
-  }, [enter])
+    // Entrance: smooth 3D reveal (web: rotationY -42 → 0, y 20 → 0). Reduce
+    // Motion places the card.
+    enter.value =
+      entrance && animate ? withTiming(1, { duration: 1100, easing: Easing.out(Easing.poly(4)) }) : 1
+  }, [animate, enter, entrance])
 
-  useEffect(() => {
-    if (!animate) return
-    // Entrance: smooth 3D reveal (web: rotationY -42 → 0, y 20 → 0).
-    enter.value = entrance
-      ? withTiming(1, { duration: 1100, easing: Easing.out(Easing.poly(4)) })
-      : 1
-    // Idle: reflection breathes across the metal (web: xPercent -22 ↔ 22, 7s).
-    reflex.value = withRepeat(withTiming(0.22, { duration: 7000, easing: sine }), -1, true)
-    // Idle: gentle floating sway — web's no-gyro fallback timeline. Skipped on
-    // Android (drives the 3D perspective tilt that ANRs there); values stay 0.
-    if (!DISABLE_3D) {
-      swayY.value = withRepeat(
-        withSequence(
-          withTiming(5, { duration: 3200, easing: sine }),
-          withTiming(-4, { duration: 3200, easing: sine }),
-        ),
-        -1,
-        true,
-      )
-      swayX.value = withRepeat(
-        withSequence(
-          withTiming(-3, { duration: 3200, easing: sine }),
-          withTiming(2.5, { duration: 3200, easing: sine }),
-        ),
-        -1,
-        true,
-      )
-    }
-    return () => {
-      cancelAnimation(reflex)
-      cancelAnimation(swayY)
-      cancelAnimation(swayX)
-    }
-  }, [animate, enter, entrance, reflex, swayX, swayY])
+  const reflexLoop = useLoop(REFLEX_PERIOD_MS, 0, animate)
+  const swayLoop = useLoop(SWAY_PERIOD_MS, 0, animate && !DISABLE_3D)
 
+  // Two views: the entrance and the press are event-driven and live on the
+  // outer one; the idle sway is on the clock and lives on the inner one, so
+  // its mapper can hand back the same style while the card is asleep.
   const cardStyle = useAnimatedStyle(() => {
     // Android: flat 2D — no perspective, no rotateX/Y. Keeps the mount fade +
     // slide and the press scale, drops the per-frame 3D recomposite that ANRs.
     if (DISABLE_3D) {
       return {
         opacity: enter.value,
-        transform: [
-          { translateY: 20 * (1 - enter.value) },
-          { scale: scale.value },
-        ],
+        transform: [{ translateY: 20 * (1 - enter.value) }, { scale: scale.value }],
       }
     }
     return {
@@ -229,112 +204,147 @@ export function TierCardShell({ tier, onPress, entrance = false, compact = false
       transform: [
         { perspective: 900 },
         { translateY: 20 * (1 - enter.value) },
-        { rotateY: `${-42 * (1 - enter.value) + swayY.value}deg` },
-        { rotateX: `${swayX.value}deg` },
+        { rotateY: `${-42 * (1 - enter.value)}deg` },
         { scale: scale.value },
       ],
     }
   })
 
-  const reflexStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: reflex.value * cardW }],
-  }))
+  const swayStyle = useAnimatedStyle(() => {
+    const key = loopKey(swayLoop, ambientClock.value, gate.value > 0)
+    return memoProps(swayLoop.id, key, () => {
+      const p = loopPhase(swayLoop, key)
+      return {
+        transform: [
+          { perspective: 900 },
+          { rotateY: `${keyframes(p, SWAY_Y)}deg` },
+          { rotateX: `${keyframes(p, SWAY_X)}deg` },
+        ],
+      }
+    })
+  })
+
+  const reflexStyle = useAnimatedStyle(() => {
+    const key = loopKey(reflexLoop, ambientClock.value, gate.value > 0)
+    return memoProps(reflexLoop.id, key, () => ({
+      transform: [
+        { translateX: (-REFLEX_TRAVEL + 2 * REFLEX_TRAVEL * hump(loopPhase(reflexLoop, key))) * cardW },
+      ],
+    }))
+  })
 
   const visual = TIER_VISUALS[tier]
 
   return (
     <AnimatedPressable
-      onPressIn={() => { scale.value = withTiming(0.985, { duration: 160 }) }}
-      onPressOut={() => { scale.value = withTiming(1, { duration: 160 }) }}
+      ref={scene.ref}
+      onPressIn={() => {
+        scale.value = withTiming(0.985, { duration: 160 })
+      }}
+      onPressOut={() => {
+        scale.value = withTiming(1, { duration: 160 })
+      }}
       onPress={onPress}
-      onLayout={(e) => setCardW(e.nativeEvent.layout.width)}
-      style={[
-        cardStyle,
-        {
-          borderRadius: RADIUS.card,
-          shadowColor: visual.shadowColor,
-          shadowOpacity: 0.55,
-          shadowRadius: 22,
-          shadowOffset: { width: 0, height: 14 },
-          elevation: 10,
-        },
-      ]}
+      onLayout={(e) => {
+        setCardW(e.nativeEvent.layout.width)
+        scene.onLayout()
+      }}
+      style={[cardStyle, { borderRadius: RADIUS.card }]}
     >
-      {/* Metallic rim: 1.5px gradient frame around the card body. */}
-      <LinearGradient
-        colors={visual.rim}
-        locations={[0, 0.3, 0.68, 1]}
-        start={{ x: 0.3, y: 0 }}
-        end={{ x: 0.7, y: 1 }}
-        style={{ borderRadius: RADIUS.card, padding: 1.5 }}
-      >
-        <View style={{ borderRadius: RADIUS.card - 1.5, overflow: 'hidden' }}>
-          <LinearGradient
-            colors={visual.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.9, y: 1 }}
-            style={{ padding: compact ? 16 : 22 }}
-          >
-            {/* ── Decorative layers (behind content, never intercept taps) ── */}
-            {/* Key light + vignette (web's two radial washes). */}
-            <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-              <Defs>
-                <RadialGradient id="keylight" cx="20%" cy="-10%" r="80%">
-                  <Stop offset="0" stopColor={visual.keyLight} stopOpacity={visual.keyLightOpacity} />
-                  <Stop offset="0.36" stopColor={visual.keyLight} stopOpacity={visual.keyLightOpacity * 0.22} />
-                  <Stop offset="0.58" stopColor={visual.keyLight} stopOpacity="0" />
-                </RadialGradient>
-                <RadialGradient id="vignette" cx="50%" cy="130%" r="95%">
-                  <Stop offset="0" stopColor="#000" stopOpacity="0.45" />
-                  <Stop offset="0.38" stopColor="#000" stopOpacity="0.16" />
-                  <Stop offset="0.62" stopColor="#000" stopOpacity="0" />
-                </RadialGradient>
-              </Defs>
-              <Rect width="100%" height="100%" fill="url(#keylight)" />
-              <Rect width="100%" height="100%" fill="url(#vignette)" />
-            </Svg>
-            {/* Breathing reflection: one wide soft light sweeping the metal. */}
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                { position: 'absolute', top: 0, bottom: 0, left: '-30%', width: '160%' },
-                reflexStyle,
-              ]}
+      <Animated.View style={DISABLE_3D ? undefined : swayStyle}>
+        {/* The shadow sits on a view with a solid ground of its own: with one,
+            iOS derives the shadow from the rounded rect (a shadow path)
+            instead of from the card's pixels — which, under a card that
+            sways, was an offscreen render of the whole stack every frame. The
+            rim covers the ground entirely. */}
+        <View
+          style={{
+            borderRadius: RADIUS.card,
+            backgroundColor: visual.gradient[0],
+            shadowColor: visual.shadowColor,
+            shadowOpacity: 0.55,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: 14 },
+            elevation: 10,
+          }}
+        >
+          <LoopScope gate={gate}>
+            {/* Metallic rim: 1.5px gradient frame around the card body. */}
+            <LinearGradient
+              colors={visual.rim}
+              locations={[0, 0.3, 0.68, 1]}
+              start={{ x: 0.3, y: 0 }}
+              end={{ x: 0.7, y: 1 }}
+              style={{ borderRadius: RADIUS.card, padding: 1.5 }}
             >
-              <LinearGradient
-                colors={['transparent', visual.reflex, visual.reflex, 'transparent']}
-                locations={[0.3, 0.48, 0.52, 0.7]}
-                start={{ x: 0, y: 0.35 }}
-                end={{ x: 1, y: 0.65 }}
-                style={StyleSheet.absoluteFill}
-              />
-            </Animated.View>
-            {visual.sparkles
-              ? SPARKLES.map((s, i) => (
-                  <Sparkle key={i} {...s} index={i} animate={animate} />
-                ))
-              : null}
-            {/* Embossed brand monogram. */}
-            <Text
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                right: 16,
-                bottom: -20,
-                fontSize: 96,
-                lineHeight: 96,
-                fontFamily: 'ShantellSans_700Bold',
-                color: 'rgba(255,255,255,0.05)',
-              }}
-            >
-              M
-            </Text>
+              <View style={{ borderRadius: RADIUS.card - 1.5, overflow: 'hidden' }}>
+                <LinearGradient
+                  colors={visual.gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0.9, y: 1 }}
+                  style={{ padding: compact ? 16 : 22 }}
+                >
+                  {/* ── Decorative layers (behind content, never intercept taps) ── */}
+                  {/* Key light + vignette (web's two radial washes). */}
+                  <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+                    <Defs>
+                      <RadialGradient id="keylight" cx="20%" cy="-10%" r="80%">
+                        <Stop offset="0" stopColor={visual.keyLight} stopOpacity={visual.keyLightOpacity} />
+                        <Stop offset="0.36" stopColor={visual.keyLight} stopOpacity={visual.keyLightOpacity * 0.22} />
+                        <Stop offset="0.58" stopColor={visual.keyLight} stopOpacity="0" />
+                      </RadialGradient>
+                      <RadialGradient id="vignette" cx="50%" cy="130%" r="95%">
+                        <Stop offset="0" stopColor="#000" stopOpacity="0.45" />
+                        <Stop offset="0.38" stopColor="#000" stopOpacity="0.16" />
+                        <Stop offset="0.62" stopColor="#000" stopOpacity="0" />
+                      </RadialGradient>
+                    </Defs>
+                    <Rect width="100%" height="100%" fill="url(#keylight)" />
+                    <Rect width="100%" height="100%" fill="url(#vignette)" />
+                  </Svg>
+                  {/* Breathing reflection: one wide soft light sweeping the metal. */}
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      { position: 'absolute', top: 0, bottom: 0, left: '-30%', width: '160%' },
+                      reflexStyle,
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={['transparent', visual.reflex, visual.reflex, 'transparent']}
+                      locations={[0.3, 0.48, 0.52, 0.7]}
+                      start={{ x: 0, y: 0.35 }}
+                      end={{ x: 1, y: 0.65 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </Animated.View>
+                  {visual.sparkles
+                    ? SPARKLES.map((s, i) => <Sparkle key={i} {...s} index={i} live={animate} />)
+                    : null}
+                  {/* Embossed brand monogram. */}
+                  <Text
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      right: 16,
+                      bottom: -20,
+                      fontSize: 96,
+                      lineHeight: 96,
+                      fontFamily: 'ShantellSans_700Bold',
+                      color: 'rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    M
+                  </Text>
 
-            {/* ── Card content ── */}
-            {children}
-          </LinearGradient>
+                  {/* ── Card content ── */}
+                  {children}
+                </LinearGradient>
+              </View>
+            </LinearGradient>
+          </LoopScope>
         </View>
-      </LinearGradient>
+      </Animated.View>
     </AnimatedPressable>
   )
 }

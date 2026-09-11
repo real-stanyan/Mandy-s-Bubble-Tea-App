@@ -1,11 +1,13 @@
 import { useRef } from 'react'
-import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { useAnimatedProps, useReducedMotion } from 'react-native-reanimated'
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { wavePath } from '@/lib/motion/wave'
+import { ambientClock, loopKey, loopPhase, memoProps } from '@/lib/motion/ambient'
 import { rotateAbout, tiltAngle } from '@/lib/motion/category-art'
 import type { CategoryArtKind } from '@/lib/menu/category-art'
 import { AnimG, Cup, INK, Motion, light, nextId, useLoop } from '@/components/brand/art-kit'
+import { LoopScope, useLoopGate, useSceneGate, type Placement } from '@/components/ui/LoopScope'
 
 // The eight category illustrations, drawn and alive. No people — the drink
 // itself, in the Mini Cup's own cup (near-straight sides, flat lid, straw at
@@ -25,36 +27,53 @@ type Props = {
   /** banner: the whole stage; tile: the centre-right, for the Home grid. */
   crop?: 'banner' | 'tile'
   style?: StyleProp<ViewStyle>
+  /** Where the drawing sits in its page's scroll content, when the page
+   *  knows (the menu lays its list out by arithmetic). Without it the
+   *  drawing measures itself, inside a ScrollScopeProvider. */
+  placement?: Placement
 }
 
-export function CategoryArt({ kind, crop = 'banner', style }: Props) {
+export function CategoryArt({ kind, crop = 'banner', style, placement }: Props) {
   const reduced = useReducedMotion()
   const live = !reduced
   // A tile is small and carries its label bottom-left, so the drawing drops
   // the loose piece that would sit under the words.
   const tile = crop === 'tile'
+  // The drawing moves only while its page is focused and it is in view;
+  // asleep, its parts hold their frame and the SVG is never redrawn
+  // (components/ui/LoopScope, lib/motion/ambient).
+  const scene = useSceneGate(placement)
   return (
-    <Svg
+    <View
+      ref={scene.ref}
+      onLayout={scene.onLayout}
       style={[StyleSheet.absoluteFill, style]}
-      width="100%"
-      height="100%"
-      viewBox={crop === 'tile' ? '26 0 190 100' : '0 0 240 100'}
-      // A banner band is wider than the stage, so the drawing keeps its height
-      // and sits centred, whole (the name lives on the row above it). A tile is
-      // the stage's own shape and simply fills.
-      preserveAspectRatio={crop === 'tile' ? 'xMidYMid slice' : 'xMidYMid meet'}
       pointerEvents="none"
     >
-      {kind === 'milk' && <Milk live={live} tile={tile} />}
-      {kind === 'green' && <Green live={live} tile={tile} />}
-      {kind === 'black' && <Black live={live} tile={tile} />}
-      {kind === 'brew' && <Brew live={live} tile={tile} />}
-      {kind === 'frozen' && <Frozen live={live} tile={tile} />}
-      {kind === 'cheese' && <Cheese live={live} tile={tile} />}
-      {kind === 'mix' && <Mix live={live} tile={tile} />}
-      {kind === 'top10' && <Top10 live={live} tile={tile} />}
-      {kind === 'specials' && <Specials live={live} tile={tile} />}
-    </Svg>
+      <LoopScope gate={scene.gate}>
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          viewBox={crop === 'tile' ? '26 0 190 100' : '0 0 240 100'}
+          // A banner band is wider than the stage, so the drawing keeps its height
+          // and sits centred, whole (the name lives on the row above it). A tile is
+          // the stage's own shape and simply fills.
+          preserveAspectRatio={crop === 'tile' ? 'xMidYMid slice' : 'xMidYMid meet'}
+          pointerEvents="none"
+        >
+          {kind === 'milk' && <Milk live={live} tile={tile} />}
+          {kind === 'green' && <Green live={live} tile={tile} />}
+          {kind === 'black' && <Black live={live} tile={tile} />}
+          {kind === 'brew' && <Brew live={live} tile={tile} />}
+          {kind === 'frozen' && <Frozen live={live} tile={tile} />}
+          {kind === 'cheese' && <Cheese live={live} tile={tile} />}
+          {kind === 'mix' && <Mix live={live} tile={tile} />}
+          {kind === 'top10' && <Top10 live={live} tile={tile} />}
+          {kind === 'specials' && <Specials live={live} tile={tile} />}
+        </Svg>
+      </LoopScope>
+    </View>
   )
 }
 
@@ -68,9 +87,25 @@ function CheeseCup({ live }: { live: boolean }) {
   const px = X + 16
   const py = Y + 78
   const top = Y + 42
-  const p = useLoop(7000, 0, live)
-  const cupProps = useAnimatedProps(() => ({ matrix: rotateAbout(-tiltAngle(p.value), px, py), opacity: 1 }))
-  const insideProps = useAnimatedProps(() => ({ matrix: rotateAbout(tiltAngle(p.value), px, py), opacity: 1 }))
+  // Two parts on one beat: the cup tilts, its contents counter-tilt. Two
+  // loops of the same period wake on the same tick, so they never drift.
+  const cup = useLoop(7000, 0, live)
+  const inside = useLoop(7000, 0, live)
+  const gate = useLoopGate()
+  const cupProps = useAnimatedProps(() => {
+    const key = loopKey(cup, ambientClock.value, gate.value > 0)
+    return memoProps(cup.id, key, () => ({
+      matrix: rotateAbout(-tiltAngle(loopPhase(cup, key)), px, py),
+      opacity: 1,
+    }))
+  })
+  const insideProps = useAnimatedProps(() => {
+    const key = loopKey(inside, ambientClock.value, gate.value > 0)
+    return memoProps(inside.id, key, () => ({
+      matrix: rotateAbout(tiltAngle(loopPhase(inside, key)), px, py),
+      opacity: 1,
+    }))
+  })
   const foam = wavePath({ x0: X - 90, width: 240, top: top - 14, amplitude: 2.4, wavelength: 20, depth: 18 })
   const foamEdge = wavePath({ x0: X - 90, width: 240, top: top - 14, amplitude: 2.4, wavelength: 20, depth: 3 })
   return (
