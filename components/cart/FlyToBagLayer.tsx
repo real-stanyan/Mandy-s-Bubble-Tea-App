@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native'
+import { StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   Easing,
@@ -10,18 +10,32 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { T } from '@/constants/theme'
-import { FLY_DOT, FLY_MS, flightFrame, miniCartBagCenter, type Point } from '@/lib/motion/fly-path'
+import { FLY_DOT, FLY_MS, flightFrame, type Point } from '@/lib/motion/fly-path'
+import { capsuleWidth, cartDockBagCenter } from '@/lib/motion/cart-dock'
+import { FLOATING_BAR_H, FLOATING_BAR_MARGIN, floatingBarLift } from '@/components/ui/FloatingTabBar'
+import { useCartStore } from '@/store/cart'
 import { useFlyToBagStore, type Flight } from '@/store/flyToBag'
+import { formatPrice } from '@/lib/utils'
 
 // Mounted once at the root, above the bottom-sheet host, so a dot can leave
-// the item sheet's "Add to cart" and arc down to the mini cart bar under
-// it. Touches pass straight through.
+// the item sheet's "Add to cart" and arc down to the bag capsule in the dock
+// under it. Touches pass straight through.
 
 export function FlyToBagLayer() {
   const flights = useFlyToBagStore((s) => s.flights)
-  const { height } = useWindowDimensions()
+  const { width, height } = useWindowDimensions()
   const insets = useSafeAreaInsets()
-  const to = miniCartBagCenter({ windowHeight: height, insetBottom: insets.bottom, platform: Platform.OS })
+  // The capsule is as wide as its total, and the flight launches a beat
+  // after the store has the new drink, so this is the width it will have.
+  const total = useCartStore((s) => s.total())
+  const to = cartDockBagCenter({
+    windowWidth: width,
+    windowHeight: height,
+    margin: FLOATING_BAR_MARGIN,
+    lift: floatingBarLift(insets.bottom),
+    height: FLOATING_BAR_H,
+    capsuleW: capsuleWidth(formatPrice(total)),
+  })
   if (flights.length === 0) return null
   return (
     <View pointerEvents="none" style={styles.layer}>
