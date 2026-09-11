@@ -6,6 +6,7 @@ import {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated'
+import { stampScroll } from './ambient'
 
 // The floating tab pill gets out of the way while the customer reads down a
 // page and comes back the moment they scroll up — the Instagram bar's shrink.
@@ -70,14 +71,17 @@ export function expandChrome(): void {
 
 /** A scroll handler for plain lists (Animated.ScrollView) that drives the
  *  pill and, given one, keeps `scrollY` current for the page's own chrome
- *  (the strip under the clock). Lists with their own worklet call
- *  driveChromeShrink inside it. */
+ *  (the strip under the clock). It also stamps the scroll for the ambient
+ *  clock (lib/motion/ambient), which holds the decorative loops while the
+ *  page moves. Lists with their own worklet call driveChromeShrink and
+ *  stampScroll inside it. */
 export function useChromeScrollHandler(scrollY?: SharedValue<number>, reduced = false) {
   const lastY = useSharedValue(0)
   const target = useSharedValue(0)
   return useAnimatedScrollHandler({
     onScroll: (e) => {
       const y = e.contentOffset.y
+      stampScroll()
       if (scrollY) scrollY.value = y
       driveChromeShrink(y, lastY, target, reduced)
     },

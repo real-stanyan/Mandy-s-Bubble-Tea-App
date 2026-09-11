@@ -47,9 +47,11 @@ import {
   pairs,
 } from '@/lib/menu/grid'
 import { haptic } from '@/lib/haptics'
+import { stampScroll } from '@/lib/motion/ambient'
 import { driveChromeShrink } from '@/lib/motion/chrome'
 import { Reveal } from '@/components/ui/Reveal'
-import { T, PIN, TYPE, RADIUS, SHADOW } from '@/constants/theme'
+import { ScrollScopeProvider, useScrollScope } from '@/components/ui/LoopScope'
+import { T, PIN, TYPE, RADIUS, SHADOW, clippedShadow } from '@/constants/theme'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
 
 // The menu: a floating head (title, search, category rail — MenuHeader) over
@@ -100,6 +102,9 @@ export default function MenuScreen() {
     : `Closed · opens ${storeStatus.nextLabel}`
 
   const scrollY = useSharedValue(0)
+  // Where the list is, for the category drawings on it: each animates only
+  // while its card is in view (components/ui/LoopScope).
+  const scope = useScrollScope(scrollY)
   // Reading down shrinks the floating tab pill; scrolling up brings it back.
   const chromeLastY = useSharedValue(0)
   const chromeTarget = useSharedValue(0)
@@ -216,6 +221,8 @@ export default function MenuScreen() {
       onScroll: (e) => {
         const y = e.contentOffset.y
         scrollY.value = y
+        // The drawings hold still while the list moves (lib/motion/ambient).
+        stampScroll()
         driveChromeShrink(y, chromeLastY, chromeTarget, reduced)
         if (!trackSections) return
         // The first content pixel below the docked head, plus a hair so a
@@ -344,7 +351,10 @@ export default function MenuScreen() {
       )
       // Only the first screenful animates: rows further down mount off-screen
       // while scrolling, where an entrance would just be work nobody sees.
-      if (index < 3) return <Reveal index={index}>{cards}</Reveal>
+      // `index` counts within the section, so the section has to be the
+      // first one too — every category's first three rows used to pour in as
+      // they came into the render window, mid-scroll.
+      if (section.index === 0 && index < 3) return <Reveal index={index}>{cards}</Reveal>
       return cards
     },
     [metrics.cardW, metrics.thumbH, openItem],
@@ -361,13 +371,18 @@ export default function MenuScreen() {
         )
       }
       const count = section.data.reduce((s, row) => s + row.length, 0)
-      return (
-        <Reveal>
-          <SectionHeader category={section.category} count={count} />
-        </Reveal>
+      const header = (
+        <SectionHeader
+          category={section.category}
+          count={count}
+          top={sectionOffsets[section.index] ?? 0}
+        />
       )
+      // The first card pours in with the page; the rest mount while the list
+      // scrolls, where an entrance is work nobody sees.
+      return section.index === 0 ? <Reveal>{header}</Reveal> : header
     },
-    [searchResults.length],
+    [searchResults.length, sectionOffsets],
   )
 
   const keyExtractor = useCallback((row: CatalogItem[]) => row[0]?.id ?? 'row', [])
@@ -416,6 +431,7 @@ export default function MenuScreen() {
   }
 
   return (
+    <ScrollScopeProvider value={scope}>
     <View style={styles.root}>
       <GrainGround />
       <AnimatedSectionList
@@ -437,10 +453,13 @@ export default function MenuScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={onScroll as unknown as (e: NativeSyntheticEvent<NativeScrollEvent>) => void}
         scrollEventThrottle={16}
+        onContentSizeChange={scope.notify}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         initialNumToRender={8}
-        maxToRenderPerBatch={6}
+        // Four rows (eight cards) a batch: six was twelve cards of photos,
+        // sketches and press springs mounting in one JS turn mid-scroll.
+        maxToRenderPerBatch={4}
         windowSize={5}
         getItemLayout={searching ? undefined : gridLayout}
         onScrollBeginDrag={Keyboard.dismiss}
@@ -461,6 +480,7 @@ export default function MenuScreen() {
         onTabPress={handleTabPress}
       />
     </View>
+    </ScrollScopeProvider>
   )
 }
 
@@ -479,13 +499,18 @@ function tintFor(categoryName: string | null | undefined): string {
 const SectionHeader = memo(function SectionHeader({
   category,
   count,
+  top,
 }: {
   category: CatalogCategory
   count: number
+  /** Where the header starts in scroll coordinates (the list's geometry). */
+  top: number
 }) {
   const isSpecials = category.id === WEEKLY_SPECIALS_CATEGORY_ID
   // The living illustration for the category (components/brand/CategoryArt).
   const art = categoryArtKind(category.name)
+  // Its place in the list, so it animates only while its card is in view.
+  const placement = useMemo(() => ({ top, height: SECTION_H }), [top])
   const sub = `${count} ${count === 1 ? 'drink' : 'drinks'}${isSpecials ? ' · this week only' : ''}`
   return (
     <View
@@ -512,7 +537,7 @@ const SectionHeader = memo(function SectionHeader({
       </View>
       {art ? (
         <View style={styles.sectionArt} pointerEvents="none">
-          <CategoryArt kind={art} />
+          <CategoryArt kind={art} placement={placement} />
         </View>
       ) : null}
     </View>
@@ -575,7 +600,9 @@ const styles = StyleSheet.create({
     backgroundColor: T.sage,
     borderRadius: RADIUS.card,
     overflow: 'hidden',
-    ...SHADOW.card,
+    // Clipped (the drawing is cropped by the card), so on iOS a shadow of
+    // its own could never show; only Android's elevation does.
+    ...clippedShadow(SHADOW.card.elevation),
   },
   sectionHeaderPlain: {
     backgroundColor: T.bg2,

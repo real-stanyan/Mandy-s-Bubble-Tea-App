@@ -14,7 +14,7 @@ import { Icon, type IconName } from '@/components/brand/Icon'
 import { SLIDE_MS } from '@/lib/motion/slide'
 import { SHRINK_DROP, SHRINK_SCALE, expandChrome, tabBarShrink } from '@/lib/motion/chrome'
 import { haptic } from '@/lib/haptics'
-import { CTA, IS_EVENING } from '@/constants/theme'
+import { CTA, IS_EVENING, clippedShadow } from '@/constants/theme'
 
 // The tab bar as a floating pill of frosted glass — clear paper by day, dark
 // glass at night — lifted off the bottom edge with the page scrolling on
@@ -229,11 +229,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: EDGE,
-    shadowColor: '#2A1E14',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: IS_EVENING ? 0.45 : 0.16,
-    shadowRadius: 18,
-    elevation: 8,
+    // The pill clips (the window slides inside it), so on iOS a shadow of
+    // its own could never show; only Android's elevation does.
+    ...clippedShadow(8),
   },
   window: {
     position: 'absolute',

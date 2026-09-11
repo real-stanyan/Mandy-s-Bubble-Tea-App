@@ -17,6 +17,7 @@ import { CategoriesGrid } from '@/components/home/CategoriesGrid';
 import { StoreCard } from '@/components/home/StoreCard';
 import { T } from '@/constants/theme';
 import { Reveal } from '@/components/ui/Reveal';
+import { ScrollScopeProvider, useScrollScope } from '@/components/ui/LoopScope';
 
 // Home is the counter (direction A, Stan 2026-09-06): what a regular does
 // when they walk in, in that order — see the store is open and how long the
@@ -29,15 +30,20 @@ export default function HomeScreen() {
   // Reading down shrinks the floating tab pill; scrolling up brings it back.
   const scrollY = useSharedValue(0);
   const onScroll = useChromeScrollHandler(scrollY, useReducedMotion());
+  // Where the page is, for the drawings on it: the category tiles and the
+  // rewards card animate only while they are in view (components/ui/LoopScope).
+  const scope = useScrollScope(scrollY);
   // The page runs to the top edge of the screen: the first card starts
   // under the clock and the rest scroll beneath it (the counter used to stop
   // at the status bar and cut every card off on that line — Rick, 2026-09-09).
   return (
+    <ScrollScopeProvider value={scope}>
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <GrainGround />
       <Animated.ScrollView
         onScroll={onScroll}
         scrollEventThrottle={16}
+        onContentSizeChange={scope.notify}
         contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 32 + underBar }}
         showsVerticalScrollIndicator={false}
       >
@@ -53,5 +59,6 @@ export default function HomeScreen() {
       </Animated.ScrollView>
       <StatusFrost scrollY={scrollY} insetTop={insets.top} />
     </View>
+    </ScrollScopeProvider>
   );
 }

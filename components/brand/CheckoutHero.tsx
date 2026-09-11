@@ -7,6 +7,7 @@ import type { CupVisual } from '@/lib/cup-visual'
 import { flapFor, packFor } from '@/lib/motion/checkout-hero'
 import { HERO_MAX_CUPS } from '@/lib/menu/order-cups'
 import { AMP, BODY, INK, Motion, PEARLS, Surface, WL, light, nextId } from '@/components/brand/art-kit'
+import { LoopScope, useSceneGate } from '@/components/ui/LoopScope'
 
 // The checkout's picture of what happens next, drawn and alive, with the
 // customer's own order in it: for pickup, their cups made and waiting on
@@ -53,10 +54,14 @@ export const FRAME = {
 export function CheckoutHero({ kind, cups, extra = 0, style }: Props) {
   const reduced = useReducedMotion()
   const live = !reduced
+  // Moves only while its screen is focused (components/ui/LoopScope).
+  const scene = useSceneGate()
   const shown = cups.slice(0, HERO_MAX_CUPS)
   const frame = FRAME[kind]
   return (
     <View
+      ref={scene.ref}
+      onLayout={scene.onLayout}
       style={[
         styles.box,
         { backgroundColor: kind === 'pickup' ? '#F5E6D3' : '#EAF0E4', aspectRatio: frame.aspectRatio },
@@ -69,16 +74,18 @@ export function CheckoutHero({ kind, cups, extra = 0, style }: Props) {
           : `Your ${shown.length === 1 ? 'drink' : 'drinks'} packed for delivery to your door`
       }
     >
-      <Svg
-        style={StyleSheet.absoluteFill}
-        width="100%"
-        height="100%"
-        viewBox={frame.viewBox}
-        preserveAspectRatio="xMidYMid slice"
-        pointerEvents="none"
-      >
-        {kind === 'pickup' ? <Pickup cups={shown} live={live} /> : <Delivery cups={shown} live={live} />}
-      </Svg>
+      <LoopScope gate={scene.gate}>
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          viewBox={frame.viewBox}
+          preserveAspectRatio="xMidYMid slice"
+          pointerEvents="none"
+        >
+          {kind === 'pickup' ? <Pickup cups={shown} live={live} /> : <Delivery cups={shown} live={live} />}
+        </Svg>
+      </LoopScope>
       {kind === 'pickup' && extra > 0 ? (
         <View style={styles.extra} pointerEvents="none">
           <Text style={styles.extraText}>{`+${extra}`}</Text>

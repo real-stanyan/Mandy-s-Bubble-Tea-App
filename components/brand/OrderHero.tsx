@@ -6,6 +6,7 @@ import { wavePath } from '@/lib/motion/wave'
 import type { CupVisual } from '@/lib/cup-visual'
 import { AMP, BODY, INK, Motion, PEARLS, Surface, WL, light, nextId } from '@/components/brand/art-kit'
 import { CheckoutHero, FRAME } from '@/components/brand/CheckoutHero'
+import { LoopScope, useSceneGate } from '@/components/ui/LoopScope'
 import {
   COUNTER_Y,
   DONE_CUP,
@@ -77,6 +78,8 @@ export function OrderHero({
 }) {
   const reduced = useReducedMotion()
   const live = !reduced
+  // Moves only while its screen is focused (components/ui/LoopScope).
+  const sceneGate = useSceneGate()
 
   // Two of the six ARE the checkout hero. At checkout those pictures are a
   // promise — this is the counter you'll come to, this is the bag going to
@@ -93,6 +96,8 @@ export function OrderHero({
   const one = cups.length === 1
   return (
     <View
+      ref={sceneGate.ref}
+      onLayout={sceneGate.onLayout}
       // The scene's own daylight, the same in both themes — the PIN rule for
       // illustrations, as on CheckoutHero. Same frame as that hero's pickup
       // scene, so the card does not jump as the order advances into Ready.
@@ -106,22 +111,24 @@ export function OrderHero({
             : `Your ${one ? 'drink' : 'drinks'} collected — thanks for visiting`
       }
     >
-      <Svg
-        style={StyleSheet.absoluteFill}
-        width="100%"
-        height="100%"
-        viewBox={FRAME.pickup.viewBox}
-        preserveAspectRatio="xMidYMid slice"
-        pointerEvents="none"
-      >
-        {scene === 'received' ? (
-          <Received cups={cups} live={live} />
-        ) : scene === 'preparing' ? (
-          <Preparing cups={cups} live={live} />
-        ) : (
-          <PickedUp live={live} />
-        )}
-      </Svg>
+      <LoopScope gate={sceneGate.gate}>
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          viewBox={FRAME.pickup.viewBox}
+          preserveAspectRatio="xMidYMid slice"
+          pointerEvents="none"
+        >
+          {scene === 'received' ? (
+            <Received cups={cups} live={live} />
+          ) : scene === 'preparing' ? (
+            <Preparing cups={cups} live={live} />
+          ) : (
+            <PickedUp live={live} />
+          )}
+        </Svg>
+      </LoopScope>
       {/* THANK YOU! as a real RN <Text> over the drawing — the same trick the
           checkout hero uses for its "+N" badge, and the only text rendering in
           this file already proven on device. The note spans y 92..136 of the

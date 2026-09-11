@@ -28,6 +28,7 @@ import { AuthProvider } from '@/components/auth/AuthProvider';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useReadyVibration } from '@/hooks/use-ready-vibration';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { AmbientClock } from '@/components/ui/AmbientClock';
 import { T, IS_EVENING } from '@/constants/theme';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
@@ -233,6 +234,8 @@ export default function RootLayout() {
           <ChatSheet />
           <StatusBar style={IS_EVENING ? "light" : "dark"} />
           <PushMount />
+          {/* One clock for every decorative loop in the app (lib/motion/ambient). */}
+          <AmbientClock />
           </AuthGate>
         </ThemeProvider>
         </BottomSheetModalProvider>

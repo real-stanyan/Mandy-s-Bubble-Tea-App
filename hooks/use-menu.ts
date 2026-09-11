@@ -2,12 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Image } from 'expo-image'
 import { apiFetch } from '@/lib/api'
 import { IMG_GRID, prefetchableThumbUrls, SQUARE_IMAGE_HEADERS } from '@/lib/optimized-image'
+import { reconcileSnapshot, type MenuSnapshot } from '@/lib/menu/reconcile'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
-
-interface MenuSnapshot {
-  items: CatalogItem[]
-  categories: CatalogCategory[]
-}
 
 interface MenuData extends MenuSnapshot {
   loading: boolean
@@ -90,10 +86,15 @@ function load(force = false): Promise<MenuSnapshot> {
   if (!force && isCacheFresh()) return Promise.resolve(cache!)
   if (inFlight) return inFlight
   inFlight = fetchSnapshot()
-    .then((snap) => {
+    .then((fresh) => {
+      // Fold the fetch onto what is held: an unchanged item keeps its
+      // object, an unchanged catalog keeps its snapshot, and subscribers
+      // hear nothing for a refetch that changed nothing (lib/menu/reconcile).
+      const held = cache
+      const snap = reconcileSnapshot(held, fresh)
       cache = snap
       cacheAt = Date.now()
-      subscribers.forEach((fn) => fn(snap))
+      if (snap !== held) subscribers.forEach((fn) => fn(snap))
       prefetchThumbs(snap.items)
       return snap
     })

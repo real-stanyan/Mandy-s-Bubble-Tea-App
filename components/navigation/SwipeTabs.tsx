@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Dimensions, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native'
 import {
   TabActions,
@@ -40,6 +40,7 @@ import { floatingTabBarClearance } from '@/components/ui/FloatingTabBar'
 import { Frost, glassTabBarAvailable } from '@/components/ui/GlassTabBar'
 import { IS_EVENING } from '@/constants/theme'
 import { haptic } from '@/lib/haptics'
+import { pagerBusy } from '@/lib/motion/ambient'
 import { expandChrome } from '@/lib/motion/chrome'
 import {
   HAZE_BLUR,
@@ -242,6 +243,15 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
   }, [])
   const rest = useCallback(() => setMoving(false), [])
 
+  // While the pager moves the ambient loops on every page hold still
+  // (lib/motion/ambient): the swipe has the frame to itself. Set from
+  // whichever thread starts the motion, cleared on the UI thread when the
+  // landing reports it finished — and on the way out, in case a landing
+  // was cut short by the pager going away.
+  useEffect(() => () => {
+    pagerBusy.value = 0
+  }, [])
+
   // The horizontal scrollers on the pages (HorizontalScrollView) register
   // their native gestures here; the pan waits for every one of them to
   // fail, so a touch that starts on a rail or a carousel is theirs.
@@ -270,11 +280,15 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
       return
     }
     begin(leaving)
+    pagerBusy.value = 1
     position.value = withTiming(
       index,
       { ...SWIPE_TRAVEL, duration: travelDuration(pages) },
       (finished) => {
-        if (finished) runOnJS(rest)()
+        if (finished) {
+          pagerBusy.value = 0
+          runOnJS(rest)()
+        }
       },
     )
   }, [index, reduced, position, settled, begin, rest])
@@ -304,13 +318,17 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
       settled.value = target
       if (reduced) {
         position.value = target
+        pagerBusy.value = 0
         runOnJS(rest)()
       } else {
         position.value = withSpring(
           target,
           { ...SWIPE_SNAP, velocity: snapVelocity(velocity) },
           (finished) => {
-            if (finished) runOnJS(rest)()
+            if (finished) {
+              pagerBusy.value = 0
+              runOnJS(rest)()
+            }
           },
         )
       }
@@ -326,6 +344,7 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
         from.value = settled.value
         hover.value = Math.round(position.value)
         dragging.value = 1
+        pagerBusy.value = 1
         runOnJS(begin)(settled.value)
         runOnJS(mountAround)(settled.value)
       })
@@ -380,7 +399,7 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
                     blur={moving && (Math.abs(i - departingIndex) <= 1 || i === index)}
                     reduced={reduced}
                   >
-                    {descriptors[route.key].render()}
+                    <PageContent descriptor={descriptors[route.key]} />
                   </Page>
                 )
               })}
@@ -395,6 +414,14 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
     </View>
   )
 }
+
+// A page's screen, rendered once per descriptor. The pager's own state —
+// in motion or at rest, which page is leaving, which pages exist — changes
+// on every swipe, and the four screens must not re-render for any of it:
+// the descriptors only change when the navigator's state does.
+const PageContent = memo(function PageContent({ descriptor }: { descriptor: Descriptors[string] }) {
+  return <>{descriptor.render()}</>
+})
 
 type PageProps = {
   index: number

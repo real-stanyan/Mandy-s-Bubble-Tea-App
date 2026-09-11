@@ -219,6 +219,17 @@ export const SHADOW = {
   },
 } as const;
 
+/**
+ * The shadow for a surface that clips its content (overflow hidden). iOS
+ * draws a layer's shadow outside its bounds and then clips it along with
+ * the content, so on a clipped view the shadow never shows — the shadow
+ * properties buy nothing but an offscreen pass every frame the view moves.
+ * Android's elevation is drawn by the parent and survives the clip.
+ */
+export function clippedShadow(elevation: number): { elevation?: number } {
+  return Platform.OS === 'android' ? { elevation } : {};
+}
+
 export const TYPE = {
   screenTitleSm:  { fontFamily: 'ShantellSans_700Bold', fontSize: 22, letterSpacing: -0.5 },
   screenTitleLg:  { fontFamily: 'ShantellSans_700Bold', fontSize: 28, letterSpacing: -0.5 },

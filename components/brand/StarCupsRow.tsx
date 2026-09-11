@@ -1,14 +1,11 @@
-import { useEffect } from 'react';
 import { View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useReducedMotion } from 'react-native-reanimated';
 import Svg, { Ellipse, Path, Rect } from 'react-native-svg';
 import { resolveCupVisual } from '@/lib/cup-visual';
+import { ambientClock, loopKey, loopPhase, memoProps } from '@/lib/motion/ambient';
+import { hump } from '@/lib/motion/category-art';
+import { useLoop } from '@/components/brand/art-kit';
+import { useLoopGate } from '@/components/ui/LoopScope';
 
 interface Props {
   value: number;
@@ -118,18 +115,18 @@ function EmptyCup({ breathe }: { breathe: boolean }) {
   return <Breath floor={0.55}>{cup}</Breath>;
 }
 
-/** Opacity breath between `floor` and 1, ~2.6s a cycle, forever. */
+/** Opacity breath between `floor` and 1, ~2.6s a cycle, on the ambient
+ *  clock (lib/motion/ambient) — so it holds with the page, and holds at the
+ *  floor under Reduce Motion, which it used to ignore. */
 function Breath({ floor, children }: { floor: number; children: React.ReactNode }) {
-  const t = useSharedValue(0);
-  useEffect(() => {
-    t.value = withRepeat(
-      withTiming(1, { duration: BREATH_MS, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true,
-    );
-  }, [t]);
-  const style = useAnimatedStyle(() => ({
-    opacity: floor + (1 - floor) * t.value,
-  }));
+  const reduced = useReducedMotion();
+  const loop = useLoop(BREATH_MS * 2, 0, !reduced);
+  const gate = useLoopGate();
+  const style = useAnimatedStyle(() => {
+    const key = loopKey(loop, ambientClock.value, gate.value > 0);
+    return memoProps(loop.id, key, () => ({
+      opacity: floor + (1 - floor) * hump(loopPhase(loop, key)),
+    }));
+  });
   return <Animated.View style={style}>{children}</Animated.View>;
 }
