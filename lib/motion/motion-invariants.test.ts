@@ -137,6 +137,16 @@ describe('the dock glow never redraws its drawings', () => {
     expect(src).not.toMatch(/useAnimatedProps|animatedProps/)
     expect(src).toMatch(/<GlowBlob/)
   })
+
+  it('lights the floating controls with a shadow, never a drawing', () => {
+    // The item sheet's stepper and Add to cart, and checkout's Place order,
+    // float in the dock's light (components/ui/Halo): a box shadow the shape
+    // of the control, breathing as a view's opacity. A drawing there would
+    // be a bitmap per breath on Android.
+    const src = read('components/ui/Halo.tsx')
+    expect(src).not.toMatch(/react-native-svg|useAnimatedProps|animatedProps/)
+    expect(src).toMatch(/boxShadow/)
+  })
 })
 
 /**

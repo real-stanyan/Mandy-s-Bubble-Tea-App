@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Platform, StyleSheet } from 'react-native'
+import { Platform, StyleSheet, View } from 'react-native'
 import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated'
 import { requireOptionalNativeModule } from 'expo'
 import { IS_EVENING } from '@/constants/theme'
@@ -98,3 +98,33 @@ export function Frost({ small = false, intensity = 70, progress }: FrostProps) {
 }
 
 export const FROST_TINT = PAPER_TINT
+
+// The tab pill's glass (components/ui/FloatingTabBar), and whatever else
+// floats over a page the way it does: the item sheet's stepper, the pay
+// notices and the Google Pay card at checkout. A light tint by day; at
+// night a warm grey a clear step lighter than the espresso page, the way
+// the Instagram bar sits grey on black rather than black on black (Rick,
+// 2026-09-09). Where the device cannot blur a small surface it goes nearly
+// solid, so the page does not muddy through it.
+const PILL_BLURRED = frostAvailable(true)
+export const PILL_GLASS = IS_EVENING
+  ? PILL_BLURRED
+    ? 'rgba(58,50,43,0.74)'
+    : 'rgba(58,50,43,0.97)'
+  : PILL_BLURRED
+    ? 'rgba(255,249,240,0.58)'
+    : 'rgba(255,249,240,0.96)'
+/** The hairline round the glass. */
+export const PILL_EDGE = IS_EVENING ? 'rgba(245,237,225,0.14)' : 'rgba(42,30,20,0.10)'
+
+/** The pill's glass as a fill: the frost, where the device blurs a small
+ *  surface, under the tint. The first child of a view that clips to its
+ *  own radius and draws PILL_EDGE as its hairline. */
+export function GlassFill() {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Frost small intensity={IS_EVENING ? 60 : 50} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: PILL_GLASS }]} />
+    </View>
+  )
+}

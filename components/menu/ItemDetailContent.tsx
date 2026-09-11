@@ -22,6 +22,8 @@ import { lockedToppingsFor, displayNameFor, isLockedToppingName, lockedModifierI
 import { originalPriceCentsFor } from '@/lib/menu/weekly-specials'
 import { SquareImage } from '@/components/ui/SquareImage'
 import { ImageSkeleton } from '@/components/ui/ImageSkeleton'
+import { GlassFill, PILL_EDGE } from '@/components/ui/GlassTabBar'
+import { Halo } from '@/components/ui/Halo'
 import { IMG_HERO } from '@/lib/optimized-image'
 import type { CatalogItem, CatalogItemVariation, ModifierList } from '@/types/square'
 import { CupPreview } from '@/components/menu/CupPreview'
@@ -143,6 +145,8 @@ export function ItemDetailContent({
   const isEditing = editingLive || updated
   const ctaRef = useRef<View>(null)
   const insets = useSafeAreaInsets()
+  // The floating bar's height, measured, so the page can scroll clear of it.
+  const [barH, setBarH] = useState(() => 80 + insets.bottom)
   const onLoadedRef = useRef(onLoaded)
   useEffect(() => { onLoadedRef.current = onLoaded })
   // Same ref dance as onLoaded: the exit fires from a timer, so it must reach
@@ -834,94 +838,114 @@ export function ItemDetailContent({
             )
           })}
         </View>
+        {/* Room to scroll the last section clear of the floating bar. */}
+        <View style={{ height: barH }} />
       </ScrollComponent>
 
-      {addDisabled && soldOutSelected.length > 0 ? (
-        <View style={styles.notice}>
-          <Text style={styles.noticeText}>
-            {lockedSoldOut.length > 0
-              ? `${soldOutNames} ${soldOutSelected.length > 1 ? 'are' : 'is'} sold out today, so this Top 10 build isn't available.`
-              : `${soldOutNames} ${soldOutSelected.length > 1 ? 'are' : 'is'} sold out — remove it to add this drink.`}
-          </Text>
-          {lockedSoldOut.length > 0 && flyToBag ? (
-            <Pressable onPress={openWithoutPreset} hitSlop={6} accessibilityRole="button">
-              <Text style={styles.noticeLink}>Order it without {lockedSoldOut.map((m) => m.name).join(' and ')} →</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-      <View style={[styles.ctaBar, { paddingBottom: 12 + insets.bottom }]}>
-        <View style={styles.stepper}>
-          <Pressable
-            onPress={() => {
-              if (quantity <= 1) return
-              Haptics.selectionAsync()
-              setQuantity((q) => Math.max(1, q - 1))
-            }}
-            disabled={quantity <= 1}
-            accessibilityRole="button"
-            accessibilityLabel="Decrease quantity"
-            accessibilityState={{ disabled: quantity <= 1 }}
-            style={({ pressed }) => [
-              styles.stepperBtn,
-              quantity <= 1 && { opacity: 0.4 },
-              pressed && quantity > 1 && { opacity: 0.5 },
-            ]}
-          >
-            <Text style={styles.stepperMinus}>−</Text>
-          </Pressable>
-          <Text
-            style={styles.stepperCount}
-            accessibilityLiveRegion="polite"
-            accessibilityLabel={`Quantity ${quantity}`}
-          >
-            {quantity}
-          </Text>
-          <Pressable
-            onPress={() => {
-              if (quantity >= 99) return
-              Haptics.selectionAsync()
-              setQuantity((q) => Math.min(99, q + 1))
-            }}
-            disabled={quantity >= 99}
-            accessibilityRole="button"
-            accessibilityLabel="Increase quantity"
-            accessibilityState={{ disabled: quantity >= 99 }}
-            style={({ pressed }) => [
-              styles.stepperBtn,
-              quantity >= 99 && { opacity: 0.4 },
-              pressed && quantity < 99 && { opacity: 0.5 },
-            ]}
-          >
-            <Icon name="plus" size={18} color={T.ink} />
-          </Pressable>
-        </View>
-        <Pressable
-          ref={ctaRef}
-          onPress={handleAddToCart}
-          disabled={addDisabled}
-          style={({ pressed }) => [
-            styles.cta,
-            styles.ctaFlex,
-            added && styles.ctaAdded,
-            addDisabled && styles.ctaDisabled,
-            pressed && !addDisabled && { opacity: 0.85 },
-          ]}
-        >
-          {added ? (
-            <View style={styles.ctaAddedRow}>
-              <Icon name="check" color="#fff" size={18} />
-              <Text style={styles.ctaAddedText}>{updated ? 'Updated' : 'Added'}</Text>
+      {/* The bar floats over the page the way the tab dock floats over the
+          tabs (Rick, 2026-09-11): no strip under it, the stepper in the
+          dock's glass and the button in its light, and the page running on
+          beneath with room at its end to scroll clear (the spacer above). */}
+      <View
+        style={[styles.floatBar, { paddingBottom: 12 + insets.bottom }]}
+        pointerEvents="box-none"
+        onLayout={(e) => setBarH(Math.round(e.nativeEvent.layout.height))}
+      >
+        {addDisabled && soldOutSelected.length > 0 ? (
+          <View style={styles.notice}>
+            <GlassFill />
+            <View style={styles.noticeTint} pointerEvents="none" />
+            <Text style={styles.noticeText}>
+              {lockedSoldOut.length > 0
+                ? `${soldOutNames} ${soldOutSelected.length > 1 ? 'are' : 'is'} sold out today, so this Top 10 build isn't available.`
+                : `${soldOutNames} ${soldOutSelected.length > 1 ? 'are' : 'is'} sold out — remove it to add this drink.`}
+            </Text>
+            {lockedSoldOut.length > 0 && flyToBag ? (
+              <Pressable onPress={openWithoutPreset} hitSlop={6} accessibilityRole="button">
+                <Text style={styles.noticeLink}>Order it without {lockedSoldOut.map((m) => m.name).join(' and ')} →</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+        <View style={styles.ctaBar} pointerEvents="box-none">
+          <View>
+            <Halo kind="glass" radius={999} />
+            <View style={styles.stepper}>
+              <GlassFill />
+              <Pressable
+                onPress={() => {
+                  if (quantity <= 1) return
+                  Haptics.selectionAsync()
+                  setQuantity((q) => Math.max(1, q - 1))
+                }}
+                disabled={quantity <= 1}
+                accessibilityRole="button"
+                accessibilityLabel="Decrease quantity"
+                accessibilityState={{ disabled: quantity <= 1 }}
+                style={({ pressed }) => [
+                  styles.stepperBtn,
+                  quantity <= 1 && { opacity: 0.4 },
+                  pressed && quantity > 1 && { opacity: 0.5 },
+                ]}
+              >
+                <Text style={styles.stepperMinus}>−</Text>
+              </Pressable>
+              <Text
+                style={styles.stepperCount}
+                accessibilityLiveRegion="polite"
+                accessibilityLabel={`Quantity ${quantity}`}
+              >
+                {quantity}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  if (quantity >= 99) return
+                  Haptics.selectionAsync()
+                  setQuantity((q) => Math.min(99, q + 1))
+                }}
+                disabled={quantity >= 99}
+                accessibilityRole="button"
+                accessibilityLabel="Increase quantity"
+                accessibilityState={{ disabled: quantity >= 99 }}
+                style={({ pressed }) => [
+                  styles.stepperBtn,
+                  quantity >= 99 && { opacity: 0.4 },
+                  pressed && quantity < 99 && { opacity: 0.5 },
+                ]}
+              >
+                <Icon name="plus" size={18} color={T.ink} />
+              </Pressable>
             </View>
-          ) : (
-            <>
-              <Text style={styles.ctaLeft}>{isEditing ? 'Update cart' : 'Add to cart'}</Text>
-              {!addDisabled ? (
-                <Text style={styles.ctaRight}>{formatPrice(totalCents * quantity)}</Text>
-              ) : null}
-            </>
-          )}
-        </Pressable>
+          </View>
+          <View style={styles.ctaFlex}>
+            <Halo kind="cta" radius={999} on={!addDisabled && !added} />
+            <Pressable
+              ref={ctaRef}
+              onPress={handleAddToCart}
+              disabled={addDisabled}
+              style={({ pressed }) => [
+                styles.cta,
+                added && styles.ctaAdded,
+                addDisabled && styles.ctaDisabled,
+                pressed && !addDisabled && { opacity: 0.85 },
+              ]}
+            >
+              {added ? (
+                <View style={styles.ctaAddedRow}>
+                  <Icon name="check" color="#fff" size={18} />
+                  <Text style={styles.ctaAddedText}>{updated ? 'Updated' : 'Added'}</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.ctaLeft}>{isEditing ? 'Update cart' : 'Add to cart'}</Text>
+                  {!addDisabled ? (
+                    <Text style={styles.ctaRight}>{formatPrice(totalCents * quantity)}</Text>
+                  ) : null}
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
       </View>
     </View>
   )
@@ -1174,11 +1198,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 12,
     borderRadius: 14,
-    backgroundColor: 'rgba(196,58,16,0.08)',
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(196,58,16,0.18)',
     gap: 6,
   },
+  // The warning's red, over the glass it floats on.
+  noticeTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(196,58,16,0.08)' },
   noticeText: { fontFamily: 'ShantellSans_500Medium', fontSize: 13, lineHeight: 18, color: T.ink },
   noticeLink: { fontFamily: 'ShantellSans_700Bold', fontSize: 13, color: T.brand },
   block: { width: '100%' },
@@ -1216,15 +1242,18 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
+  floatBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   ctaBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 16,
     paddingTop: 12,
-    backgroundColor: T.paper,
-    borderTopWidth: 1,
-    borderTopColor: T.line,
   },
   cta: {
     flexDirection: 'row',
@@ -1440,9 +1469,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: T.line,
-    backgroundColor: T.paper,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: PILL_EDGE,
   },
   stepperBtn: {
     width: 40,
