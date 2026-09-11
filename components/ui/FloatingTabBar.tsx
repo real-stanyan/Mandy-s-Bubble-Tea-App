@@ -7,6 +7,7 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated'
 import { Frost, frostAvailable } from '@/components/ui/GlassTabBar'
 import { Icon, type IconName } from '@/components/brand/Icon'
@@ -69,7 +70,14 @@ const ON = IS_EVENING ? '#F5EDE1' : '#2A1E14'
 const DIM = IS_EVENING ? 'rgba(245,237,225,0.58)' : 'rgba(42,30,20,0.5)'
 const WINDOW = IS_EVENING ? 'rgba(245,237,225,0.15)' : 'rgba(42,30,20,0.08)'
 
-export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+type Props = BottomTabBarProps & {
+  /** Where the pager is, in pages (components/navigation/SwipeTabs). Given,
+   *  the window follows it — under the finger during a swipe, and along the
+   *  same travel as the pages after a tap. */
+  position?: SharedValue<number>
+}
+
+export function FloatingTabBar({ state, descriptors, navigation, insets, position }: Props) {
   const reportHeight = useContext(BottomTabBarHeightCallbackContext)
   useEffect(() => {
     reportHeight?.(floatingTabBarClearance(insets.bottom))
@@ -98,7 +106,7 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
           <Frost small intensity={IS_EVENING ? 60 : 50} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: GLASS }]} />
         </View>
-        <SlidingWindow index={state.index} slotW={slotW} />
+        <SlidingWindow index={state.index} slotW={slotW} position={position} />
         {state.routes.map((route, i) => {
           const focused = state.index === i
           const { options } = descriptors[route.key]
@@ -158,16 +166,27 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
 }
 
 // The window behind the active icon: centred in its slot, capped so four
-// tabs on a wide phone do not turn it into a bar of its own. First placement
-// is instant; Reduce Motion keeps every placement that way.
-function SlidingWindow({ index, slotW }: { index: number; slotW: number }) {
+// tabs on a wide phone do not turn it into a bar of its own. With a pager
+// position it simply sits where the pages are — a swipe drags it along
+// under the finger, a tap moves it on the same curve as the pages. Without
+// one, first placement is instant and later ones Slide; Reduce Motion keeps
+// every placement instant.
+function SlidingWindow({
+  index,
+  slotW,
+  position,
+}: {
+  index: number
+  slotW: number
+  position?: SharedValue<number>
+}) {
   const reduced = useReducedMotion()
   const x = useSharedValue(0)
   const shown = useSharedValue(0)
   const placed = useRef(false)
   const w = Math.min(WINDOW_MAX_W, Math.max(0, slotW - 8))
   useEffect(() => {
-    if (slotW === 0) return
+    if (slotW === 0 || position) return
     const target = BAR_PAD + index * slotW + (slotW - w) / 2
     if (!placed.current || reduced) {
       x.value = target
@@ -176,11 +195,19 @@ function SlidingWindow({ index, slotW }: { index: number; slotW: number }) {
       return
     }
     x.value = withTiming(target, SLIDE)
-  }, [index, slotW, w, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
-  const style = useAnimatedStyle(() => ({
-    opacity: shown.value,
-    transform: [{ translateX: x.value }],
-  }))
+  }, [index, slotW, w, reduced, position]) // eslint-disable-line react-hooks/exhaustive-deps
+  const style = useAnimatedStyle(() => {
+    if (position) {
+      return {
+        opacity: 1,
+        transform: [{ translateX: BAR_PAD + position.value * slotW + (slotW - w) / 2 }],
+      }
+    }
+    return {
+      opacity: shown.value,
+      transform: [{ translateX: x.value }],
+    }
+  })
   if (slotW === 0) return null
   return <Animated.View pointerEvents="none" style={[styles.window, { width: w }, style]} />
 }

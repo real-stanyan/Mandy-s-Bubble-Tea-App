@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Tabs } from 'expo-router';
 
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useOrdersStore } from '@/store/orders';
 import { Icon, type IconName } from '@/components/brand/Icon';
 import { MiniCartBar } from '@/components/cart/MiniCartBar';
 import { CartSheet } from '@/components/cart/CartSheet';
+import { SwipeTabs } from '@/components/navigation/SwipeTabs';
 import { FloatingTabBar } from '@/components/ui/FloatingTabBar';
-import { T } from '@/constants/theme';
 
 function TabIcon({ name, color }: { name: IconName; color: string }) {
   return <Icon name={name} color={color} size={24} />;
@@ -27,17 +26,16 @@ export default function TabLayout() {
 
   return (
     <View style={styles.root}>
-      <Tabs
-        // The floating pill (components/ui/FloatingTabBar) draws itself over
-        // the page; screens clear it with useBottomTabBarHeight.
+      <SwipeTabs
+        // The four tabs are pages side by side: a horizontal drag pulls the
+        // next one in (components/navigation/SwipeTabs). The floating pill
+        // (components/ui/FloatingTabBar) draws itself over the page and its
+        // window follows the pager; screens clear it with
+        // useBottomTabBarHeight. The pager draws no header — every tab
+        // hides its own.
         tabBar={(props) => <FloatingTabBar {...props} />}
-        screenOptions={{
-          headerStyle: { backgroundColor: T.paper },
-          headerTintColor: T.ink,
-          headerShown: true,
-        }}
       >
-        <Tabs.Screen
+        <SwipeTabs.Screen
           name="index"
           options={{
             title: 'Home',
@@ -45,7 +43,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
           }}
         />
-        <Tabs.Screen
+        <SwipeTabs.Screen
           name="menu"
           options={{
             title: 'Menu',
@@ -53,7 +51,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabIcon name="cafe" color={color} />,
           }}
         />
-        <Tabs.Screen
+        <SwipeTabs.Screen
           name="order"
           options={{
             title: 'My Orders',
@@ -62,7 +60,7 @@ export default function TabLayout() {
             tabBarBadge: unfinishedCount > 0 ? unfinishedCount : undefined,
           }}
         />
-        <Tabs.Screen
+        <SwipeTabs.Screen
           name="account"
           options={{
             title: 'Account',
@@ -70,7 +68,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabIcon name="user" color={color} />,
           }}
         />
-      </Tabs>
+      </SwipeTabs>
       <MiniCartBar />
       <CartSheet />
     </View>
