@@ -109,12 +109,12 @@ describe('svg scenes hold still on Android', () => {
 })
 
 /**
- * The light behind the bottom dock (components/ui/DockGlow) is spots of
- * radial gradient that breathe, drift, follow the pill and flare, under the
- * tab bar on every page. Any change to an <Svg> re-rasterises it in software
- * on Android (above), so the spots are drawings made once and every bit of
- * their motion is on the views that hold them. A glow that animated its
- * drawing would put a bitmap per spot per tick back under the tab bar.
+ * The light round the bottom dock (components/ui/DockGlow) breathes,
+ * follows the pill and the pager, and flares, under the tab bar on every
+ * page. Its pool is an <Svg>, and any change to an <Svg> re-rasterises it in
+ * software on Android (above), so the pool is a drawing made once and every
+ * bit of the light's motion is on the views that hold it. A glow that
+ * animated its drawing would put a bitmap per tick back under the tab bar.
  */
 describe('the dock glow never redraws its drawings', () => {
   it('draws its light as a static SVG', () => {
