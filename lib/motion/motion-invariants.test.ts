@@ -82,6 +82,33 @@ describe('svg groups animate native props', () => {
 })
 
 /**
+ * react-native-svg on Android rasterises a whole <Svg> into a fresh software
+ * bitmap on every change to any part of it, so a drawing that moves costs a
+ * bitmap the size of the drawing per tick, on the UI thread (2026-09-11:
+ * iOS smooth after the ambient clock, Android still not). Every SVG scene
+ * therefore gates its motion on SVG_MOTION (lib/motion/ambient), which is
+ * false on Android. A new scene that forgets is Android stuttering again.
+ */
+describe('svg scenes hold still on Android', () => {
+  const SCENES = [
+    'components/brand/CategoryArt.tsx',
+    'components/brand/CheckoutHero.tsx',
+    'components/brand/OrderHero.tsx',
+    'components/menu/CupPreview.tsx',
+    'components/brand/LiquidCup.tsx',
+  ]
+
+  it.each(SCENES)('%s gates its motion on SVG_MOTION', (f) => {
+    expect(read(f)).toMatch(/\bSVG_MOTION\b/)
+  })
+
+  it('SVG_MOTION is the platform switch', () => {
+    const src = read('lib/motion/ambient.ts')
+    expect(src).toMatch(/export const SVG_MOTION = Platform\.OS !== 'android'/)
+  })
+})
+
+/**
  * The launch screen opens on the colour the native splash left behind, so
  * the hand-off has no seam. app.json owns that colour (expo-splash-screen
  * → backgroundColor); the screen must not drift from it.

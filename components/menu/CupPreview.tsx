@@ -23,6 +23,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg'
 import { resolveCupVisual, describeCup, type ToppingVisual } from '@/lib/cup-visual'
+import { SVG_MOTION } from '@/lib/motion/ambient'
 import { wavePath } from '@/lib/motion/wave'
 import { T, TYPE } from '@/constants/theme'
 
@@ -127,7 +128,10 @@ function Surface({ color, opacity }: { color: string; opacity: number }) {
   const reduced = useReducedMotion()
   const tx = useSharedValue(0)
   useEffect(() => {
-    if (reduced) return
+    // Still under Reduce Motion, and still on Android: at 60fps this was a
+    // software bitmap of the whole cup every frame the sheet was open
+    // (lib/motion/ambient SVG_MOTION).
+    if (reduced || !SVG_MOTION) return
     tx.value = withRepeat(
       withTiming(-SURFACE_WAVELENGTH, { duration: 2200, easing: Easing.linear }),
       -1,

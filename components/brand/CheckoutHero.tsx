@@ -8,6 +8,7 @@ import { flapFor, packFor } from '@/lib/motion/checkout-hero'
 import { HERO_MAX_CUPS } from '@/lib/menu/order-cups'
 import { AMP, BODY, INK, Motion, PEARLS, Surface, WL, light, nextId } from '@/components/brand/art-kit'
 import { LoopScope, useSceneGate } from '@/components/ui/LoopScope'
+import { SVG_MOTION } from '@/lib/motion/ambient'
 
 // The checkout's picture of what happens next, drawn and alive, with the
 // customer's own order in it: for pickup, their cups made and waiting on
@@ -53,7 +54,8 @@ export const FRAME = {
 
 export function CheckoutHero({ kind, cups, extra = 0, style }: Props) {
   const reduced = useReducedMotion()
-  const live = !reduced
+  // Still under Reduce Motion, and still on Android (lib/motion/ambient SVG_MOTION).
+  const live = !reduced && SVG_MOTION
   // Moves only while its screen is focused (components/ui/LoopScope).
   const scene = useSceneGate()
   const shown = cups.slice(0, HERO_MAX_CUPS)

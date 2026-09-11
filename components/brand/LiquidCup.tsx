@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { PIN, T } from '@/constants/theme'
+import { SVG_MOTION } from '@/lib/motion/ambient'
 import { LAUNCH, pearlDelayMs } from '@/lib/motion/launch-timeline'
 import { wavePath } from '@/lib/motion/wave'
 import { LAUNCH_PEARLS, LAUNCH_PEARL_R } from '@/lib/motion/pearls'
@@ -93,7 +94,11 @@ export function LiquidCup({
       )
       shown.value = withDelay(start, withTiming(1, { duration: 60 }))
     }
-    if (!reduced) {
+    // The pour and the pearls play everywhere; the wave that rides on
+    // through the launch does not on Android, where every frame of it was
+    // a software bitmap of the cup while the app was still starting
+    // (lib/motion/ambient SVG_MOTION).
+    if (!reduced && SVG_MOTION) {
       // One wavelength per loop, so the restart lands on an identical frame.
       wave.value = withRepeat(
         withTiming(-WAVELENGTH, { duration: LAUNCH.waveMs, easing: Easing.linear }),
