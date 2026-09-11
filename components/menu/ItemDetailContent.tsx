@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import { Image } from 'expo-image'
+import { LinearGradient } from 'expo-linear-gradient'
 import * as Haptics from 'expo-haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { apiFetch } from '@/lib/api'
@@ -59,6 +60,15 @@ function isUncountedTopping(name: string): boolean {
 
 type CountMap = Record<string, number>
 const EMPTY_COUNTS: Readonly<CountMap> = Object.freeze({}) as Readonly<CountMap>
+
+/** How far above the floating bar the page starts to fade: it dissolves into
+ *  the sheet before it reaches the controls and is gone behind them, so
+ *  nothing of it reads as part of the bar. Floating over the page as it was,
+ *  the bar met a drink's size chips on the way in: the gold Regular chip sat
+ *  right under the gold Add to cart, two pills in a row (Rick, 2026-09-12). */
+const FADE_REACH = 44
+/** The sheet's own colour: clear, most of the way, and whole. */
+const FADE = [T.paper + '00', T.paper + 'D9', T.paper] as const
 
 function isToppingList(name: string | undefined | null): boolean {
   return (name ?? '').toUpperCase().includes('TOPPING')
@@ -147,6 +157,11 @@ export function ItemDetailContent({
   const insets = useSafeAreaInsets()
   // The floating bar's height, measured, so the page can scroll clear of it.
   const [barH, setBarH] = useState(() => 80 + insets.bottom)
+  // Where the bar's top edge falls in the fade (FADE_REACH above it to the
+  // sheet's bottom): clear at the top, most of the way at the bar, whole a
+  // little below its top.
+  const fadeAt = FADE_REACH / (FADE_REACH + barH)
+  const fadeWhole = fadeAt + (1 - fadeAt) * 0.3
   const onLoadedRef = useRef(onLoaded)
   useEffect(() => { onLoadedRef.current = onLoaded })
   // Same ref dance as onLoaded: the exit fires from a timer, so it must reach
@@ -838,8 +853,9 @@ export function ItemDetailContent({
             )
           })}
         </View>
-        {/* Room to scroll the last section clear of the floating bar. */}
-        <View style={{ height: barH }} />
+        {/* Room to scroll the last section clear of the floating bar and of
+            the fade above it. */}
+        <View style={{ height: barH + FADE_REACH }} />
       </ScrollComponent>
 
       {/* The bar floats over the page the way the tab dock floats over the
@@ -851,6 +867,15 @@ export function ItemDetailContent({
         pointerEvents="box-none"
         onLayout={(e) => setBarH(Math.round(e.nativeEvent.layout.height))}
       >
+        {/* The page's edge: the page fades into the sheet over the last
+            FADE_REACH above the bar and is gone behind it. The controls and
+            their light sit over it, still floating, with no line or band. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={FADE}
+          locations={[0, fadeAt, fadeWhole]}
+          style={[styles.fade, { top: -FADE_REACH }]}
+        />
         {addDisabled && soldOutSelected.length > 0 ? (
           <View style={styles.notice}>
             <GlassFill />
@@ -1243,6 +1268,12 @@ const styles = StyleSheet.create({
   },
 
   floatBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  fade: {
     position: 'absolute',
     left: 0,
     right: 0,
