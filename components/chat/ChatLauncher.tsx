@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { floatingTabBarClearance } from '@/components/ui/FloatingTabBar'
+import { FLOATING_BAR_MARGIN, floatingTabBarClearance } from '@/components/ui/FloatingTabBar'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path, Circle } from 'react-native-svg'
 import { T, IS_EVENING } from '@/constants/theme'
-import { useCartStore } from '@/store/cart'
 import { useChat } from '@/store/chat'
 import { chatUiStrings } from '@/lib/chat/ui-strings'
 
@@ -56,7 +55,6 @@ export function ChatLauncher() {
   const teaserSeen = useChat((s) => s.teaserSeen)
   const markTeaserSeen = useChat((s) => s.markTeaserSeen)
   // Above the early return — hooks must run on every render path.
-  const hasCartBar = useCartStore((s) => s.items.length > 0)
   const [showTeaser, setShowTeaser] = useState(false)
 
   useEffect(() => {
@@ -87,10 +85,11 @@ export function ChatLauncher() {
     open()
   }
 
-  // Clears the floating tab pill and its lift. With items in the cart,
-  // MiniCartBar floats just above the pill (~48px tall) — the launcher hops
-  // over it instead of sitting on View Cart (Stan's screenshot, 2026-08-10).
-  const bottom = floatingTabBarClearance(insets.bottom) + 12 + (hasCartBar ? 56 : 0)
+  // Clears the dock (the tab pill and, beside it, the bag capsule) and its
+  // lift. The bag used to be a bar stacked above the pill that the launcher
+  // had to hop over (Stan's screenshot, 2026-08-10); it lives in the dock's
+  // row now, so the launcher sits at one height whatever the bag holds.
+  const bottom = floatingTabBarClearance(insets.bottom) + 12
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -152,7 +151,9 @@ export function ChatLauncher() {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    right: 16,
+    // On the dock's own right edge, so the launcher and the bag capsule
+    // under it line up.
+    right: FLOATING_BAR_MARGIN,
     height: 52,
     borderRadius: 26,
     paddingHorizontal: 16,
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
   },
   teaser: {
     position: 'absolute',
-    right: 16,
+    right: FLOATING_BAR_MARGIN,
     width: 250,
     borderRadius: 16,
     borderWidth: 1,

@@ -4,7 +4,6 @@ import { StyleSheet, View } from 'react-native';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useOrdersStore } from '@/store/orders';
 import { Icon, type IconName } from '@/components/brand/Icon';
-import { MiniCartBar } from '@/components/cart/MiniCartBar';
 import { CartSheet } from '@/components/cart/CartSheet';
 import { SwipeTabs } from '@/components/navigation/SwipeTabs';
 import { FloatingTabBar } from '@/components/ui/FloatingTabBar';
@@ -30,7 +29,8 @@ export default function TabLayout() {
         // The four tabs are pages side by side: a horizontal drag pulls the
         // next one in (components/navigation/SwipeTabs). The floating pill
         // (components/ui/FloatingTabBar) draws itself over the page and its
-        // window follows the pager; screens clear it with
+        // window follows the pager; the bag capsule sits beside it in the
+        // same dock (components/cart/CartCapsule); screens clear it with
         // useBottomTabBarHeight. The pager draws no header — every tab
         // hides its own.
         tabBar={(props) => <FloatingTabBar {...props} />}
@@ -69,7 +69,6 @@ export default function TabLayout() {
           }}
         />
       </SwipeTabs>
-      <MiniCartBar />
       <CartSheet />
     </View>
   );

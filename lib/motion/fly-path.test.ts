@@ -1,4 +1,4 @@
-import { FLY_DOT, FLY_MS, flightFrame, miniCartBagCenter } from './fly-path'
+import { FLY_DOT, FLY_MS, flightFrame } from './fly-path'
 
 const from = { x: 200, y: 780 }
 const to = { x: 42, y: 690 }
@@ -46,27 +46,5 @@ describe('fly-to-bag arc', () => {
   it('has the timing the design board promises', () => {
     expect(FLY_MS).toBe(720)
     expect(FLY_DOT).toBe(14)
-  })
-})
-
-describe('mini cart bag centre', () => {
-  it('sits above the tab bar, on the bag well at the left of the bar', () => {
-    const ios = miniCartBagCenter({ windowHeight: 852, insetBottom: 34, platform: 'ios' })
-    expect(ios.x).toBe(42)
-    // tab bar 49 + 34 + 8 = 91; bar bottom 99; bar centre 22 up.
-    expect(ios.y).toBe(852 - 99 - 22)
-  })
-
-  it('uses the fixed Android tab bar height', () => {
-    const android = miniCartBagCenter({ windowHeight: 800, insetBottom: 0, platform: 'android' })
-    expect(android.y).toBe(800 - (56 + 16 + 8) - 22)
-  })
-
-  it('always lands inside the window', () => {
-    for (const h of [640, 780, 932]) {
-      const p = miniCartBagCenter({ windowHeight: h, insetBottom: 20, platform: 'ios' })
-      expect(p.y).toBeGreaterThan(0)
-      expect(p.y).toBeLessThan(h)
-    }
   })
 })

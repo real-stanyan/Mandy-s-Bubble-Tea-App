@@ -1,5 +1,5 @@
 // Fly-to-bag: a dot leaves the "Add to cart" button, arcs up, and lands on
-// the mini cart's bag. The arc is pure maths so the curve is testable; the
+// the bag capsule in the dock (lib/motion/cart-dock says where). The arc is pure maths so the curve is testable; the
 // component only drives `t` from 0 to 1.
 
 export type Point = { x: number; y: number }
@@ -30,24 +30,4 @@ export function flightFrame(t: number, from: Point, to: Point): FlightFrame {
     scale: 1 + 0.2 * arc - 0.7 * p * p * p,
     opacity: p > 0.92 ? 1 - (p - 0.92) / 0.08 : 1,
   }
-}
-
-export type BagCenterInput = {
-  windowHeight: number
-  insetBottom: number
-  platform: 'ios' | 'android' | string
-}
-
-/**
- * Resting centre of the bag icon in MiniCartBar, in window coordinates.
- * Derived from the bar's own layout constants (absolute at left 12, bottom =
- * tab bar + 8; paddingLeft 14; 32pt bag well; 44pt tall) rather than a
- * measurement, because the bar may not even be mounted when the flight
- * starts — an empty cart has no bar until the item lands in it.
- */
-export function miniCartBagCenter({ windowHeight, insetBottom, platform }: BagCenterInput): Point {
-  const tabBarHeight = platform === 'ios' ? 49 + insetBottom + 8 : 56 + 8 + 8
-  const barBottom = tabBarHeight + 8
-  const barHeight = 44
-  return { x: 12 + 14 + 16, y: windowHeight - barBottom - barHeight / 2 }
 }
