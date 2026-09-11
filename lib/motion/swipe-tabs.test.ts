@@ -1,17 +1,26 @@
 import {
   FLICK,
+  FRINGE_FADE,
+  FRINGE_GONE,
+  HAZE_FULL_AT,
   OVERDRAG,
+  SNAP_MAX_VELOCITY,
+  SWIPE_SNAP,
+  fogSheetX,
+  fringeOpacity,
+  hazeStrength,
   overdrag,
   pageX,
   rubberBand,
-  seamStrength,
-  seamX,
+  seamSide,
   settleTarget,
+  snapVelocity,
   travelDuration,
 } from './swipe-tabs'
 import { SLIDE_MS } from './slide'
 
 const COUNT = 4
+const W = 390
 
 describe('settleTarget', () => {
   it('rests on the page that is more than half in view', () => {
@@ -73,35 +82,94 @@ describe('rubberBand', () => {
   })
 })
 
-describe('seamStrength', () => {
-  it('is nothing while the pager rests on a page', () => {
-    for (let i = 0; i < COUNT; i++) expect(seamStrength(i, COUNT)).toBe(0)
+describe('the landing spring', () => {
+  it('has a little give rather than stopping dead', () => {
+    // Under-damped: damping below the critical 2·sqrt(k·m).
+    const { damping, stiffness, mass } = SWIPE_SNAP
+    expect(damping!).toBeLessThan(2 * Math.sqrt(stiffness! * mass!))
+    expect(SWIPE_SNAP.overshootClamping).toBeUndefined()
   })
 
-  it('peaks halfway between two pages and is symmetric', () => {
-    expect(seamStrength(0.5, COUNT)).toBe(1)
-    expect(seamStrength(0.25, COUNT)).toBeCloseTo(seamStrength(0.75, COUNT))
-    expect(seamStrength(0.25, COUNT)).toBeCloseTo(0.75)
-  })
-
-  it('is nothing past either end, where there is no second page to meet', () => {
-    expect(seamStrength(-0.1, COUNT)).toBe(0)
-    expect(seamStrength(3.1, COUNT)).toBe(0)
+  it('is handed no more than a bounded speed', () => {
+    expect(snapVelocity(0.4)).toBe(0.4)
+    expect(snapVelocity(9)).toBe(SNAP_MAX_VELOCITY)
+    expect(snapVelocity(-9)).toBe(-SNAP_MAX_VELOCITY)
   })
 })
 
-describe('seamX and pageX', () => {
-  it('put the seam on the left edge of the page being moved toward', () => {
-    expect(seamX(0.3, 100)).toBeCloseTo(70)
-    expect(seamX(0.3, 100)).toBeCloseTo(pageX(1, 0.3, 100))
-    expect(seamX(1.75, 100)).toBeCloseTo(pageX(2, 1.75, 100))
+describe('hazeStrength', () => {
+  it('is nothing while the pager rests on the page being left', () => {
+    expect(hazeStrength(0, 0)).toBe(0)
+    expect(hazeStrength(2, 2)).toBe(0)
   })
 
-  it('rest on the current page', () => {
-    expect(seamX(2, 100)).toBe(0)
+  it('grows with the distance gone, either way', () => {
+    expect(hazeStrength(0.2, 0)).toBeGreaterThan(0)
+    expect(hazeStrength(0.4, 0)).toBeGreaterThan(hazeStrength(0.2, 0))
+    expect(hazeStrength(1.6, 2)).toBeCloseTo(hazeStrength(2.4, 2))
+  })
+
+  it('is whole by HAZE_FULL_AT and stays whole through a bounce', () => {
+    expect(hazeStrength(HAZE_FULL_AT, 0)).toBe(1)
+    expect(hazeStrength(1.03, 0)).toBe(1)
+  })
+})
+
+describe('seamSide', () => {
+  it('names the edge that meets the page coming in', () => {
+    expect(seamSide(0.3, 0)).toBe(1)
+    expect(seamSide(1.7, 2)).toBe(-1)
+  })
+})
+
+describe('fogSheetX', () => {
+  it('keeps the sheet wholly beyond the seam edge while there is no haze', () => {
+    // Sheet laid out from x=0, 2W wide: at W it starts at the right edge.
+    expect(fogSheetX(0, 1, W)).toBe(W)
+    // From the left: its right end sits at the left edge.
+    expect(fogSheetX(0, -1, W)).toBe(-2 * W)
+  })
+
+  it('has the solid half over the page at full haze', () => {
+    expect(fogSheetX(1, 1, W)).toBe(-W)
+    expect(fogSheetX(1, -1, W)).toBe(0)
+  })
+
+  it('rolls the soft front in from the seam', () => {
+    // Halfway: the fading half covers the page, solid at the seam edge.
+    expect(fogSheetX(0.5, 1, W)).toBe(0)
+    expect(fogSheetX(0.5, -1, W)).toBe(-W)
+    // Monotonic: more haze, further in.
+    expect(fogSheetX(0.7, 1, W)).toBeLessThan(fogSheetX(0.3, 1, W))
+    expect(fogSheetX(0.7, -1, W)).toBeGreaterThan(fogSheetX(0.3, -1, W))
+  })
+})
+
+describe('fringeOpacity', () => {
+  it('draws a page whole until only its last sliver is left', () => {
+    expect(fringeOpacity(1, 1)).toBe(1)
+    expect(fringeOpacity(1, 0.5)).toBe(1)
+    expect(fringeOpacity(1, 1 - FRINGE_FADE)).toBe(1)
+  })
+
+  it('has the page beyond gone before a bounce could show it', () => {
+    // Landing on Menu with a 1.5% overshoot: Orders is 0.985 away.
+    expect(fringeOpacity(2, 1.015)).toBe(0)
+    expect(fringeOpacity(2, 1 + (1 - FRINGE_GONE))).toBeCloseTo(0, 6)
+  })
+
+  it('fades between the two marks', () => {
+    const mid = (FRINGE_FADE + FRINGE_GONE) / 2
+    expect(fringeOpacity(1, 1 + mid)).toBeCloseTo(0.5)
+  })
+})
+
+describe('pageX', () => {
+  it('rests on the current page', () => {
     expect(pageX(2, 2, 100)).toBe(0)
     expect(pageX(3, 2, 100)).toBe(100)
     expect(pageX(1, 2, 100)).toBe(-100)
+    expect(pageX(1, 0.3, 100)).toBeCloseTo(70)
   })
 })
 
