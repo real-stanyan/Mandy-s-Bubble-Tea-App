@@ -7,6 +7,7 @@ import Svg, { Path, Circle } from 'react-native-svg'
 import { T, IS_EVENING } from '@/constants/theme'
 import { useChat } from '@/store/chat'
 import { chatUiStrings } from '@/lib/chat/ui-strings'
+import { afterLaunch } from '@/lib/launch'
 
 /** Evening brand is a light gold — white-on-gold is exactly the unreadable
  *  blob Stan screenshotted, so the pill's content flips to day-ink on it.
@@ -59,13 +60,13 @@ export function ChatLauncher() {
 
   useEffect(() => {
     if (teaserSeen) return
-    // A beat after launch, not instantly — a popup racing first paint
-    // reads as an ad and gets reflex-closed.
-    const timer = setTimeout(() => {
+    // A beat after the launch screen has gone, not instantly — a popup
+    // racing first paint reads as an ad and gets reflex-closed. Counted from
+    // mount, as it used to be, it landed on the launch's own exit fade.
+    return afterLaunch(() => {
       const s = useChat.getState()
       if (!s.isOpen && !s.teaserSeen) setShowTeaser(true)
-    }, 2200)
-    return () => clearTimeout(timer)
+    }, 1500)
   }, [teaserSeen])
 
   const hidden = HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))

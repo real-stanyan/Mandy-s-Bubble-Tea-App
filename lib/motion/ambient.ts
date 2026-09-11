@@ -15,8 +15,9 @@ import { makeMutable, type SharedValue } from 'react-native-reanimated'
 //   - it ticks AMBIENT_FPS times a second, so an illustration is redrawn that
 //     often and no more — ambient motion is slow, and nobody can tell;
 //   - it stands still while a list scrolls, while the tab pager moves, while
-//     the app is in the background, and under Reduce Motion — the loops
-//     freeze where they are and pick up from there;
+//     the app is in the background, while the launch screen covers the app,
+//     and under Reduce Motion — the loops freeze where they are and pick up
+//     from there;
 //   - a loop whose gate is shut (its page not focused, its tile off the
 //     screen) holds frame zero, and because the mapper hands Reanimated the
 //     very same props object it handed it last time, no native update is
@@ -65,6 +66,9 @@ export const pagerBusy: SharedValue<number> = makeMutable(0)
 export const appActive: SharedValue<number> = makeMutable(1)
 /** 1 under Reduce Motion: the clock stands still and every loop holds frame zero. */
 export const motionReduced: SharedValue<number> = makeMutable(0)
+/** 1 while the launch screen covers the app (lib/launch): nothing under it
+ *  can be seen, and the pour needs the frames. */
+export const launchCover: SharedValue<number> = makeMutable(1)
 /** Unquantised running total of live time. */
 const ambientElapsed: SharedValue<number> = makeMutable(0)
 
@@ -75,9 +79,10 @@ export function ambientHeld(
   pager: number,
   active: number,
   reduced: number,
+  cover = 0,
 ): boolean {
   'worklet'
-  return reduced > 0 || active <= 0 || pager > 0 || now - lastScroll < SCROLL_HOLD_MS
+  return reduced > 0 || active <= 0 || pager > 0 || cover > 0 || now - lastScroll < SCROLL_HOLD_MS
 }
 
 /** The clock reading for a running total: the last whole step. */
@@ -94,7 +99,14 @@ export function advanceAmbient(timestamp: number, sincePrevious: number): void {
   'worklet'
   ambientNow.value = timestamp
   if (
-    ambientHeld(timestamp, lastScrollAt.value, pagerBusy.value, appActive.value, motionReduced.value)
+    ambientHeld(
+      timestamp,
+      lastScrollAt.value,
+      pagerBusy.value,
+      appActive.value,
+      motionReduced.value,
+      launchCover.value,
+    )
   ) {
     return
   }

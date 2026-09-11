@@ -9,6 +9,7 @@ import {
   ambientNow,
   appActive,
   lastScrollAt,
+  launchCover,
   loopId,
   loopKey,
   loopPhase,
@@ -27,6 +28,7 @@ function resetClock() {
   pagerBusy.value = 0
   appActive.value = 1
   motionReduced.value = 0
+  launchCover.value = 0
 }
 
 /** Run the clock for `frames` frames of `dt` ms, from `from`. */
@@ -74,7 +76,7 @@ describe('the ambient clock', () => {
     expect(advanced).toBeLessThanOrEqual(quantize(31 * dt) + AMBIENT_STEP_MS)
   })
 
-  it('stands still while the pager moves, in the background, and under Reduce Motion', () => {
+  it('stands still while the pager moves, in the background, under Reduce Motion and under the launch screen', () => {
     let t = run(0, 12)
     const a = ambientClock.value
     pagerBusy.value = 1
@@ -89,6 +91,10 @@ describe('the ambient clock', () => {
     t = run(t, 12)
     expect(ambientClock.value).toBe(a)
     motionReduced.value = 0
+    launchCover.value = 1
+    t = run(t, 12)
+    expect(ambientClock.value).toBe(a)
+    launchCover.value = 0
     run(t, 12)
     expect(ambientClock.value).toBeGreaterThan(a)
   })
@@ -113,6 +119,7 @@ describe('the ambient clock', () => {
     expect(ambientHeld(1000, -1e9, 1, 1, 0)).toBe(true)
     expect(ambientHeld(1000, -1e9, 0, 0, 0)).toBe(true)
     expect(ambientHeld(1000, -1e9, 0, 1, 1)).toBe(true)
+    expect(ambientHeld(1000, -1e9, 0, 1, 0, 1)).toBe(true)
     expect(ambientHeld(1000, -1e9, 0, 1, 0)).toBe(false)
   })
 })

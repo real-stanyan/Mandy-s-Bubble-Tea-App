@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Image } from 'expo-image'
 import { apiFetch } from '@/lib/api'
+import { afterLaunch } from '@/lib/launch'
 import { IMG_GRID, prefetchableThumbUrls, SQUARE_IMAGE_HEADERS } from '@/lib/optimized-image'
 import { reconcileSnapshot, type MenuSnapshot } from '@/lib/menu/reconcile'
 import type { CatalogItem, CatalogCategory } from '@/types/square'
@@ -75,11 +76,14 @@ function prefetchThumbs(items: CatalogItem[]) {
       // Fire-and-forget: offline or optimizer errors are non-fatal; images
       // load lazily (with raw-URL fallback) when rows render.
     })
-  warm(thumbs)
-  // The grid tier waits a few seconds: the cards on screen are fetching the
-  // same tier right now, and ninety warm-up requests ahead of them in the
-  // queue is exactly the stall this cache is meant to prevent.
-  setTimeout(() => warm(grid), 4000)
+  // Neither tier goes out under the launch screen: Home's own photos load
+  // then, and ninety warm-ups queued ahead of them kept the page from being
+  // whole when the cover lifted.
+  afterLaunch(() => warm(thumbs), 600)
+  // The grid tier waits a few seconds more: the cards on screen are fetching
+  // the same tier right now, and ninety warm-up requests ahead of them in
+  // the queue is exactly the stall this cache is meant to prevent.
+  afterLaunch(() => warm(grid), 4000)
 }
 
 function load(force = false): Promise<MenuSnapshot> {
