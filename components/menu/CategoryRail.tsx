@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native'
+import { HorizontalScrollView } from '@/components/navigation/HorizontalScrollView'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -67,7 +68,7 @@ export function CategoryRail({ categories, activeId, onPress, dimmed = false }: 
       pointerEvents={dimmed ? 'none' : 'auto'}
       onLayout={(e) => setRailW(e.nativeEvent.layout.width)}
     >
-      <ScrollView
+      <HorizontalScrollView
         ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -93,7 +94,7 @@ export function CategoryRail({ categories, activeId, onPress, dimmed = false }: 
           </Pressable>
         ))}
         <SlidingPill slot={slot} categories={categories} />
-      </ScrollView>
+      </HorizontalScrollView>
     </View>
   )
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
+import { HorizontalScrollView } from '@/components/navigation/HorizontalScrollView'
 import { useRouter } from 'expo-router'
 import { useOrdersStore } from '@/store/orders'
 import { useCartStore } from '@/store/cart'
@@ -46,7 +47,7 @@ export function OrderAgain() {
         actionLabel="History"
         onAction={() => router.push('/(tabs)/order')}
       />
-      <ScrollView
+      <HorizontalScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
@@ -56,7 +57,7 @@ export function OrderAgain() {
         {usuals.map((u, i) => (
           <UsualCard key={u.key} usual={u} lead={i === 0} photo={u.imageUrl ?? photoByName[u.name]} />
         ))}
-      </ScrollView>
+      </HorizontalScrollView>
     </View>
   )
 }

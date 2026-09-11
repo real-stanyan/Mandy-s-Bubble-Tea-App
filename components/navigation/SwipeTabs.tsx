@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Dimensions, StyleSheet, View, type LayoutChangeEvent } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Dimensions, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native'
 import {
   TabActions,
   TabRouter,
@@ -21,7 +21,7 @@ import {
 } from '@react-navigation/bottom-tabs'
 import { withLayoutContext } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler'
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -35,6 +35,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { SwipeScrollContext, type ScrollRegistry } from '@/components/navigation/HorizontalScrollView'
 import { floatingTabBarClearance } from '@/components/ui/FloatingTabBar'
 import { Frost, glassTabBarAvailable } from '@/components/ui/GlassTabBar'
 import { IS_EVENING } from '@/constants/theme'
@@ -215,11 +216,45 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
    *  React decision: which pages carry a blur sheet while it lasts — that
    *  one and its neighbours, plus wherever the pager is headed (see Fog). */
   const [departingIndex, setDepartingIndex] = useState(index)
+
+  // The other half of "a swipe is never a tap". The pan taking the touch is
+  // meant to cancel the press under the finger, but the loyalty card and
+  // the drink cards still fired on release after a swipe on Rick's phone
+  // (2026-09-11). So the viewport also claims the touch in RN's own
+  // responder system the moment it has moved sideways by the pan's own
+  // threshold: the card that held it is terminated then and there, on
+  // both platforms, whatever the native side did. Vertical reading is
+  // left alone (a scroll cancels the press itself), and claiming the
+  // responder blocks no native scroll view — the rails keep rolling.
+  const touchStart = useRef({ x: 0, y: 0 })
+  const noteTouchStart = useCallback((e: GestureResponderEvent) => {
+    touchStart.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }
+    return false
+  }, [])
+  const claimSideways = useCallback((e: GestureResponderEvent) => {
+    const dx = e.nativeEvent.pageX - touchStart.current.x
+    const dy = e.nativeEvent.pageY - touchStart.current.y
+    return Math.abs(dx) >= ACTIVE_X && Math.abs(dx) > Math.abs(dy)
+  }, [])
   const begin = useCallback((leaving: number) => {
     setDepartingIndex(leaving)
     setMoving(true)
   }, [])
   const rest = useCallback(() => setMoving(false), [])
+
+  // The horizontal scrollers on the pages (HorizontalScrollView) register
+  // their native gestures here; the pan waits for every one of them to
+  // fail, so a touch that starts on a rail or a carousel is theirs.
+  const [scrollers, setScrollers] = useState<NativeGesture[]>([])
+  const registry = useMemo<ScrollRegistry>(
+    () => ({
+      register: (gesture) => {
+        setScrollers((list) => (list.includes(gesture) ? list : [...list, gesture]))
+        return () => setScrollers((list) => list.filter((g) => g !== gesture))
+      },
+    }),
+    [],
+  )
 
   // A tab press, a deep link, the back button: travel there, sweeping any
   // pages in between past (a tap two tabs over is a longer slide, not a
@@ -284,6 +319,7 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
     return Gesture.Pan()
       .activeOffsetX([-ACTIVE_X, ACTIVE_X])
       .failOffsetY([-FAIL_Y, FAIL_Y])
+      .requireExternalGestureToFail(...scrollers)
       .onStart(() => {
         cancelAnimation(position)
         startPos.value = position.value
@@ -312,7 +348,7 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
         // touch) still has to land somewhere.
         if (dragging.value === 1) land(0)
       })
-  }, [count, reduced, commit, tick, begin, rest, mountAround, position, settled, from, startPos, hover, dragging, widthSv])
+  }, [count, reduced, commit, tick, begin, rest, mountAround, scrollers, position, settled, from, startPos, hover, dragging, widthSv])
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: pageX(0, position.value, widthSv.value) }],
@@ -321,8 +357,15 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
   return (
     <View style={styles.root}>
       <BottomTabBarHeightContext.Provider value={tabBarHeight}>
+        <SwipeScrollContext.Provider value={registry}>
         <GestureDetector gesture={pan}>
-          <View style={styles.viewport} onLayout={onLayout} pointerEvents={moving ? 'box-only' : 'auto'}>
+          <View
+            style={styles.viewport}
+            onLayout={onLayout}
+            pointerEvents={moving ? 'box-only' : 'auto'}
+            onStartShouldSetResponderCapture={noteTouchStart}
+            onMoveShouldSetResponderCapture={claimSideways}
+          >
             <Animated.View style={[styles.row, { width: width * count }, rowStyle]}>
               {state.routes.map((route, i) => {
                 if (!(mountedMask & (1 << i))) return null
@@ -344,6 +387,7 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
             </Animated.View>
           </View>
         </GestureDetector>
+        </SwipeScrollContext.Provider>
       </BottomTabBarHeightContext.Provider>
       <BottomTabBarHeightCallbackContext.Provider value={setTabBarHeight}>
         {tabBar({ state, descriptors, navigation, insets, position })}

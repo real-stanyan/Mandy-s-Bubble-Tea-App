@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { ScrollView, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native'
+import { Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native'
+import { HorizontalScrollView } from '@/components/navigation/HorizontalScrollView'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { AppDownloadDiscountCard, appDownloadAvailable, useAppDownloadStatus } from '@/components/account/AppDownloadDiscountCard'
 import { TastingPromoCard, tastingPromoAvailable, useTastingPromoStatus } from '@/components/account/TastingPromoCard'
@@ -43,7 +44,7 @@ export function OffersCarousel() {
   return (
     <View style={{ marginBottom: 20 }}>
       <SectionHead eyebrow="Offers" label="For you" count={pages.length > 1 ? `${pages.length} offers` : undefined} />
-      <ScrollView
+      <HorizontalScrollView
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -56,7 +57,7 @@ export function OffersCarousel() {
             {p.node}
           </View>
         ))}
-      </ScrollView>
+      </HorizontalScrollView>
       {pages.length > 1 ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: -6 }}>
           <View style={{ flexDirection: 'row', gap: 5 }}>
