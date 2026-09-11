@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
 import { LaunchScreen } from '@/components/launch/LaunchScreen'
+import { endLaunch } from '@/lib/launch'
 import { T } from '@/constants/theme'
 
 // Gate the whole app: unauthenticated (or session without a finished profile)
@@ -42,6 +43,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   // instead of the glow; once it has left, any later overlay — a sign-out,
   // a sign-in — is the quick glow as before.
   const [launchDone, setLaunchDone] = useState(false)
+  // What the app underneath put off until the cover lifted — its other tab
+  // pages, the image warm-up, the ambient loops — goes now (lib/launch).
+  useEffect(() => {
+    if (launchDone) endLaunch()
+  }, [launchDone])
 
   useEffect(() => {
     if (loading) {

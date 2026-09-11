@@ -72,9 +72,17 @@ export function MenuHeader({
 }: Props) {
   const searching = query.trim().length > 0
 
+  // How far the head has folded: the scroll offset held to the fold's
+  // range. Everything below reads this and never the offset itself, so once
+  // the head has docked the list scrolls on with nothing here to work out
+  // and nothing sent native. Read straight off the offset, every one of these
+  // styles — the block's height, a layout pass, among them — was re-sent on
+  // every frame of every scroll down the menu.
+  const fold = useDerivedValue(() => Math.min(HEADER_RANGE, Math.max(0, scrollY.value)))
+
   // One soft tap as the head docks, one as it lets go.
   useAnimatedReaction(
-    () => scrollY.value >= HEADER_RANGE - 6,
+    () => fold.value >= HEADER_RANGE - 6,
     (docked, prev) => {
       if (prev !== null && docked !== prev) runOnJS(haptic.dock)()
     },
@@ -82,27 +90,27 @@ export function MenuHeader({
   )
 
   const blockStyle = useAnimatedStyle(() => ({
-    height: interpolate(scrollY.value, [0, HEADER_RANGE], [HEADER_BLOCK_H, 0], Extrapolation.CLAMP),
-    opacity: interpolate(scrollY.value, [0, HEADER_RANGE * 0.55], [1, 0], Extrapolation.CLAMP),
+    height: interpolate(fold.value, [0, HEADER_RANGE], [HEADER_BLOCK_H, 0], Extrapolation.CLAMP),
+    opacity: interpolate(fold.value, [0, HEADER_RANGE * 0.55], [1, 0], Extrapolation.CLAMP),
     transform: [
-      { translateY: interpolate(scrollY.value, [0, HEADER_RANGE], [0, -18], Extrapolation.CLAMP) },
+      { translateY: interpolate(fold.value, [0, HEADER_RANGE], [0, -18], Extrapolation.CLAMP) },
     ],
   }))
   const eyebrowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, HEADER_RANGE * 0.4], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(fold.value, [0, HEADER_RANGE * 0.4], [1, 0], Extrapolation.CLAMP),
   }))
   const dockedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [HEADER_RANGE * 0.45, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
+    opacity: interpolate(fold.value, [HEADER_RANGE * 0.45, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
     transform: [
-      { translateY: interpolate(scrollY.value, [HEADER_RANGE * 0.45, HEADER_RANGE], [8, 0], Extrapolation.CLAMP) },
+      { translateY: interpolate(fold.value, [HEADER_RANGE * 0.45, HEADER_RANGE], [8, 0], Extrapolation.CLAMP) },
     ],
   }))
   const frost = useDerivedValue(() =>
-    interpolate(scrollY.value, [0, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
+    interpolate(fold.value, [0, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
   )
   const groundStyle = useAnimatedStyle(() => ({ opacity: frost.value }))
   const hairlineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [HEADER_RANGE * 0.8, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
+    opacity: interpolate(fold.value, [HEADER_RANGE * 0.8, HEADER_RANGE], [0, 1], Extrapolation.CLAMP),
   }))
 
   return (

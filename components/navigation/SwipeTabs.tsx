@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Dimensions, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native'
 import {
   TabActions,
@@ -40,7 +40,8 @@ import { floatingTabBarClearance } from '@/components/ui/FloatingTabBar'
 import { Frost, glassTabBarAvailable } from '@/components/ui/GlassTabBar'
 import { IS_EVENING } from '@/constants/theme'
 import { haptic } from '@/lib/haptics'
-import { pagerBusy } from '@/lib/motion/ambient'
+import { afterLaunch } from '@/lib/launch'
+import { ambientNow, lastScrollAt, pagerBusy } from '@/lib/motion/ambient'
 import { expandChrome } from '@/lib/motion/chrome'
 import {
   HAZE_BLUR,
@@ -132,11 +133,29 @@ export const SwipeTabs = withLayoutContext<
 const ACTIVE_X = 10
 const FAIL_Y = 12
 
-/** Pages mount in waves: the one on screen, then its neighbours once the
- *  first frame has settled, then the rest — so the first swipe finds the
- *  next page laid out, and the launch does not pay for four at once. */
-const NEIGHBOUR_MOUNT_MS = 900
-const REST_MOUNT_MS = 2200
+/** Pages mount in waves: the one on screen, then its neighbours, then the
+ *  rest one at a time — so the first swipe finds the next page laid out,
+ *  and no one moment pays for four pages. The clock starts when the launch
+ *  screen has gone (lib/launch). Counted from mount, the neighbour wave
+ *  landed in the middle of the pour and the rest on the launch's exit fade:
+ *  each a run of dropped frames in the one animation on the screen (Rick,
+ *  2026-09-11), for pages nobody could see under the cover anyway. */
+const NEIGHBOUR_MOUNT_MS = 450
+const REST_MOUNT_MS = 1400
+const REST_STAGGER_MS = 700
+/** And a wave waits for the screen to be still (no scroll for STILL_MS, the
+ *  pager at rest), looking again every STILL_POLL_MS, for WAVE_PATIENCE_MS
+ *  at most: a page mounting under a scrolling finger is a hitch in the
+ *  scroll. */
+const STILL_MS = 400
+const STILL_POLL_MS = 200
+const WAVE_PATIENCE_MS = 3000
+
+/** Nothing moving on the screen. Reads the UI thread's clock — a synchronous
+ *  hop — so only ever at a wave's turn, never per frame. */
+function screenStill(): boolean {
+  return pagerBusy.value === 0 && ambientNow.value - lastScrollAt.value >= STILL_MS
+}
 
 const WINDOW_W = Dimensions.get('window').width
 
@@ -152,6 +171,14 @@ function neighbours(center: number, count: number): number {
   if (center > 0) bits |= 1 << (center - 1)
   if (center < count - 1) bits |= 1 << (center + 1)
   return bits
+}
+
+/** The pages beyond the neighbours, nearest first. */
+function farPages(center: number, count: number): number[] {
+  const near = neighbours(center, count) | (1 << center)
+  const out: number[] = []
+  for (let i = 0; i < count; i++) if (!(near & (1 << i))) out.push(i)
+  return out.sort((a, b) => Math.abs(a - center) - Math.abs(b - center))
 }
 
 function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
@@ -184,11 +211,31 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
   const mountAround = useCallback((center: number) => mount(neighbours(center, count)), [mount, count])
   useEffect(() => {
     const first = index
-    const t1 = setTimeout(() => mount(neighbours(first, count)), NEIGHBOUR_MOUNT_MS)
-    const t2 = setTimeout(() => mount((1 << count) - 1), REST_MOUNT_MS)
+    let alive = true
+    // Each wave waits for a still screen, then goes as a transition: the
+    // page renders in slices, and a tap that comes in meanwhile is answered
+    // first.
+    const wave = (bits: number) => () => {
+      const deadline = Date.now() + WAVE_PATIENCE_MS
+      const attempt = () => {
+        if (!alive) return
+        if (Date.now() < deadline && !screenStill()) {
+          setTimeout(attempt, STILL_POLL_MS)
+          return
+        }
+        startTransition(() => mount(bits))
+      }
+      attempt()
+    }
+    const cancels = [
+      afterLaunch(wave(neighbours(first, count)), NEIGHBOUR_MOUNT_MS),
+      ...farPages(first, count).map((page, k) =>
+        afterLaunch(wave(1 << page), REST_MOUNT_MS + k * REST_STAGGER_MS),
+      ),
+    ]
     return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
+      alive = false
+      cancels.forEach((cancel) => cancel())
     }
     // Waves are scheduled once, from wherever the app opened.
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -449,7 +496,7 @@ function Page({ index, width, widthSv, position, focused, blur, reduced, childre
       importantForAccessibility={focused ? 'auto' : 'no-hide-descendants'}
     >
       {children}
-      <Fog index={index} widthSv={widthSv} position={position} blur={blur} reduced={reduced} />
+      <Fog index={index} width={width} widthSv={widthSv} position={position} blur={blur} reduced={reduced} />
     </Animated.View>
   )
 }
@@ -486,31 +533,31 @@ const FOG_FROM_LEFT_STOPS = [0, 0.38, 1] as const
 
 type FogProps = {
   index: number
+  width: number
   widthSv: SharedValue<number>
   position: SharedValue<number>
   blur: boolean
   reduced: boolean
 }
 
-function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
+function Fog({ index, width, widthSv, position, blur, reduced }: FogProps) {
   const haze = useDerivedValue(() => (reduced ? 0 : hazeStrength(position.value, index)))
+  // A sheet with nothing to show hands back { opacity: 0 }, equal to what
+  // it handed back last frame, and Reanimated sends nothing native for it.
+  // With its place and width in there too, all eight sheets of the four
+  // pages were re-sent on every frame of every swipe — the width, a layout
+  // prop, with them. The width is the page's, and sits in the static style.
   const fromRight = useAnimatedStyle(() => {
     const h = haze.value
+    if (h <= 0 || seamSide(position.value, index) !== 1) return { opacity: 0 }
     const { translateX, scaleX } = fogSheet(h, 1, widthSv.value)
-    return {
-      width: widthSv.value,
-      opacity: h > 0 && seamSide(position.value, index) === 1 ? 1 : 0,
-      transform: [{ translateX }, { scaleX }],
-    }
+    return { opacity: 1, transform: [{ translateX }, { scaleX }] }
   })
   const fromLeft = useAnimatedStyle(() => {
     const h = haze.value
+    if (h <= 0 || seamSide(position.value, index) !== -1) return { opacity: 0 }
     const { translateX, scaleX } = fogSheet(h, -1, widthSv.value)
-    return {
-      width: widthSv.value,
-      opacity: h > 0 && seamSide(position.value, index) === -1 ? 1 : 0,
-      transform: [{ translateX }, { scaleX }],
-    }
+    return { opacity: 1, transform: [{ translateX }, { scaleX }] }
   })
   return (
     <View
@@ -520,7 +567,7 @@ function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
       importantForAccessibility="no-hide-descendants"
     >
       {blur && glassTabBarAvailable ? <Frost progress={haze} intensity={HAZE_BLUR} /> : null}
-      <Animated.View style={[styles.sheet, fromRight]}>
+      <Animated.View style={[styles.sheet, { width }, fromRight]}>
         <LinearGradient
           colors={FOG_FROM_RIGHT}
           locations={FOG_FROM_RIGHT_STOPS}
@@ -529,7 +576,7 @@ function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
-      <Animated.View style={[styles.sheet, fromLeft]}>
+      <Animated.View style={[styles.sheet, { width }, fromLeft]}>
         <LinearGradient
           colors={FOG_FROM_LEFT}
           locations={FOG_FROM_LEFT_STOPS}

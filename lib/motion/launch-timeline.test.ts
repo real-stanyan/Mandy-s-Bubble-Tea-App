@@ -1,4 +1,4 @@
-import { LAUNCH, launchDismissDelay, pearlDelayMs } from './launch-timeline'
+import { LAUNCH, launchDismissDelay, nextCalm, pearlDelayMs, timelineMayStart } from './launch-timeline'
 
 describe('launch timeline', () => {
   it('keeps the pour whole: an early ready waits out the minimum', () => {
@@ -7,8 +7,18 @@ describe('launch timeline', () => {
     )
   })
 
-  it('leaves at once when ready arrives after the minimum', () => {
-    expect(launchDismissDelay({ elapsedMs: 3000, ready: true, reducedMotion: false })).toBe(0)
+  it('leaves a beat after ready when ready arrives after the minimum', () => {
+    expect(launchDismissDelay({ elapsedMs: 3000, ready: true, reducedMotion: false })).toBe(
+      LAUNCH.readySettleMs,
+    )
+  })
+
+  it('keeps the settle beat short: under the Reduce Motion hold, never past the cap', () => {
+    expect(LAUNCH.readySettleMs).toBeGreaterThan(0)
+    expect(LAUNCH.readySettleMs).toBeLessThan(LAUNCH.reducedMinShowMs)
+    expect(
+      launchDismissDelay({ elapsedMs: LAUNCH.maxShowMs - 100, ready: true, reducedMotion: false }),
+    ).toBe(100)
   })
 
   it('waits for ready while under the cap', () => {
@@ -40,6 +50,20 @@ describe('launch timeline', () => {
     const lastPearlLands = pearlDelayMs(LAUNCH.pearlCount - 1) + 500
     expect(LAUNCH.minShowMs).toBeGreaterThan(Math.max(lastPearlLands, LAUNCH.wordmarkDelayMs + LAUNCH.wordmarkMs))
     expect(LAUNCH.maxShowMs).toBeGreaterThan(LAUNCH.minShowMs)
+  })
+
+  it('holds for calm frames, and never past the hold cap', () => {
+    expect(nextCalm(0, null)).toBe(0)
+    expect(nextCalm(1, 16.7)).toBe(2)
+    expect(nextCalm(3, 120)).toBe(0)
+    // A 120 Hz frame is calm, and so is one missed 60 Hz frame; two are not.
+    expect(nextCalm(0, 8.3)).toBe(1)
+    expect(nextCalm(0, 33.4)).toBe(1)
+    expect(nextCalm(0, 50)).toBe(0)
+    expect(timelineMayStart(LAUNCH.calmFrames, 0)).toBe(true)
+    expect(timelineMayStart(LAUNCH.calmFrames - 1, LAUNCH.holdMaxMs - 1)).toBe(false)
+    expect(timelineMayStart(0, LAUNCH.holdMaxMs)).toBe(true)
+    expect(LAUNCH.holdMaxMs).toBeLessThan(LAUNCH.minShowMs)
   })
 
   it('staggers pearls from the pearl delay', () => {

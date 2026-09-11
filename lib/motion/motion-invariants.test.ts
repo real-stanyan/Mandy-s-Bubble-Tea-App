@@ -41,7 +41,7 @@ describe('motion vocabulary respects Reduce Motion', () => {
   })
 
   it('every looping animation in the new motion components can be switched off', () => {
-    const NEW = ['components/ui/PulseDot.tsx', 'components/brand/LiquidCup.tsx', 'components/menu/CupPreview.tsx']
+    const NEW = ['components/brand/LiquidCup.tsx', 'components/menu/CupPreview.tsx']
     for (const f of NEW) {
       const src = read(f)
       expect(src).toMatch(/withRepeat\(/)
@@ -49,6 +49,16 @@ describe('motion vocabulary respects Reduce Motion', () => {
       // A loop that is started must also be stopped when the component goes.
       expect(src).toMatch(/cancelAnimation\(/)
     }
+  })
+
+  it('the live dot rides the ambient clock, not a loop of its own', () => {
+    // A ring pulsing at the display rate on every page that showed the shop
+    // open was a shadow-tree commit per frame on Android, at rest, and on
+    // pages nobody was looking at (2026-09-11).
+    const src = read('components/ui/PulseDot.tsx')
+    expect(src).toMatch(/\bambientClock\b/)
+    expect(src).toMatch(/useReducedMotion\(/)
+    expect(src).not.toMatch(/withRepeat\(/)
   })
 })
 
