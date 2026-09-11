@@ -41,23 +41,28 @@ import { IS_EVENING } from '@/constants/theme'
 import { haptic } from '@/lib/haptics'
 import { expandChrome } from '@/lib/motion/chrome'
 import {
-  SEAM_HALF,
+  HAZE_BLUR,
   SWIPE_SNAP,
   SWIPE_TRAVEL,
+  fogSheetX,
+  fringeOpacity,
+  hazeStrength,
   pageX,
   rubberBand,
-  seamStrength,
-  seamX,
+  seamSide,
   settleTarget,
+  snapVelocity,
   travelDuration,
 } from '@/lib/motion/swipe-tabs'
 
 // The tab navigator as a pager: the four pages sit side by side and a
 // horizontal drag anywhere on a page pulls the next one in under the finger,
 // Home to Menu to Orders to Account (Rick, 2026-09-11). A tap on the pill
-// travels the same way. Between two moving pages rides a frosted seam —
-// real blur on a binary that can (iOS with expo-blur), a soft breath of
-// paper everywhere else — so the join never reads as a hard cut.
+// travels the same way. The page being left fogs over as it goes — a haze
+// that rolls in from the join and has covered it by the time it is gone —
+// and the page coming in arrives out of the same fog, clearing as it lands
+// (real blur under the haze on a binary that can, iOS with expo-blur). The
+// landing has a little give, the page settling like something with weight.
 //
 // Built on React Navigation's TabRouter, so everything the bottom-tabs
 // navigator gave the screens still holds: useFocusEffect, tabPress, deep
@@ -67,9 +72,12 @@ import {
 // there to be dragged in. Headers are not drawn: every tab hides its own.
 //
 // Smoothness is all on the UI thread. The gesture writes one shared value
-// (`position`, in pages: 1.4 is Menu with Orders 40% in), the row of pages
-// and the seam and the pill window all derive from it; the JS thread hears
-// only the haptic ticks and the final commit.
+// (`position`, in pages: 1.4 is Menu with Orders 40% in); the row of
+// pages, each page's fog and fringe, and the pill window all derive from
+// it. The JS thread hears the haptic ticks, the final commit, and whether
+// the pager is in motion — while it is, nothing on the pages takes a touch
+// (a swipe that starts on a card must never end as a tap on it; Rick, on
+// the phone).
 
 type State = TabNavigationState<ParamListBase>
 type Descriptors = BottomTabBarProps['descriptors']
@@ -115,8 +123,11 @@ export const SwipeTabs = withLayoutContext<
 >(createNavigatorFactory(SwipeTabsNavigator)().Navigator)
 
 /** The finger has to move this far sideways before the pager takes the
- *  touch — a vertical list under it keeps anything shorter or steeper. */
-const ACTIVE_X = 16
+ *  touch — a vertical list under it keeps anything shorter or steeper. Ten
+ *  points, a scroll view's own slop: any less and a tap wobbles into a
+ *  swipe, any more and a short swipe ends as a tap on whatever it began
+ *  on. */
+const ACTIVE_X = 10
 const FAIL_Y = 12
 
 /** Pages mount in waves: the one on screen, then its neighbours once the
@@ -192,20 +203,46 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
   const hover = useSharedValue(index)
   const dragging = useSharedValue(0)
 
+  // While the pager moves — under the finger or landing — the pages take no
+  // touches: the viewport keeps them for the gesture alone. Otherwise a
+  // swipe that begins on a card and ends short lands as a tap on the card,
+  // and a finger that meets a page still settling presses whatever slides
+  // under it. Set from the UI thread when motion starts, cleared when the
+  // landing animation reports it finished; a landing cut short by a new
+  // drag never reports, and the new drag owns the flag.
+  const [moving, setMoving] = useState(false)
+  /** The page the motion set out from, for the one thing that has to be a
+   *  React decision: which pages carry a blur sheet while it lasts — that
+   *  one and its neighbours, plus wherever the pager is headed (see Fog). */
+  const [departingIndex, setDepartingIndex] = useState(index)
+  const begin = useCallback((leaving: number) => {
+    setDepartingIndex(leaving)
+    setMoving(true)
+  }, [])
+  const rest = useCallback(() => setMoving(false), [])
+
   // A tab press, a deep link, the back button: travel there, sweeping any
   // pages in between past (a tap two tabs over is a longer slide, not a
   // blink). Reduce Motion places the page instead.
   useEffect(() => {
     if (settled.value === index) return
-    const pages = index - settled.value
+    const leaving = settled.value
+    const pages = index - leaving
     settled.value = index
     cancelAnimation(position)
     if (reduced) {
       position.value = index
       return
     }
-    position.value = withTiming(index, { ...SWIPE_TRAVEL, duration: travelDuration(pages) })
-  }, [index, reduced, position, settled])
+    begin(leaving)
+    position.value = withTiming(
+      index,
+      { ...SWIPE_TRAVEL, duration: travelDuration(pages) },
+      (finished) => {
+        if (finished) runOnJS(rest)()
+      },
+    )
+  }, [index, reduced, position, settled, begin, rest])
 
   const tick = useCallback(() => haptic.tick(), [])
   const commit = useCallback(
@@ -223,53 +260,59 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
     [navigation, state],
   )
 
-  const pan = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetX([-ACTIVE_X, ACTIVE_X])
-        .failOffsetY([-FAIL_Y, FAIL_Y])
-        .onStart(() => {
-          cancelAnimation(position)
-          startPos.value = position.value
-          from.value = settled.value
-          hover.value = Math.round(position.value)
-          dragging.value = 1
-          runOnJS(mountAround)(settled.value)
-        })
-        .onUpdate((e) => {
-          const w = Math.max(1, widthSv.value)
-          const next = rubberBand(startPos.value - e.translationX / w, count)
-          position.value = next
-          // A detent as the halfway line goes by, like the rail on the menu.
-          const h = Math.round(next)
-          if (h !== hover.value) {
-            hover.value = h
-            runOnJS(tick)()
-          }
-        })
-        .onEnd((e) => {
-          const w = Math.max(1, widthSv.value)
-          const v = -e.velocityX / w
-          const target = settleTarget(position.value, v, from.value, count)
-          dragging.value = 0
-          settled.value = target
-          if (reduced) position.value = target
-          else position.value = withSpring(target, { ...SWIPE_SNAP, velocity: v })
-          if (target !== from.value) runOnJS(commit)(target)
-        })
-        .onFinalize(() => {
-          // A drag the system took away mid-way (a native list grabbed the
-          // touch) still has to land somewhere.
-          if (dragging.value !== 1) return
-          dragging.value = 0
-          const target = settleTarget(position.value, 0, from.value, count)
-          settled.value = target
-          if (reduced) position.value = target
-          else position.value = withSpring(target, SWIPE_SNAP)
-          if (target !== from.value) runOnJS(commit)(target)
-        }),
-    [count, reduced, commit, tick, mountAround, position, settled, from, startPos, hover, dragging, widthSv],
-  )
+  const pan = useMemo(() => {
+    /** The finger has let go (or been taken away): land somewhere. */
+    const land = (velocity: number) => {
+      'worklet'
+      const target = settleTarget(position.value, velocity, from.value, count)
+      dragging.value = 0
+      settled.value = target
+      if (reduced) {
+        position.value = target
+        runOnJS(rest)()
+      } else {
+        position.value = withSpring(
+          target,
+          { ...SWIPE_SNAP, velocity: snapVelocity(velocity) },
+          (finished) => {
+            if (finished) runOnJS(rest)()
+          },
+        )
+      }
+      if (target !== from.value) runOnJS(commit)(target)
+    }
+    return Gesture.Pan()
+      .activeOffsetX([-ACTIVE_X, ACTIVE_X])
+      .failOffsetY([-FAIL_Y, FAIL_Y])
+      .onStart(() => {
+        cancelAnimation(position)
+        startPos.value = position.value
+        from.value = settled.value
+        hover.value = Math.round(position.value)
+        dragging.value = 1
+        runOnJS(begin)(settled.value)
+        runOnJS(mountAround)(settled.value)
+      })
+      .onUpdate((e) => {
+        const w = Math.max(1, widthSv.value)
+        const next = rubberBand(startPos.value - e.translationX / w, count)
+        position.value = next
+        // A detent as the halfway line goes by, like the rail on the menu.
+        const h = Math.round(next)
+        if (h !== hover.value) {
+          hover.value = h
+          runOnJS(tick)()
+        }
+      })
+      .onEnd((e) => {
+        land(-e.velocityX / Math.max(1, widthSv.value))
+      })
+      .onFinalize(() => {
+        // A drag the system took away mid-way (a native list grabbed the
+        // touch) still has to land somewhere.
+        if (dragging.value === 1) land(0)
+      })
+  }, [count, reduced, commit, tick, begin, rest, mountAround, position, settled, from, startPos, hover, dragging, widthSv])
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: pageX(0, position.value, widthSv.value) }],
@@ -279,25 +322,26 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
     <View style={styles.root}>
       <BottomTabBarHeightContext.Provider value={tabBarHeight}>
         <GestureDetector gesture={pan}>
-          <View style={styles.viewport} onLayout={onLayout}>
+          <View style={styles.viewport} onLayout={onLayout} pointerEvents={moving ? 'box-only' : 'auto'}>
             <Animated.View style={[styles.row, { width: width * count }, rowStyle]}>
               {state.routes.map((route, i) => {
                 if (!(mountedMask & (1 << i))) return null
-                const focused = i === index
                 return (
-                  <View
+                  <Page
                     key={route.key}
-                    style={[styles.page, { left: i * width, width }]}
-                    pointerEvents={focused ? 'auto' : 'none'}
-                    accessibilityElementsHidden={!focused}
-                    importantForAccessibility={focused ? 'auto' : 'no-hide-descendants'}
+                    index={i}
+                    width={width}
+                    widthSv={widthSv}
+                    position={position}
+                    focused={i === index}
+                    blur={moving && (Math.abs(i - departingIndex) <= 1 || i === index)}
+                    reduced={reduced}
                   >
                     {descriptors[route.key].render()}
-                  </View>
+                  </Page>
                 )
               })}
             </Animated.View>
-            <Seam position={position} widthSv={widthSv} count={count} reduced={reduced} />
           </View>
         </GestureDetector>
       </BottomTabBarHeightContext.Provider>
@@ -308,63 +352,110 @@ function Pager({ state, descriptors, navigation, tabBar }: PagerProps) {
   )
 }
 
-// The frosted seam: a band astride the join between the two pages in
-// motion, nothing while the pager rests. Where the binary can blur, three
-// sheets stacked narrower and stronger toward the middle — a blur that
-// feathers out instead of stopping at an edge; over them, everywhere, a
-// breath of paper (warm grey by night) brightest at the join. Intensity is
-// driven, never opacity: alpha on a blur view breaks the effect (Apple).
-const BLUR_WIDE = 14
-const BLUR_MID = 20
-const BLUR_CORE = 26
-const VEIL = IS_EVENING
-  ? ['rgba(58,50,43,0)', 'rgba(58,50,43,0.5)', 'rgba(58,50,43,0)']
-  : ['rgba(255,249,240,0)', 'rgba(255,249,240,0.72)', 'rgba(255,249,240,0)']
-
-type SeamProps = {
-  position: SharedValue<number>
+type PageProps = {
+  index: number
+  width: number
   widthSv: SharedValue<number>
-  count: number
+  position: SharedValue<number>
+  focused: boolean
+  /** The pager is in motion and this page may be part of it: carry the
+   *  blur sheet under the fog for as long as that lasts. */
+  blur: boolean
+  reduced: boolean
+  children: ReactNode
+}
+
+// One page in the row. Its last sliver fades rather than being drawn to
+// the edge (fringeOpacity): that is what the landing bounce would show of
+// the page beyond, and it is the ground colour either way.
+function Page({ index, width, widthSv, position, focused, blur, reduced, children }: PageProps) {
+  const fringe = useAnimatedStyle(() => ({ opacity: fringeOpacity(index, position.value) }))
+  return (
+    <Animated.View
+      style={[styles.page, { left: index * width, width }, fringe]}
+      pointerEvents={focused ? 'auto' : 'none'}
+      accessibilityElementsHidden={!focused}
+      importantForAccessibility={focused ? 'auto' : 'no-hide-descendants'}
+    >
+      {children}
+      <Fog index={index} widthSv={widthSv} position={position} blur={blur} reduced={reduced} />
+    </Animated.View>
+  )
+}
+
+// The fog on a page in motion, by its distance from the pager
+// (hazeStrength): the page being left fogs over as it goes, the page
+// coming in arrives fogged and clears as it lands. Two sheets, each twice
+// the page wide and solid on the half nearest one edge, fading over the
+// other; the one on the seam side slides in as the haze grows and back
+// out as it thins, so the fog always rolls in from, and drains out
+// through, the join — a soft front, no edge anywhere, unlike the banded
+// seam this replaces (Rick: "like a mosaic"). Under the sheet, where the
+// binary can blur, one full-page blur whose intensity follows the same
+// haze; it is mounted only while the pager moves and only on the pages
+// that can be part of the move, so idle blur views never sit over four
+// pages. Intensity is driven, never opacity: alpha on a blur view breaks
+// the effect (Apple).
+const FOG = IS_EVENING ? 'rgba(58,50,43,0.8)' : 'rgba(255,249,240,0.88)'
+const CLEAR = IS_EVENING ? 'rgba(58,50,43,0)' : 'rgba(255,249,240,0)'
+const FOG_FROM_RIGHT = [CLEAR, FOG, FOG] as const
+const FOG_FROM_LEFT = [FOG, FOG, CLEAR] as const
+
+type FogProps = {
+  index: number
+  widthSv: SharedValue<number>
+  position: SharedValue<number>
+  blur: boolean
   reduced: boolean
 }
 
-function Seam({ position, widthSv, count, reduced }: SeamProps) {
-  const strength = useDerivedValue(() => (reduced ? 0 : seamStrength(position.value, count)))
-  const bandStyle = useAnimatedStyle(() => ({
-    opacity: strength.value > 0.002 ? 1 : 0,
-    transform: [{ translateX: seamX(position.value, widthSv.value) - SEAM_HALF }],
-  }))
-  const veilStyle = useAnimatedStyle(() => ({ opacity: strength.value }))
+function Fog({ index, widthSv, position, blur, reduced }: FogProps) {
+  const haze = useDerivedValue(() => (reduced ? 0 : hazeStrength(position.value, index)))
+  const fromRight = useAnimatedStyle(() => {
+    const h = haze.value
+    const w = widthSv.value
+    return {
+      width: w * 2,
+      opacity: h > 0 && seamSide(position.value, index) === 1 ? 1 : 0,
+      transform: [{ translateX: fogSheetX(h, 1, w) }],
+    }
+  })
+  const fromLeft = useAnimatedStyle(() => {
+    const h = haze.value
+    const w = widthSv.value
+    return {
+      width: w * 2,
+      opacity: h > 0 && seamSide(position.value, index) === -1 ? 1 : 0,
+      transform: [{ translateX: fogSheetX(h, -1, w) }],
+    }
+  })
   return (
-    <Animated.View
+    <View
+      style={StyleSheet.absoluteFill}
       pointerEvents="none"
-      style={[styles.seam, bandStyle]}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {glassTabBarAvailable ? (
-        <>
-          <View style={styles.blurWide}>
-            <Frost progress={strength} intensity={BLUR_WIDE} />
-          </View>
-          <View style={styles.blurMid}>
-            <Frost progress={strength} intensity={BLUR_MID} />
-          </View>
-          <View style={styles.blurCore}>
-            <Frost progress={strength} intensity={BLUR_CORE} />
-          </View>
-        </>
-      ) : null}
-      <Animated.View style={[StyleSheet.absoluteFill, veilStyle]}>
+      {blur && glassTabBarAvailable ? <Frost progress={haze} intensity={HAZE_BLUR} /> : null}
+      <Animated.View style={[styles.sheet, fromRight]}>
         <LinearGradient
-          colors={VEIL as [string, string, string]}
+          colors={FOG_FROM_RIGHT}
           locations={[0, 0.5, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
-    </Animated.View>
+      <Animated.View style={[styles.sheet, fromLeft]}>
+        <LinearGradient
+          colors={FOG_FROM_LEFT}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+    </View>
   )
 }
 
@@ -381,33 +472,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
+    // The fog sheets are wider than the page and slide across it; nothing
+    // of them may reach the page next door.
+    overflow: 'hidden',
   },
-  seam: {
+  sheet: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
-    width: SEAM_HALF * 2,
-  },
-  blurWide: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  blurMid: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: SEAM_HALF * 0.45,
-    right: SEAM_HALF * 0.45,
-  },
-  blurCore: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: SEAM_HALF * 0.75,
-    right: SEAM_HALF * 0.75,
   },
 })
