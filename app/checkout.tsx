@@ -1050,7 +1050,9 @@ function PickupTimeBlock({
           <Text style={[pickupStyles.pillLabel, value === 0 && pickupStyles.pillLabelActive]}>
             ASAP
           </Text>
-          <Text style={pickupStyles.pillSub}>ready in {load.label}</Text>
+          <Text style={[pickupStyles.pillSub, value === 0 && pickupStyles.pillSubActive]}>
+            ready in {load.label}
+          </Text>
         </Pressable>
         {offsets.map((offset) => {
           const active = value === offset
@@ -1063,7 +1065,9 @@ function PickupTimeBlock({
               <Text style={[pickupStyles.pillLabel, active && pickupStyles.pillLabelActive]}>
                 ~{pickupClockLabel(offset, now)}
               </Text>
-              <Text style={pickupStyles.pillSub}>in {offset} min</Text>
+              <Text style={[pickupStyles.pillSub, active && pickupStyles.pillSubActive]}>
+                in {offset} min
+              </Text>
             </Pressable>
           )
         })}
@@ -1102,13 +1106,18 @@ const pickupStyles = StyleSheet.create({
     fontSize: 13.5,
     color: T.ink2,
   },
-  pillLabelActive: { color: T.brand },
+  // The picked pill keeps a cream face in both themes, so its words are
+  // pinned dark (PIN). After sunset T.brand is gold and T.ink3 is pale
+  // cream: on this face the label went faint and the line under it
+  // disappeared outright (Rick, 2026-09-12).
+  pillLabelActive: { color: PIN.brand },
   pillSub: {
     marginTop: 1,
     fontFamily: 'ShantellSans_400Regular',
     fontSize: 10.5,
     color: T.ink3,
   },
+  pillSubActive: { color: PIN.ink3 },
   hint: {
     paddingHorizontal: 16,
     paddingTop: 10,

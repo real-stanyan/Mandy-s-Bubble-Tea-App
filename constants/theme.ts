@@ -118,6 +118,10 @@ export const PIN = {
   ink: '#2A1E14',
   ink2: '#5A4330',
   ink3: 'rgba(42,30,20,0.55)',
+  /** The day brand, pinned: the accent for words on a deliberately light
+   *  surface, where T.brand turns to gold after sunset and all but
+   *  disappears (the picked pickup pill, Rick 2026-09-12). */
+  brand: '#8D5524',
   /** Deliberately-dark chip/pill background (Expand, Reorder, Use…). */
   chip: '#2A1E14',
   /** Cream text/icon on that chip. */
