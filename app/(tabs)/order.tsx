@@ -3,7 +3,6 @@ import Animated, { useReducedMotion, useSharedValue } from 'react-native-reanima
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useChromeScrollHandler } from '@/lib/motion/chrome'
 import { GrainGround } from '@/components/ui/GrainOverlay'
-import { StatusFrost } from '@/components/ui/StatusFrost'
 import { useCallback, useMemo, useState } from 'react'
 import {
   View,
@@ -272,7 +271,8 @@ export default function OrderScreen() {
 
         <View style={{ height: 40 }} />
       </Animated.ScrollView>
-      <StatusFrost scrollY={scrollY} insetTop={insets.top} />
+      {/* As on Home: nothing under the clock, the page runs to the top
+          edge (Rick, 2026-09-12). */}
     </View>
   )
 }
