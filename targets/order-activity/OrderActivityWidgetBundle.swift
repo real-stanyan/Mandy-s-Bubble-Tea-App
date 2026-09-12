@@ -34,6 +34,14 @@ struct MandysOrderLiveActivity: Widget {
       // Pickup slots show the ordered drink's cartoon cup instead of a
       // generic emoji; delivery keeps the scooter glyph.
       let cupStyle = DrinkCatalog.style(for: context.attributes.drinkName)
+      // Timer window while the drinks are being made — drives the circular
+      // progress in the compact island and the bar in the expanded one.
+      let window: ClosedRange<Date>? = (isPickup && pickup == .preparing)
+        ? PickupProgressWindow.make(
+            waitText: context.attributes.waitText,
+            updatedAt: context.state.updatedAt
+          )
+        : nil
 
       return DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
@@ -68,6 +76,7 @@ struct MandysOrderLiveActivity: Widget {
             .foregroundColor(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
+            .contentTransition(.opacity)
           }
         }
         DynamicIslandExpandedRegion(.bottom) {
@@ -75,13 +84,25 @@ struct MandysOrderLiveActivity: Widget {
             VStack(spacing: 4) {
               // Wait estimate rides along in every pre-ready state.
               if let wait = context.attributes.waitText, !wait.isEmpty, !pickup.isDone {
-                Text("\(pickup.sub) · \(wait)")
-                  .font(.system(size: 10.5))
-                  .foregroundColor(Color.white.opacity(0.55))
-                  .lineLimit(1)
-                  .minimumScaleFactor(0.8)
+                HStack(spacing: 4) {
+                  Text(pickup.sub)
+                  Text("·")
+                  if let window {
+                    // Live countdown, ticking on the system's clock.
+                    Text(timerInterval: window, countsDown: true, showsHours: false)
+                      .monospacedDigit()
+                      .frame(maxWidth: 44)
+                      .multilineTextAlignment(.leading)
+                  } else {
+                    Text(wait)
+                  }
+                }
+                .font(.system(size: 10.5))
+                .foregroundColor(Color.white.opacity(0.55))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
               }
-              PickupStepsView(phase: pickup, onDark: true)
+              PickupStepsView(phase: pickup, onDark: true, progressWindow: window)
             }
             .padding(.top, 2)
             // Keep the outer step labels clear of the island's bottom corners.
@@ -108,27 +129,44 @@ struct MandysOrderLiveActivity: Widget {
             .background(Circle().fill(MandysColor.sage.opacity(0.28)))
         }
       } compactTrailing: {
-        HStack(spacing: 4) {
-          Circle()
-            .fill(compactDotColor(isPickup: isPickup, pickup: pickup, delivery: delivery))
-            .frame(width: 6, height: 6)
-          Text(
-            isPickup
-              ? compactPickupText(pickup, wait: context.attributes.waitText)
-              : delivery.shortStatus
-          )
-            .font(.system(size: 11.5, weight: .bold))
-            .foregroundColor(compactTextColor(isPickup: isPickup, pickup: pickup, delivery: delivery))
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
+        if let window {
+          // Making: a ring that fills across the wait window — the island
+          // convention for "in progress", and it moves without a push.
+          ProgressView(timerInterval: window, countsDown: false)
+            .progressViewStyle(.circular)
+            .tint(Color(hex: 0xE5B87E))
+            .frame(width: 18, height: 18)
+        } else {
+          HStack(spacing: 4) {
+            Circle()
+              .fill(compactDotColor(isPickup: isPickup, pickup: pickup, delivery: delivery))
+              .frame(width: 6, height: 6)
+            Text(
+              isPickup
+                ? compactPickupText(pickup, wait: context.attributes.waitText)
+                : delivery.shortStatus
+            )
+              .font(.system(size: 11.5, weight: .bold))
+              .foregroundColor(compactTextColor(isPickup: isPickup, pickup: pickup, delivery: delivery))
+              .lineLimit(1)
+              .minimumScaleFactor(0.75)
+              .contentTransition(.numericText())
+          }
         }
       } minimal: {
-        if isPickup {
+        if let window {
+          ProgressView(timerInterval: window, countsDown: false)
+            .progressViewStyle(.circular)
+            .tint(Color(hex: 0xE5B87E))
+            .frame(width: 18, height: 18)
+        } else if isPickup {
           DrinkCupGlyph(style: cupStyle, size: 20)
         } else {
           Text(delivery.markEmoji).font(.system(size: 12))
         }
       }
+      // Brand-tinted keyline around the island when it expands.
+      .keylineTint(isPickup ? MandysColor.brand : MandysColor.sage)
     }
   }
 

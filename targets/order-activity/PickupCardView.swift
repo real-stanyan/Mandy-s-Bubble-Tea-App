@@ -65,6 +65,15 @@ struct PickupCardView: View {
 
   private var phase: PickupPhase { PickupPhase(status: context.state.status) }
 
+  /// Timer window while the drinks are being made; nil otherwise.
+  private var progressWindow: ClosedRange<Date>? {
+    guard phase == .preparing else { return nil }
+    return PickupProgressWindow.make(
+      waitText: context.attributes.waitText,
+      updatedAt: context.state.updatedAt
+    )
+  }
+
   private var heroStyles: [DrinkStyle] {
     let names = context.attributes.drinkNames ?? []
     if names.isEmpty { return [DrinkCatalog.style(for: context.attributes.drinkName)] }
@@ -92,19 +101,24 @@ struct PickupCardView: View {
           OrderNo(number: context.attributes.orderNumber, color: MandysColor.ink3)
         }
 
+        // Content transitions: a status push swaps the words with a fade
+        // instead of a hard cut — the one kind of motion the system will
+        // run for us on an update.
         Text(phase.heading)
           .font(.system(size: 21, weight: .semibold, design: .serif))
           .foregroundColor(ready ? MandysColor.readyHeading : MandysColor.ink)
           .lineLimit(1)
           .minimumScaleFactor(0.7)
           .padding(.top, 5)
+          .contentTransition(.opacity)
 
         subRow(ready: ready, accent: accent)
           .padding(.top, 3)
+          .contentTransition(.opacity)
 
         Spacer(minLength: 4)
 
-        PickupStepsView(phase: phase)
+        PickupStepsView(phase: phase, progressWindow: progressWindow)
       }
     }
     .padding(EdgeInsets(top: 14, leading: 14, bottom: 12, trailing: 16))
@@ -143,9 +157,20 @@ struct PickupCardView: View {
          phase != .completed, phase != .canceled {
         HStack(spacing: 4) {
           Circle().fill(accent.node).frame(width: 5, height: 5)
-          Text(wait)
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .foregroundColor(accent.text)
+          if let window = progressWindow {
+            // Live countdown to the top of the estimate — ticks on its own,
+            // no push needed; sits at 0:00 once the window has passed.
+            Text(timerInterval: window, countsDown: true, showsHours: false)
+              .font(.system(size: 10, weight: .bold, design: .monospaced))
+              .foregroundColor(accent.text)
+              .monospacedDigit()
+              .frame(maxWidth: 40)
+              .multilineTextAlignment(.leading)
+          } else {
+            Text(wait)
+              .font(.system(size: 10, weight: .bold, design: .monospaced))
+              .foregroundColor(accent.text)
+          }
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 2.5)
@@ -188,6 +213,9 @@ struct PickupStepsView: View {
   let phase: PickupPhase
   /// Dynamic-Island dark variant.
   var onDark: Bool = false
+  /// While preparing: the segment into "Ready" fills on the system's clock
+  /// across this window instead of sitting at a static 42%.
+  var progressWindow: ClosedRange<Date>? = nil
 
   private static let labels = ["Received", "Preparing", "Ready"]
 
@@ -265,6 +293,12 @@ struct PickupStepsView: View {
                 startPoint: .leading, endPoint: .trailing
               )
             )
+        } else if inProgress, let window = progressWindow {
+          // Timer-driven: the system animates this without any push.
+          ProgressView(timerInterval: window, countsDown: false)
+            .progressViewStyle(.linear)
+            .tint(accent.node)
+            .frame(width: geo.size.width)
         } else if inProgress {
           Capsule()
             .fill(accent.barFill)
