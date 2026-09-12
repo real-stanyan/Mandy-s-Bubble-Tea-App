@@ -1,6 +1,5 @@
 // app/(tabs)/index.tsx
 import { GrainGround } from '@/components/ui/GrainOverlay';
-import { StatusFrost } from '@/components/ui/StatusFrost';
 import { View } from 'react-native';
 import Animated, { useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { useChromeScrollHandler } from '@/lib/motion/chrome';
@@ -57,7 +56,10 @@ export default function HomeScreen() {
         <Reveal index={5}><CategoriesGrid /></Reveal>
         <Reveal index={6}><StoreCard /></Reveal>
       </Animated.ScrollView>
-      <StatusFrost scrollY={scrollY} insetTop={insets.top} />
+      {/* Nothing between the page and the clock: it runs to the top edge
+          and scrolls on under it (Rick, 2026-09-12: 顶部打通, the full-screen
+          effect). The strip that used to frost up here is still on Account
+          (components/ui/StatusFrost). */}
     </View>
     </ScrollScopeProvider>
   );
