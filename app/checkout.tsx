@@ -1261,6 +1261,9 @@ function RewardsBlock({
     <CardBlock
       eyebrow="Rewards"
       title={title}
+      // Lit while there is a free drink to take: the card is an offer then,
+      // not a tally. Without one it is the star progress, and stays plain.
+      lit={canRedeem}
       right={
         maxRewardCount > 0 ? (
           <View style={styles.stepperRow}>
